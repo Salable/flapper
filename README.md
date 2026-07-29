@@ -15,19 +15,9 @@ its own queue on its own clock — note it changes out of step with the rows abo
 it. Near the end, `FIRE DRILL` jumps the queue and what it displaced comes back
 where it left off.*
 
-```bash
-npm install && npm start
-```
-
-```bash
-curl -X POST http://127.0.0.1:4747/api/message -H 'content-type: application/json' -d '{"text":"NOW BOARDING GATE 14"}'
-```
-
 **This is a worked example, not a product.** It's here to be read, forked and
 rebuilt — small enough to get through in an afternoon, complete enough to put on
-an actual wall. If you want your own, start with **[AGENTS.md](AGENTS.md)**: what
-the components are, how they fit together, how the rendering works, and how to
-swap in your own character set.
+an actual wall.
 
 - **8 rows × 20 columns** by default, resizable to 80 × 40
 - **Split the board into bands** — a rotating queue up top, a standing strip
@@ -39,24 +29,83 @@ swap in your own character set.
 
 | I want to… | Read |
 | --- | --- |
-| run it and put text on it | this file |
+| install it and put text on it | this file |
 | build my own version | [AGENTS.md](AGENTS.md) |
 | drive a board over HTTP | [docs/BOARD-API.md](docs/BOARD-API.md) |
 | know why it's built this way | [SPEC.md](SPEC.md) |
 
-## Running it
+## Install
+
+Grab the latest **[release](https://github.com/Salable/flapper/releases/latest)**
+— a universal macOS build, Apple Silicon and Intel, ~213 MB zipped. Unzip and
+drag **Flapper.app** to Applications.
+
+**macOS will refuse to open it the first time.** Releases are ad-hoc signed —
+there's no Apple Developer ID on the build — so Gatekeeper blocks it with *"Apple
+could not verify Flapper is free of malware."* That's expected, not a broken
+download. Either:
+
+- **System Settings → Privacy & Security**, scroll to Security, find "Flapper was
+  blocked", click **Open Anyway**, authenticate, then open it again. Once per
+  machine.
+- Or, after unzipping:
+
+  ```bash
+  xattr -dr com.apple.quarantine /Applications/Flapper.app
+  ```
+
+Removing that step needs a Developer ID certificate and notarisation, which means
+a paid Apple Developer Program membership. With one, set `osxSign`/`osxNotarize`
+in [tools/pack.mjs](tools/pack.mjs).
+
+## Run from source
 
 ```bash
-npm install
-```
-
-```bash
-npm start
+npm install && npm start
 ```
 
 The generated tile art is committed, so there's no build step before your first
 run. You only need `npm run build:assets` (Python 3 + Pillow) when you change the
 art — see [Making it your own](AGENTS.md#making-it-your-own).
+
+## Using it
+
+The board starts blank, flips in a greeting, and then holds. Press <kbd>C</kbd>
+to open the control panel — a **queue console**:
+
+```
+ MAIN  FOOTER   [ Add to footer — Enter to send ]      ADD   •••
+ MAIN    6 rows  BRAVO                        +3   FLUSH  CLEAR
+   1  CHARLIE                                        ↻ · API
+   2  DELTA                                          ↻ · API
+ FOOTER  2 rows  holding NOW PLAYING             FLUSH  CLEAR
+ ▸ BOARD   ▸ MOTION   ▸ SAVED LINES
+```
+
+Type and press <kbd>Enter</kbd> to put a message on the board. If the board has
+more than one band, the chips on the left pick which one it goes to; with a
+single band they don't appear at all. `•••` reveals priority, hold and repeat,
+and opens itself whenever any of them is set to something non-default.
+
+Each band gets a card showing what it's doing — **playing**, **holding** (its
+queue drained but its last page is still up), or **blank** — what's waiting, and
+two buttons. **Flush** drops what's waiting; **Clear** stops the band. That
+distinction matters: a repeating message isn't "waiting", so Clear is the only
+thing that stops a cycle.
+
+Board geometry, motion and a textarea of saved lines live behind the collapsed
+disclosures. Everything persists between launches.
+
+| Key | Action |
+| --- | --- |
+| <kbd>C</kbd> | show / hide the controls |
+| <kbd>Space</kbd> | add the saved lines to the selected band |
+| <kbd>Esc</kbd> | clear every band |
+| <kbd>F</kbd> | fullscreen |
+
+Characters the tiles can show: `A–Z`, `0–9`, `.` `,` `!` `(` `)` and blank.
+Lowercase is uppercased; anything else flips to blank and is reported under the
+panel.
 
 ## Controlling it over HTTP
 
@@ -82,8 +131,8 @@ curl -X PATCH http://127.0.0.1:4747/api/config -H 'content-type: application/jso
 ```
 
 Grid size, alignment, wrap mode, motion and dwell are all adjustable this way, and
-from the control panel (press `C`) — both drive the same board. Accepted range is
-1–80 columns by 1–40 rows.
+from the control panel — both drive the same board. Accepted range is 1–80 columns
+by 1–40 rows.
 
 | Method | Path | Purpose |
 | --- | --- | --- |
@@ -108,7 +157,7 @@ Send `rows` instead of `text` to place every character yourself — no wrapping,
 no alignment, no pagination:
 
 ```bash
-curl -X POST http://127.0.0.1:4747/api/message -H 'content-type: application/json' -d '{"rows":["..............................",".   DEPARTURES        0900   .",".   GATE 14           ON TIME.",".............................."]}'
+curl -X POST http://127.0.0.1:4747/api/message -H 'content-type: application/json' -d '{"rows":["....................","  DEPARTURES  0900  ","  GATE 14   ON TIME ","...................."]}'
 ```
 
 One input character per tile, one string per board row. Characters are still
@@ -156,12 +205,12 @@ round. `DELETE /api/queue` won't stop a cycle (a showing message isn't pending);
 curl http://127.0.0.1:4747/AGENTS.md
 ```
 
-Returns [docs/BOARD-API.md](docs/BOARD-API.md) — the whole contract in one document: how to
-connect, why there is nothing to authenticate with, what the tiles can and cannot
-draw, both input modes, bands, queue behaviour, and the endpoint list. The served
-copy has its example URLs rewritten to whatever address you asked, and a trailing
-block stating that instance's base URL, whether it is reachable beyond this
-machine, and whether the display is ready.
+Returns [docs/BOARD-API.md](docs/BOARD-API.md) — the whole contract in one
+document: how to connect, why there is nothing to authenticate with, what the
+tiles can and cannot draw, both input modes, bands, queue behaviour, and the
+endpoint list. The served copy has its example URLs rewritten to whatever address
+you asked, and a trailing block stating that instance's base URL, whether it is
+reachable beyond this machine, and whether the display is ready.
 
 It tells an agent to **ask you for a URL** rather than scan for one when
 `127.0.0.1:4747` doesn't answer — a board is usually on another machine — and to
@@ -170,17 +219,18 @@ reachable one.
 
 ### Letting other machines reach it
 
-Press `C` for the control panel and click **Local only** — it switches to
-**Public** and rebinds the API to all interfaces. Click again to restrict it.
-The choice persists across restarts.
+Press <kbd>C</kbd> and click **Local only** — it switches to **Public** and
+rebinds the API to all interfaces. Click again to restrict it. The choice
+persists across restarts.
 
 **There is no authentication.** While Public is on, anyone who can reach the port
 can put anything on the board. That's a deliberate trade for a display on a
 trusted network — don't enable it on one you don't trust, and don't forward the
 port to the internet.
 
-The panel shows `0.0.0.0` in Public mode, which is the bind address, not something
-you can connect to. From another machine use this machine's LAN address:
+The panel shows `0.0.0.0` in Public mode, which is the bind address, not
+something you can connect to. From another machine use this machine's LAN
+address:
 
 ```bash
 ipconfig getifaddr en0
@@ -216,217 +266,38 @@ settings — with no Electron in the loop. The controller and panel tests run
 against a stub board with mocked timers; the route tests drive real HTTP against
 `createServer`.
 
-## Building a .app to send someone
+CI runs them on every push. Tagging `v*` builds the macOS app on a runner and
+publishes a release, but only after the suite passes, the tag matches
+`package.json`, and the bundle is checked for its signature, both architectures,
+and that the source art hasn't leaked into it.
+
+## Building it yourself
 
 ```bash
 npm run pack
 ```
 
-Produces `dist/Flapper.app` and a ready-to-send `dist/Flapper-<version>-universal.zip`.
-Needs `assets/` and `build/icon.icns` to exist first (`npm run build:assets` and
-`npm run build:icon`); the pack script checks and tells you if they're missing.
-
-By default the build is **universal**, so it runs on both Apple Silicon and Intel
-Macs — 489 MB on disk, 209 MB zipped. If you know the recipient's machine:
-
-```bash
-npm run pack -- --arch=arm64
-```
-
-That's 115 MB zipped. Use `--arch=x64` for an Intel Mac.
+Produces `dist/Flapper-darwin-universal/Flapper.app` and a ready-to-send
+`dist/Flapper-<version>-universal.zip` (~213 MB). Needs `assets/` and
+`build/icon.icns`, both committed; the script checks and tells you if they're
+missing. `npm run pack -- --arch=arm64` builds for Apple Silicon only, at
+roughly half the size.
 
 **Send the zip the script made, don't re-zip the .app.** Electron bundles contain
 symlinks inside `Electron Framework.framework`; `zip -r` dereferences them, which
 bloats the archive and invalidates the code signature. The script uses `ditto`,
-which preserves them. Finder's "Compress" is also safe if you'd rather do it that
-way.
+which preserves them. Finder's "Compress" is also safe.
 
-### What the recipient has to do
+## How it's built
 
-There's no Apple Developer ID on this machine, so the app is **ad-hoc signed**.
-That's enough for it to launch on Apple Silicon, but not enough for Gatekeeper on
-a Mac that downloaded it — macOS will refuse to open it the first time with
-"Apple could not verify Flapper is free of malware". On current macOS the old
-right-click → Open trick no longer clears this. Either:
+The short version: each transition between two characters is a separate piece of
+frame art, stacked into a sprite strip at build time. A tile at runtime is one
+integer — which state it's resting on — and that index is both the character and
+the strip that leaves it. Tiles only ever travel **forward** through a closed
+ring of 42 states, which is the constraint every other design decision follows
+from.
 
-- **System Settings → Privacy & Security**, scroll to the Security section, find
-  "Flapper was blocked", click **Open Anyway**, authenticate, then open the app
-  again. Once per machine.
-- Or in Terminal, after unzipping:
-
-  ```bash
-  xattr -dr com.apple.quarantine /Applications/Flapper.app
-  ```
-
-The only way to remove that step is to sign with a Developer ID certificate and
-notarize the build, which needs a paid Apple Developer Program membership. With
-one, set `osxSign`/`osxNotarize` in `tools/pack.mjs`.
-
-## Using it
-
-The board starts blank, flips in a greeting, and then holds. Press <kbd>C</kbd>
-to open the control panel — a **queue console**:
-
-```
- MAIN  FOOTER   [ Add to footer — Enter to send ]      ADD   •••
- MAIN    6 rows  BRAVO                        +3   FLUSH  CLEAR
-   1  CHARLIE                                        ↻ · API
-   2  DELTA                                          ↻ · API
- FOOTER  2 rows  holding NOW PLAYING             FLUSH  CLEAR
- ▸ BOARD   ▸ MOTION   ▸ SAVED LINES
-```
-
-Type and press <kbd>Enter</kbd> to put a message on the board. If the board has
-more than one band, the chips on the left pick which one it goes to; with a
-single band they don't appear at all. `•••` reveals priority, hold and repeat,
-and opens itself whenever any of them is set to something non-default.
-
-Each band gets a card showing what it's doing — **playing**, **holding** (its
-queue drained but its last page is still up), or **blank** — what's waiting, and
-two buttons. **Flush** drops what's waiting; **Clear** stops the band. That
-distinction matters: a repeating message isn't "waiting", so Clear is the only
-thing that stops a cycle.
-
-Board geometry, motion and a textarea of saved lines live behind the collapsed
-disclosures. Everything persists between launches.
-
-| Key | Action |
-| --- | --- |
-| <kbd>C</kbd> | show / hide the controls |
-| <kbd>Space</kbd> | add the saved lines to the selected band |
-| <kbd>Esc</kbd> | clear every band |
-| <kbd>F</kbd> | fullscreen |
-
-Characters the tiles can show: `A–Z`, `0–9`, `.` `,` `!` `(` `)` and blank.
-Lowercase is uppercased; anything else flips to blank and is reported under the
-panel.
-
-## How it works
-
-### The source art
-
-`A-Z 0-9 /` holds one animated GIF per transition, named `FROM-TO.gif` — `A-B.gif`,
-`9-fullstop.gif`, `)-blank.gif`. Together they form a single closed cycle of 42
-states:
-
-```
-blank -> A..Z -> 0..9 -> . -> , -> ! -> ( -> ) -> blank
-```
-
-Each GIF is 1080 × 1080, 11 frames at 40 ms. Frame 0 is the source character
-sitting still, and the last two frames are identical, so there are 10 useful
-frames per transition. (Six `*_1.gif` files are re-encodes of another file with
-identical frame content; the build ignores them.)
-
-### The build step
-
-`tools/build_assets.py` walks the filenames into the cycle, verifies it closes,
-and writes one vertical WebP sprite strip per transition plus
-`assets/manifest.json`. It needs Python 3 with Pillow.
-
-It also fixes a seam. Every GIF was rendered independently, so one GIF's
-"settled A" differs from the next GIF's "settled A" by about a pixel of glyph
-drift plus GIF palette dithering — enough to make a resting tile twitch. So each
-strip's final frame is replaced with frame 0 of the *next* transition. That makes
-a landing frame byte-identical to the resting frame that follows it, and pushes
-the difference onto the last moving frame, where it can't be seen.
-
-Options:
-
-```bash
-python3 tools/build_assets.py --size 320 --quality 92
-```
-
-`--size` is the output tile size, 256 by default. All 420 frames stay decoded in
-memory while the app runs, so the size matters: 256 costs about 105 MB, 320 about
-164 MB, 384 about 248 MB. 256 is sharp for tiles up to roughly 256 device pixels
-— a 1 × 10 board in a 1480 pt window on a Retina display asks for about 275.
-Raise it for a genuinely large wall; on disk even 256 is only ~1 MB total.
-
-### The renderer
-
-`src/renderer/flipboard.js` is the engine and has no dependency on the UI around
-it. The whole board is one canvas; each tile is drawn with a single `drawImage`
-from a shared strip, so a 20 x 8 board costs 160 draws per frame.
-
-Given the build step's guarantee, a tile's state maps straight onto frames:
-
-```
-at rest on state i   ->  strips[i], frame 0
-flipping i -> i + 1  ->  strips[i], frames 1..9
-```
-
-Tiles only travel forward, like the real thing — getting from `Z` to `A` means
-passing through the digits and punctuation. Steps run at `fastStepMs` and then
-decelerate over the last `easeSteps` flips to `landStepMs`, which is what
-produces the settle. `sweepMs` delays each tile slightly so the board moves as a
-wave rather than a block — and the wave is measured across a *band*, so a two-row
-footer sweeps across itself rather than inheriting a lead-in from the rows above.
-
-Two states, as asked:
-
-- **Transition** — `requestAnimationFrame` runs and samples the strip by elapsed
-  time, so the flip speed is independent of the source art's 25 fps.
-- **Steady** — the loop stops completely. The canvas holds the last frame and
-  the app uses no CPU until something changes.
-
-Retargeting is safe mid-flip: a moving tile finishes its current step and then
-continues forward to the new target, so it never snaps. Tiles already showing the
-right character hold still (unless **Always flip** is on, which sends them a full
-revolution round).
-
-The board is addressed by **band**. `setRegionPage(id, lines)` loops only over
-that band's contiguous range of tiles, so one band cannot overwrite another's —
-a property of the range rather than a convention the callers maintain. Each band
-reports settling on its own, which is what lets a footer update on its own clock
-without resetting the hold on whatever is playing above it.
-
-## Layout
-
-```
-A-Z 0-9 /                  source GIFs from the designer (untouched)
-assets/                    generated sprite strips + manifest
-tools/build_assets.py      GIF -> sprite strip build
-tools/build_icon.py        .icns app icon from a resting tile
-tools/pack.mjs             .app bundle + signed, ditto-zipped archive
-
-src/shared/                pure, no DOM or Node - all unit-tested
-  layout.mjs               normalise, wrap, align, paginate
-  timing.mjs               motion model, shared so animation and estimates agree
-  regions.mjs              row bands: partition, tile targets, composition
-
-src/main/                  Electron main process
-  main.js                  entry, window setup, hardening
-  serve.js                 app:// scheme so the renderer can use ES modules
-  server.js                REST + SSE, routing and validation
-  bridge.js                correlated main -> renderer calls
-  config.js / access.js    host+port rules, local-vs-public mode
-  ipc.js / preload.js      window chrome; the contextBridge surface
-
-src/renderer/              the board and the panel
-  flipboard.js             the board engine: tiles, bands, animation
-  track.mjs                one queue, clock and watchdog per band
-  controller.mjs           routes messages by band; geometry and status
-  panel.mjs                what the panel shows, worked out purely
-  queue-view.js            band cards, reconciled by message id
-  app.js                   the panel itself, keyboard, settings
-
-tests/                     node --test, no Electron in the loop
-  stub-board.mjs           shared fake board with real region maths
-```
-
-## Driving it from elsewhere
-
-Over HTTP is the intended route — see [Controlling it over HTTP](#controlling-it-over-http)
-above, and [AGENTS.md](AGENTS.md) for the full contract. A feed, a build status or
-a now-playing hook is a `POST /api/message` away, and `GET /api/events` is an SSE
-stream if you want to react to what the board is doing.
-
-Inside the renderer, `window.flipboard` and `window.controller` are exposed for
-the devtools console, which is the practical way to tune an installation live:
-
-```js
-controller.configure({ cols: 44, rows: 6, sweepMs: 450 })
-controller.enqueue('HELLO', { region: 'footer', repeat: true })
-flipboard.setRegionPage('main', ['ROW ONE', 'ROW TWO'])
-```
+[AGENTS.md](AGENTS.md) covers the components and how to swap in your own
+character set. [SPEC.md](SPEC.md) has the engineering detail: the frame-level
+contract with the art, the timing model, the band system, and the reasoning
+behind the trade-offs.

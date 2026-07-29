@@ -4,7 +4,7 @@ A desktop split-flap board. It flips from whatever it is currently showing,
 scrolls forward through the character set, and lands on requested text — using
 the designer's own per-transition frame art rather than a simulation of it.
 
-- **Status:** v0.0.1. Board, text layout engine, per-band queues, and REST control
+- **Status:** v1.0.0. Board, text layout engine, per-band queues, and REST control
   API all working and verified, 167 tests passing. Shipped as an **ad-hoc signed**
   macOS `.app` — enough to launch on Apple Silicon, not enough to clear Gatekeeper
   on a machine that downloaded it (section 12).
