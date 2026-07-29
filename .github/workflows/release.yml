@@ -1,0 +1,121 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to build and release (e.g. v0.0.1)'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build and publish the macOS app
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # A release that fails its own test suite should never reach anyone.
+      - run: npm test
+
+      - name: Check the tag matches package.json
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          PKG="v$(node -p "require('./package.json').version")"
+          if [ "$TAG" != "$PKG" ]; then
+            echo "tag $TAG does not match package.json $PKG" >&2
+            exit 1
+          fi
+          echo "building $TAG"
+
+      # Universal, so one download runs on both Apple Silicon and Intel. A build
+      # that will not start is worse than a large one.
+      - name: Package
+        run: npm run pack
+
+      - name: Verify the bundle before publishing it
+        run: |
+          APP="dist/Flapper-darwin-universal/Flapper.app"
+          codesign --verify --deep --strict "$APP"
+          lipo -archs "$APP/Contents/MacOS/Flapper"
+          # The 76 MB of source art must never reach a release.
+          if find "$APP" -iname '*.gif' | grep -q .; then
+            echo "source art leaked into the bundle" >&2
+            exit 1
+          fi
+          ls -lh dist/*.zip
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          VERSION="${TAG#v}"
+          ZIP="dist/Flapper-${VERSION}-universal.zip"
+          SHA=$(shasum -a 256 "$ZIP" | cut -d' ' -f1)
+          SIZE=$(du -h "$ZIP" | cut -f1)
+
+          cat > notes.md <<EOF
+          A desktop split-flap board, driven over HTTP.
+
+          ## Install
+
+          Download \`$(basename "$ZIP")\` below, unzip, and drag **Flapper.app** to Applications.
+
+          **macOS will refuse to open it the first time.** The app is ad-hoc signed —
+          there is no Apple Developer ID on the build — so Gatekeeper blocks it with
+          *"Apple could not verify Flapper is free of malware."* This is expected. Either:
+
+          - **System Settings → Privacy & Security**, scroll to Security, find
+            "Flapper was blocked", click **Open Anyway**, authenticate, then open it
+            again. Once per machine.
+          - Or in Terminal:
+            \`\`\`
+            xattr -dr com.apple.quarantine /Applications/Flapper.app
+            \`\`\`
+
+          ## Using it
+
+          Flapper opens an 8 × 20 board and serves a REST API on
+          \`http://127.0.0.1:4747\`, local only, no authentication.
+
+          \`\`\`
+          curl -X POST http://127.0.0.1:4747/api/message \\
+            -H 'content-type: application/json' -d '{"text":"NOW BOARDING GATE 14"}'
+          \`\`\`
+
+          Press \`C\` for the control panel. To drive it from another machine, click
+          **Local only** so it switches to **Public**, then use this machine's LAN
+          address. There is no authentication, so only do that on a network you trust.
+
+          \`GET /AGENTS.md\` returns the full contract for driving a board, written for
+          an agent rather than a person.
+
+          ## Details
+
+          - Universal binary — Apple Silicon and Intel
+          - \`$SIZE\` zipped
+          - SHA-256: \`$SHA\`
+
+          Zipped with \`ditto\`, which preserves the symlinks inside
+          \`Electron Framework.framework\`. Re-zipping the .app with \`zip -r\` breaks
+          them and invalidates the signature.
+          EOF
+
+          gh release create "$TAG" "$ZIP" \
+            --title "Flapper $TAG" \
+            --notes-file notes.md \
+            --verify-tag

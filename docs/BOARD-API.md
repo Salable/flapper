@@ -26,7 +26,7 @@ curl -s --max-time 3 http://127.0.0.1:4747/api/health
 A healthy board answers:
 
 ```json
-{ "ok": true, "version": "0.1.0", "boardReady": true, "uptimeMs": 12345 }
+{ "ok": true, "version": "0.0.1", "boardReady": true, "uptimeMs": 12345 }
 ```
 
 ### If localhost does not respond
