@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; img-src 'self' blob: data:; connect-src 'self'; style-src 'self'; script-src 'self'"
+    />
+    <title>Flapper</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="drag-strip"></div>
+
+    <main id="stage">
+      <canvas id="board"></canvas>
+      <div id="loading" class="overlay">
+        <div class="loading-label">Loading tiles</div>
+        <div class="loading-bar"><div id="loading-fill"></div></div>
+      </div>
+      <div id="failure" class="overlay" hidden></div>
+    </main>
+
+    <div id="hint">Press <kbd>C</kbd> for controls</div>
+
+    <section id="controls" hidden aria-label="Board controls">
+      <div id="controls-body">
+        <!-- Compose: pick a band, type, add it to that band's queue. -->
+        <div class="row compose">
+          <div id="region-picker" class="segmented" role="group" aria-label="Target band" hidden></div>
+          <input
+            id="text"
+            type="text"
+            placeholder="Type a word and press Enter"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button id="send" class="primary">Add</button>
+          <button id="compose-more" aria-expanded="false" title="Message options">•••</button>
+        </div>
+
+        <div class="row options" id="compose-options" hidden>
+          <div class="field">
+            <label for="msg-priority">Priority</label>
+            <select id="msg-priority">
+              <option value="normal">Queue it</option>
+              <option value="next">Play next</option>
+              <option value="now">Play now</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="msg-dwell">Hold</label>
+            <select id="msg-dwell">
+              <option value="">Band default</option>
+              <option value="1000">1s</option>
+              <option value="2000">2s</option>
+              <option value="5000">5s</option>
+              <option value="10000">10s</option>
+              <option value="30000">30s</option>
+            </select>
+          </div>
+          <div class="field checkbox">
+            <label for="msg-repeat"><input id="msg-repeat" type="checkbox" /> Repeat</label>
+          </div>
+          <button id="msg-reset">Reset</button>
+        </div>
+
+        <!-- One card per band, built by queue-view.js -->
+        <div id="queues"></div>
+        <button id="add-footer" class="ghost" hidden>+ Add a footer band</button>
+
+        <details id="panel-board" class="section">
+          <summary>Board</summary>
+          <div class="row grid">
+            <div class="field">
+              <label for="cols">Columns <span id="cols-value" class="muted"></span></label>
+              <input id="cols" type="range" min="1" max="80" step="1" />
+            </div>
+            <div class="field">
+              <label for="rows">Board rows <span id="rows-value" class="muted"></span></label>
+              <input id="rows" type="range" min="1" max="40" step="1" />
+            </div>
+            <div class="field">
+              <label id="footer-rows-label" for="footer-rows">
+                Footer rows <span id="footer-rows-value" class="muted"></span>
+              </label>
+              <input id="footer-rows" type="range" min="0" max="10" step="1" />
+            </div>
+            <div class="field">
+              <label for="dwell">Hold <span id="dwell-value" class="muted"></span></label>
+              <input id="dwell" type="range" min="0" max="8000" step="100" />
+            </div>
+            <div class="field">
+              <label for="align">Align</label>
+              <select id="align">
+                <option value="left">Left</option>
+                <option value="center">Center</option>
+                <option value="right">Right</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="valign">Vertical</label>
+              <select id="valign">
+                <option value="top">Top</option>
+                <option value="middle">Middle</option>
+                <option value="bottom">Bottom</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="wrap">Wrap</label>
+              <select id="wrap">
+                <option value="word">Word</option>
+                <option value="char">Char</option>
+                <option value="none">None</option>
+              </select>
+            </div>
+          </div>
+        </details>
+
+        <details id="panel-motion" class="section">
+          <summary>Motion</summary>
+          <div class="row grid">
+            <div class="field">
+              <label for="fast">Scroll speed <span id="fast-value" class="muted"></span></label>
+              <input id="fast" type="range" min="25" max="200" step="5" />
+            </div>
+            <div class="field">
+              <label for="land">Landing <span id="land-value" class="muted"></span></label>
+              <input id="land" type="range" min="40" max="500" step="10" />
+            </div>
+            <div class="field">
+              <label for="sweep">Sweep <span id="sweep-value" class="muted"></span></label>
+              <input id="sweep" type="range" min="0" max="2000" step="25" />
+            </div>
+            <div class="field">
+              <label for="stagger-mode">Sweep shape</label>
+              <select id="stagger-mode">
+                <option value="diagonal">Diagonal</option>
+                <option value="column">Column</option>
+                <option value="row">Row</option>
+                <option value="random">Random</option>
+                <option value="none">None</option>
+              </select>
+            </div>
+            <div class="field checkbox">
+              <label for="always"><input id="always" type="checkbox" /> Always flip</label>
+            </div>
+          </div>
+        </details>
+
+        <details id="panel-saved" class="section">
+          <summary>Saved lines</summary>
+          <div class="row split">
+            <div class="field grow">
+              <label for="playlist">
+                One message per line <span class="muted">kept across restarts</span>
+              </label>
+              <textarea id="playlist" rows="4" spellcheck="false"></textarea>
+            </div>
+            <div class="stack">
+              <button id="saved-add" class="primary wide">Add all</button>
+              <span class="muted">
+                Added as repeating messages, so they cycle. Use a band's Clear to stop them.
+              </span>
+            </div>
+          </div>
+        </details>
+
+        <div class="row access">
+          <button id="public-toggle">Local only</button>
+          <span id="access-detail" class="muted"></span>
+        </div>
+
+        <div class="row footer">
+          <span class="readouts">
+            <span id="server" class="muted"></span>
+            <span id="status" class="muted"></span>
+          </span>
+          <span class="muted keys">
+            <kbd>C</kbd> controls · <kbd>Space</kbd> add saved · <kbd>Esc</kbd> clear all ·
+            <kbd>F</kbd> fullscreen
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
