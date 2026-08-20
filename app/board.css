@@ -1,0 +1,799 @@
+:root {
+  --bg: #0a0a0b;
+  --panel: rgba(22, 22, 25, 0.92);
+  --edge: rgba(255, 255, 255, 0.1);
+  --ink: #ece7dd;
+  --muted: rgba(236, 231, 221, 0.42);
+  --accent: #ece7dd;
+  --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/*
+ * Several rows and controls appear only when the board has more than one band.
+ * `.row` sets `display: flex`, which beats the browser's own `[hidden]` rule,
+ * so without this a "hidden" row stays stubbornly visible.
+ */
+[hidden] {
+  display: none !important;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--ink);
+  font: 12px/1.5 var(--mono);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  cursor: default;
+}
+
+
+/* The board and the control panel are layout siblings, so opening the panel
+   shrinks the board rather than covering it. */
+#stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+#board {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: var(--bg);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.overlay[hidden] {
+  display: none;
+}
+
+#failure {
+  padding: 0 40px;
+  text-align: center;
+  text-transform: none;
+  letter-spacing: 0;
+  line-height: 1.7;
+}
+
+.loading-bar {
+  width: 180px;
+  height: 2px;
+  background: rgba(236, 231, 221, 0.14);
+  overflow: hidden;
+}
+
+#loading-fill {
+  width: 0;
+  height: 100%;
+  background: var(--accent);
+  transition: width 90ms linear;
+}
+
+#hint {
+  position: fixed;
+  right: 16px;
+  bottom: 14px;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  opacity: 0;
+  transition: opacity 500ms ease;
+  pointer-events: none;
+  z-index: 4;
+}
+
+#hint.visible {
+  opacity: 1;
+}
+
+/* ---- controls ---- */
+
+#controls {
+  flex: 0 0 auto;
+  z-index: 10;
+  padding: 16px 18px 14px;
+  background: var(--panel);
+  border-top: 1px solid var(--edge);
+  -webkit-app-region: no-drag;
+  max-height: 70%;
+  overflow-y: auto;
+}
+
+/*
+ * The panel's natural height, measured for the window reservation. Measuring
+ * #controls itself would feed back on the 70% cap: growing the window grows the
+ * panel grows the window. This wrapper cannot shrink, so it terminates.
+ */
+#controls-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 0 0 auto;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.row.split {
+  align-items: stretch;
+}
+
+.row.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px 18px;
+}
+
+.row.footer {
+  justify-content: space-between;
+  border-top: 1px solid var(--edge);
+  padding-top: 10px;
+}
+
+.keys {
+  letter-spacing: 0.04em;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.field.grow {
+  flex: 1;
+}
+
+.field.checkbox {
+  justify-content: flex-end;
+}
+
+.field label {
+  color: var(--muted);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 190px;
+  flex: none;
+}
+
+.muted {
+  color: var(--muted);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+kbd {
+  font: inherit;
+  border: 1px solid var(--edge);
+  border-radius: 3px;
+  padding: 0 4px;
+  color: var(--ink);
+}
+
+input[type='text'],
+textarea,
+select {
+  font: inherit;
+  color: var(--ink);
+  background: rgba(0, 0, 0, 0.42);
+  border: 1px solid var(--edge);
+  border-radius: 4px;
+  padding: 7px 9px;
+  user-select: text;
+  cursor: text;
+  min-width: 0;
+}
+
+select {
+  cursor: default;
+  appearance: none;
+  padding-right: 9px;
+}
+
+input[type='text'] {
+  flex: 1;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+textarea {
+  resize: none;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  line-height: 1.6;
+  flex: 1;
+}
+
+input[type='text']:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: rgba(236, 231, 221, 0.42);
+}
+
+::placeholder {
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  text-transform: none;
+}
+
+button {
+  font: inherit;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--edge);
+  border-radius: 4px;
+  padding: 7px 14px;
+  cursor: default;
+}
+
+button:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+button.primary {
+  background: var(--accent);
+  color: #101012;
+  border-color: transparent;
+  font-weight: 600;
+}
+
+button.primary:hover {
+  background: #fff;
+}
+
+button.wide {
+  width: 100%;
+}
+
+input[type='range'] {
+  appearance: none;
+  width: 100%;
+  height: 2px;
+  background: rgba(236, 231, 221, 0.2);
+  border-radius: 2px;
+}
+
+input[type='range']::-webkit-slider-thumb {
+  appearance: none;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+input[type='checkbox'] {
+  accent-color: var(--accent);
+  vertical-align: -1px;
+  margin-right: 4px;
+}
+
+.field.checkbox label {
+  text-transform: none;
+  letter-spacing: 0.04em;
+  font-size: 12px;
+  color: var(--ink);
+}
+
+.pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.readouts {
+  display: flex;
+  gap: 16px;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+#queue,
+#server {
+  flex: none;
+}
+
+#server {
+  opacity: 0.75;
+}
+
+#status {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---- network access ---- */
+
+.row.access {
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+#public-toggle {
+  flex: none;
+  min-width: 130px;
+}
+
+/* Public binding is a state worth noticing at a glance. */
+#public-toggle.is-public {
+  background: #d8b25a;
+  border-color: transparent;
+  color: #191505;
+  font-weight: 600;
+}
+
+#public-toggle:disabled {
+  opacity: 0.45;
+}
+
+#access-detail {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- compose ---- */
+
+.segmented {
+  display: flex;
+  gap: 2px;
+  flex: none;
+  border: 1px solid var(--edge);
+  border-radius: 5px;
+  padding: 2px;
+}
+
+.chip {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.chip.is-on {
+  background: var(--ink);
+  color: #101012;
+}
+
+.row.options {
+  gap: 14px;
+  padding: 8px 10px;
+  border: 1px solid var(--edge);
+  border-radius: 5px;
+}
+
+/* ---- band cards ---- */
+
+#queues {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.band {
+  border: 1px solid var(--edge);
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.band.is-target {
+  border-color: rgba(236, 231, 221, 0.32);
+}
+
+.band-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 7px 10px;
+}
+
+.band-name {
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-size: 11px;
+  padding: 0;
+  cursor: pointer;
+  flex: none;
+}
+
+.band-rows {
+  flex: none;
+  font-size: 11px;
+}
+
+/* The one part that can be long, so it is the one part allowed to give. */
+.band-now {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.band-now.is-held {
+  color: var(--muted);
+}
+
+.band-count,
+.band-actions {
+  flex: none;
+}
+
+.band-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.band-actions button {
+  padding: 3px 9px;
+  font-size: 11px;
+}
+
+.band-queue {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--edge);
+  /* Roughly six rows, then it scrolls inside the card rather than pushing the
+     rest of the panel - and the window - around. */
+  max-height: 132px;
+  overflow-y: auto;
+}
+
+/* A band holding a standing line costs one header row, nothing more. */
+.band-queue:empty {
+  display: none;
+}
+
+.band-queue li {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 4px 10px;
+  counter-increment: queue;
+}
+
+.band-queue li::before {
+  content: counter(queue);
+  color: var(--muted);
+  font-size: 10px;
+  flex: none;
+  min-width: 12px;
+}
+
+.band-queue {
+  counter-reset: queue;
+}
+
+.qtext {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-transform: uppercase;
+}
+
+.qmeta {
+  flex: none;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+}
+
+/* ---- disclosures ---- */
+
+details.section {
+  border-top: 1px solid var(--edge);
+  padding-top: 8px;
+}
+
+details.section > summary {
+  list-style: none;
+  cursor: pointer;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-size: 10px;
+  padding-bottom: 2px;
+}
+
+details.section > summary::-webkit-details-marker {
+  display: none;
+}
+
+details.section > summary::before {
+  content: '▸ ';
+}
+
+details.section[open] > summary::before {
+  content: '▾ ';
+}
+
+details.section > .row {
+  padding-top: 10px;
+}
+
+button.ghost {
+  align-self: flex-start;
+  border-style: dashed;
+  color: var(--muted);
+  padding: 4px 10px;
+  font-size: 11px;
+}
+
+/* ---- web-only additions ---- */
+
+/* The curl example in the Access section: selectable, wraps, reads as code. */
+code.curl {
+  display: block;
+  user-select: text;
+  cursor: text;
+  white-space: pre-wrap;
+  word-break: break-all;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--edge);
+  padding: 8px 10px;
+  font: 11px/1.6 var(--mono);
+  color: var(--ink);
+}
+
+/* ---- landing page ---- */
+
+main.landing {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 24px;
+  text-align: center;
+  overflow-y: auto;
+}
+
+main.landing h1 {
+  font-size: 28px;
+  letter-spacing: 0.35em;
+  margin: 0;
+  font-weight: 600;
+}
+
+main.landing p {
+  color: var(--muted);
+  max-width: 460px;
+  margin: 0;
+  line-height: 1.8;
+}
+
+main.landing .actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+main.landing .boards {
+  margin-top: 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 300px;
+}
+
+main.landing .boards a {
+  color: var(--ink);
+  text-decoration: none;
+  border: 1px solid var(--edge);
+  padding: 8px 12px;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+main.landing .boards a:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+main.landing .error {
+  color: #e08870;
+}
+
+/* ---- auth & dashboard ---- */
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 300px;
+  text-align: left;
+}
+
+.auth-form input {
+  font: inherit;
+  color: var(--ink);
+  background: rgba(0, 0, 0, 0.42);
+  border: 1px solid var(--edge);
+  border-radius: 4px;
+  padding: 8px 10px;
+  user-select: text;
+  cursor: text;
+}
+
+.auth-form a,
+main.landing a {
+  color: var(--ink);
+}
+
+/* Links that dress as buttons on server-rendered pages. */
+a.button {
+  font: inherit;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--edge);
+  border-radius: 4px;
+  padding: 7px 14px;
+  text-decoration: none;
+  display: inline-block;
+}
+
+a.button:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+a.button.primary {
+  background: var(--accent);
+  color: #101012;
+  border-color: transparent;
+  font-weight: 600;
+}
+
+main.landing.dashboard {
+  justify-content: flex-start;
+  padding-top: 60px;
+}
+
+.dash-head {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+}
+
+.dash-head h1 {
+  font-size: 20px;
+  letter-spacing: 0.35em;
+  margin: 0;
+  font-weight: 600;
+}
+
+.board-row {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.board-row .board-open {
+  flex: 1;
+  color: var(--ink);
+  text-decoration: none;
+  border: 1px solid var(--edge);
+  padding: 8px 12px;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  min-width: 0;
+}
+
+.board-row .board-open:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.board-row .board-actions {
+  display: flex;
+  gap: 8px;
+  flex: none;
+}
+
+/* ---- settings page ---- */
+
+main.landing.settings {
+  align-items: stretch;
+  max-width: 640px;
+  margin: 0 auto;
+  text-align: left;
+}
+
+main.landing.settings .dash-head {
+  flex-wrap: wrap;
+}
+
+.settings-block {
+  border: 1px solid var(--edge);
+  padding: 14px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.settings-block h2 {
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0;
+  font-weight: 600;
+}
+
+.settings-block .field {
+  align-self: stretch;
+}
+
+.settings-block input {
+  font: inherit;
+  color: var(--ink);
+  background: rgba(0, 0, 0, 0.42);
+  border: 1px solid var(--edge);
+  border-radius: 4px;
+  padding: 8px 10px;
+  user-select: text;
+  cursor: text;
+}
+
+.settings-block .actions {
+  display: flex;
+  gap: 8px;
+  margin: 0;
+}
+
+.settings-block.danger {
+  border-color: rgba(224, 136, 112, 0.4);
+}

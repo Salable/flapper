@@ -1,8 +1,8 @@
 {
   "name": "flapper",
   "productName": "Flapper",
-  "version": "1.0.0",
-  "description": "A split-flap board you can read in an afternoon and rebuild your own way.",
+  "version": "2.0.0",
+  "description": "A split-flap board for the web: create a board, put it on a wall, drive it over REST.",
   "license": "MIT",
   "homepage": "https://github.com/Salable/flapper#readme",
   "repository": {
@@ -15,23 +15,37 @@
   "keywords": [
     "split-flap",
     "flipboard",
-    "electron",
+    "nextjs",
+    "vercel",
     "canvas",
     "departure-board",
     "wall-display"
   ],
   "author": "Salable",
-  "main": "src/main/main.js",
   "scripts": {
-    "start": "electron .",
+    "dev": "next dev",
+    "build": "node tools/migrate-if-db.mjs && next build",
+    "db:generate": "drizzle-kit generate",
+    "start": "next start",
     "build:assets": "python3 tools/build_assets.py",
-    "build:icon": "python3 tools/build_icon.py",
-    "pack": "node tools/pack.mjs",
     "test": "node --test \"tests/*.test.mjs\""
   },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.5.5",
+    "@neondatabase/serverless": "^1.1.0",
+    "@upstash/redis": "^1.34.9",
+    "better-auth": "^1.7.1",
+    "drizzle-orm": "^0.45.2",
+    "next": "^16.3.1",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
   "devDependencies": {
-    "@electron/packager": "^20.0.4",
-    "electron": "^43.2.0"
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.1.9",
+    "@types/react-dom": "^19.1.7",
+    "drizzle-kit": "^0.31.10",
+    "typescript": "^5.7.0"
   },
   "private": false,
   "engines": {

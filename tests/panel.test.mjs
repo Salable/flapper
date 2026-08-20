@@ -12,7 +12,7 @@ import {
   bandViews,
   resolvePanelRegion,
   describeDiagnostics,
-} from '../src/renderer/panel.mjs';
+} from '../lib/board/panel.mjs';
 
 /**
  * These run against a real Controller wherever the state matters, so the

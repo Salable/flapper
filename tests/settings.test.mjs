@@ -1,44 +1,44 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
-import settings from '../src/main/settings.js';
+import { loadSettings, saveSettings, defaultSettings, SETTINGS_KEY } from '../lib/board/settings.mjs';
 
-function tempDir(t) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'flapper-settings-'));
-  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
-  return dir;
+/** A Storage stand-in: just the two methods the modules use. */
+function fakeStorage(initial = {}) {
+  const map = new Map(Object.entries(initial));
+  return {
+    getItem: (key) => (map.has(key) ? map.get(key) : null),
+    setItem: (key, value) => map.set(key, String(value)),
+    map,
+  };
 }
 
-test('defaults to local only when nothing is saved', (t) => {
-  assert.deepEqual(settings.load(tempDir(t)), { publicAccess: false });
+test('defaults come back untouched when nothing is stored', () => {
+  const settings = loadSettings(fakeStorage());
+  assert.deepEqual(settings, defaultSettings());
+  assert.equal(settings.cols, 20);
+  assert.equal(settings.rows, 8);
 });
 
-test('public access round-trips', (t) => {
-  const dir = tempDir(t);
-  assert.equal(settings.savePublicAccess(dir, true), true);
-  assert.equal(settings.load(dir).publicAccess, true);
-  settings.savePublicAccess(dir, false);
-  assert.equal(settings.load(dir).publicAccess, false);
+test('stored values shadow defaults one level deep', () => {
+  const storage = fakeStorage({ [SETTINGS_KEY]: JSON.stringify({ cols: 44, playlist: 'HI' }) });
+  const settings = loadSettings(storage);
+  assert.equal(settings.cols, 44);
+  assert.equal(settings.playlist, 'HI');
+  assert.equal(settings.rows, defaultSettings().rows);
 });
 
-test('a corrupt file recovers rather than throwing', (t) => {
-  const dir = tempDir(t);
-  fs.writeFileSync(settings.filePath(dir), 'not json at all');
-  assert.deepEqual(settings.load(dir), { publicAccess: false });
+test('corrupt storage is treated as empty, not fatal', () => {
+  assert.deepEqual(loadSettings(fakeStorage({ [SETTINGS_KEY]: '{oops' })), defaultSettings());
+  assert.deepEqual(loadSettings(undefined), defaultSettings());
 });
 
-test('an unexpected shape recovers rather than throwing', (t) => {
-  const dir = tempDir(t);
-  for (const body of ['[1,2,3]', '"a string"', 'null', '{"publicAccess":"yes"}']) {
-    fs.writeFileSync(settings.filePath(dir), body);
-    assert.equal(settings.load(dir).publicAccess, false, body);
-  }
+test('save and load round-trip', () => {
+  const storage = fakeStorage();
+  saveSettings(storage, { ...defaultSettings(), sweepMs: 725 });
+  assert.equal(loadSettings(storage).sweepMs, 725);
 });
 
-test('saving creates the directory if needed', (t) => {
-  const dir = path.join(tempDir(t), 'nested', 'deeper');
-  assert.equal(settings.savePublicAccess(dir, true), true);
-  assert.equal(settings.load(dir).publicAccess, true);
+test('a throwing storage is swallowed on save', () => {
+  saveSettings({ setItem: () => { throw new Error('quota'); } }, defaultSettings());
 });
+

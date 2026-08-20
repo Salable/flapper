@@ -13,3 +13,9 @@ A-Z 0-9 /
 
 # Personal Claude Code permissions; .claude/settings.json is the shared one.
 .claude/settings.local.json
+
+# Next.js / Vercel
+.next/
+.vercel
+.env*.local
+.pglite/

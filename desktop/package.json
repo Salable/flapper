@@ -1,0 +1,21 @@
+{
+  "name": "flapper-desktop",
+  "productName": "Flapper",
+  "version": "2.0.0",
+  "description": "Kiosk shell for a Flapper board: a fullscreen-able window on the web app, kept awake.",
+  "license": "MIT",
+  "author": "Salable",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "pack": "node pack.mjs"
+  },
+  "devDependencies": {
+    "@electron/packager": "^20.0.4",
+    "electron": "^43.2.0"
+  },
+  "engines": {
+    "node": ">=20.11"
+  }
+}

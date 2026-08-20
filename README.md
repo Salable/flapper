@@ -1,9 +1,9 @@
 # Flapper
 
-A desktop **split-flap board** — the kind on old airport departure gates. It
-flips from whatever it's currently showing, scrolls forward through the character
-set, and lands on the text you ask for, using real per-transition frame art
-rather than a simulation of it.
+A **split-flap board** for any screen — the kind on old airport departure
+gates. It flips from whatever it's currently showing, scrolls forward through
+the character set, and lands on the text you ask for, using real
+per-transition frame art rather than a simulation of it.
 
 ![Flapper flipping through a sequence of messages: a wordmark, prose wrapping
 across the grid, the board splitting into two independently-driven bands, a
@@ -15,289 +15,132 @@ its own queue on its own clock — note it changes out of step with the rows abo
 it. Near the end, `FIRE DRILL` jumps the queue and what it displaced comes back
 where it left off.*
 
-**This is a worked example, not a product.** It's here to be read, forked and
-rebuilt — small enough to get through in an afternoon, complete enough to put on
-an actual wall.
+Flapper is a **multi-user web app for Vercel**: sign in, provision boards from
+a dashboard, open a board's URL on whatever should display it — a browser tab,
+a TV, the desktop kiosk shell — and drive it from the on-page panel or over a
+REST API from anywhere.
 
-- **8 rows × 20 columns** by default, resizable to 80 × 40
+- **Sign in** (email + password, [Better Auth](https://better-auth.com)) and
+  manage boards from **/dashboard**: create, rename, delete
+- **Boards live at `/b/{slug}`** — a slug you choose and can edit, a
+  `/settings` screen for the owner, and an agent guide at
+  `/api/b/{slug}/AGENTS.md` with the board's URLs baked in
+- **One API key per board** — shown and regenerable in settings; every write
+  needs it
+- **Public or private** — public boards can be watched by anyone with the URL;
+  private boards need the key (`?key=` works for wall displays) or the
+  owner's login, even to read
 - **Split the board into bands** — a rotating queue up top, a standing strip
   below, each with its own queue and clock
-- **A REST API** with an [agent guide](docs/BOARD-API.md) served live from the
-  board itself, so you can point an LLM at the machine and it learns the contract
-- **No runtime dependencies.** Electron and a packager are the only devDependencies
-- **167 tests**, no framework, no Electron in the loop
+- **A thin desktop shell** (`desktop/`) for kiosk installs: fullscreen, keeps
+  the display awake, remembers its board
 
 | I want to… | Read |
 | --- | --- |
-| install it and put text on it | this file |
+| run it and put text on it | this file |
 | build my own version | [AGENTS.md](AGENTS.md) |
 | drive a board over HTTP | [docs/BOARD-API.md](docs/BOARD-API.md) |
-| know why it's built this way | [SPEC.md](SPEC.md) |
+| know why the engine is built this way | [SPEC.md](SPEC.md) |
 
-## Install
-
-Grab the latest **[release](https://github.com/Salable/flapper/releases/latest)**
-— a universal macOS build, Apple Silicon and Intel, ~213 MB zipped. Unzip and
-drag **Flapper.app** to Applications.
-
-**macOS will refuse to open it the first time.** Releases are ad-hoc signed —
-there's no Apple Developer ID on the build — so Gatekeeper blocks it with *"Apple
-could not verify Flapper is free of malware."* That's expected, not a broken
-download. Either:
-
-- **System Settings → Privacy & Security**, scroll to Security, find "Flapper was
-  blocked", click **Open Anyway**, authenticate, then open it again. Once per
-  machine.
-- Or, after unzipping:
-
-  ```bash
-  xattr -dr com.apple.quarantine /Applications/Flapper.app
-  ```
-
-Removing that step needs a Developer ID certificate and notarisation, which means
-a paid Apple Developer Program membership. With one, set `osxSign`/`osxNotarize`
-in [tools/pack.mjs](tools/pack.mjs).
-
-## Run from source
+## Run it locally
 
 ```bash
-npm install && npm start
+npm install && npm run dev
 ```
 
-The generated tile art is committed, so there's no build step before your first
-run. You only need `npm run build:assets` (Python 3 + Pillow) when you change the
-art — see [Making it your own](AGENTS.md#making-it-your-own).
+Open http://localhost:3000, create an account, and provision a board — with
+**zero configuration**. Without env vars the app runs on an in-process PGlite
+database (`./.pglite`, gitignored) and an in-memory realtime broker: perfect
+for development, single-process only.
 
-## Using it
-
-The board starts blank, flips in a greeting, and then holds. Press <kbd>C</kbd>
-to open the control panel — a **queue console**:
-
-```
- MAIN  FOOTER   [ Add to footer — Enter to send ]      ADD   •••
- MAIN    6 rows  BRAVO                        +3   FLUSH  CLEAR
-   1  CHARLIE                                        ↻ · API
-   2  DELTA                                          ↻ · API
- FOOTER  2 rows  holding NOW PLAYING             FLUSH  CLEAR
- ▸ BOARD   ▸ MOTION   ▸ SAVED LINES
-```
-
-Type and press <kbd>Enter</kbd> to put a message on the board. If the board has
-more than one band, the chips on the left pick which one it goes to; with a
-single band they don't appear at all. `•••` reveals priority, hold and repeat,
-and opens itself whenever any of them is set to something non-default.
-
-Each band gets a card showing what it's doing — **playing**, **holding** (its
-queue drained but its last page is still up), or **blank** — what's waiting, and
-two buttons. **Flush** drops what's waiting; **Clear** stops the band. That
-distinction matters: a repeating message isn't "waiting", so Clear is the only
-thing that stops a cycle.
-
-Board geometry, motion and a textarea of saved lines live behind the collapsed
-disclosures. Everything persists between launches.
-
-| Key | Action |
-| --- | --- |
-| <kbd>C</kbd> | show / hide the controls |
-| <kbd>Space</kbd> | add the saved lines to the selected band |
-| <kbd>Esc</kbd> | clear every band |
-| <kbd>F</kbd> | fullscreen |
-
-Characters the tiles can show: `A–Z`, `0–9`, `.` `,` `!` `(` `)` and blank.
-Lowercase is uppercased; anything else flips to blank and is reported under the
-panel.
-
-## Controlling it over HTTP
-
-The app serves a REST API on `http://127.0.0.1:4747` — local only, no auth, no
-setup. Put text on the board:
+The generated tile art is committed, so there's no build step before your
+first run. You only need `npm run build:assets` (Python 3 + Pillow) when you
+change the art — see [Making it your own](AGENTS.md#making-it-your-own).
 
 ```bash
-curl -X POST http://127.0.0.1:4747/api/message -H 'content-type: application/json' -d '{"text":"NOW BOARDING GATE 14"}'
+npm test             # ~190 tests, a few seconds, no browser needed
+npm run db:generate  # after editing lib/db/schema.mjs: new SQL migration
 ```
 
-See what it would do without displaying it — useful because the tiles cannot draw
-every character you might send:
+## Deploy it
 
-```bash
-curl -X POST http://127.0.0.1:4747/api/preview -H 'content-type: application/json' -d '{"text":"Café R&D: 50% done?"}'
-```
+1. Push the repo to GitHub and import it into [Vercel](https://vercel.com/new).
+2. From the Vercel Marketplace add:
+   - **Neon** (Postgres) → injects `DATABASE_URL`
+   - **Upstash Redis** → injects `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`
+3. Set `BETTER_AUTH_SECRET` (any long random string) and `BETTER_AUTH_URL`
+   (the deployment's public URL).
+4. Deploy. The build runs the drizzle migrations against Neon
+   (`tools/migrate-if-db.mjs`) before `next build`.
 
-That reports `CAFE R AND D. 50 DONE.` along with every substitution it made and
-the `%` it had to drop. Reshape the board:
-
-```bash
-curl -X PATCH http://127.0.0.1:4747/api/config -H 'content-type: application/json' -d '{"cols":20,"rows":8,"align":"left","valign":"top"}'
-```
-
-Grid size, alignment, wrap mode, motion and dwell are all adjustable this way, and
-from the control panel — both drive the same board. Accepted range is 1–80 columns
-by 1–40 rows.
-
-| Method | Path | Purpose |
+| Env var | Purpose | Without it |
 | --- | --- | --- |
-| `GET` | `/` | discovery: points at the agent guide |
-| `GET` | `/AGENTS.md` | instructions for an agent driving the board |
-| `GET` | `/api/health` | liveness and version |
-| `GET` | `/api/capabilities` | charset, grid, accepted values, limits |
-| `GET` | `/api/status` | what's showing, the rendered rows, the queue |
-| `GET` | `/api/events` | SSE stream of state, pushed on change |
-| `POST` | `/api/message` | queue text, or an explicit grid of rows |
-| | | `priority: next \| now` to jump the queue |
-| | | `region: main \| footer` to pick a band |
-| | | `repeat: true` to cycle it in that band |
-| `POST` | `/api/preview` | lay out without displaying |
-| `POST` | `/api/clear` | flush and blank; optional `region`, else every band |
-| `DELETE` | `/api/queue` | flush pending, leave the current message playing; optional `region` |
-| `PATCH` | `/api/config` | grid, `footerRows`, alignment, wrap, motion, dwell, per-band `regions` |
+| `DATABASE_URL` | Neon Postgres (users, boards) | local PGlite at `./.pglite` |
+| `UPSTASH_REDIS_REST_URL/TOKEN` | realtime command/state channel | in-memory broker |
+| `BETTER_AUTH_SECRET` | session signing | dev-only fallback, warns |
+| `BETTER_AUTH_URL` | auth callbacks base URL | inferred per-request |
 
-### Driving individual cells
+## Using a board
 
-Send `rows` instead of `text` to place every character yourself — no wrapping,
-no alignment, no pagination:
+The board page is chrome-free — just the tiles. Press <kbd>C</kbd> for the
+control panel: one card per band, a compose row, board/motion settings, and an
+Access section pointing at the API and (for the owner) the settings page.
 
-```bash
-curl -X POST http://127.0.0.1:4747/api/message -H 'content-type: application/json' -d '{"rows":["....................","  DEPARTURES  0900  ","  GATE 14   ON TIME ","...................."]}'
-```
+**Settings** (`/b/{slug}/settings`, owner-only) holds the rest: rename the
+board or its slug, toggle privacy, reveal/copy/regenerate the API key, the
+copy-pasteable curl, and the AGENTS.md link. For a private board it also
+builds the `?key=` display URL a wall screen can open without logging in.
 
-One input character per tile, one string per board row. Characters are still
-folded onto what the tiles can draw, but only in width-preserving ways, so cell
-*i* of your string is always cell *i* of the board.
+Keys: <kbd>C</kbd> controls · <kbd>Space</kbd> add saved lines ·
+<kbd>Esc</kbd> clear every band · <kbd>F</kbd> fullscreen.
 
-### Jumping the queue
-
-Messages play in the order they arrive. `priority` overrides that: `next` puts a
-message at the head of the queue, and `now` displays it immediately.
+Driving it over HTTP:
 
 ```bash
-curl -X POST http://127.0.0.1:4747/api/message -H 'content-type: application/json' -d '{"text":"FIRE DRILL","priority":"now"}'
+curl -X POST https://YOUR-APP.vercel.app/api/b/YOUR-SLUG/message \
+  -H 'authorization: Bearer YOUR_API_KEY' \
+  -H 'content-type: application/json' \
+  -d '{"text":"NOW BOARDING GATE 14"}'
 ```
 
-A pre-empted message isn't lost — it returns to the head of the queue and
-resumes on the page it was showing, so playback continues where it left off.
+`GET /api/b/{slug}/AGENTS.md` returns the full contract — endpoints, the
+character set and its substitutions, bands, priorities, `rows` mode.
+`GET /api/b/{slug}/status` returns `lines`, the literal rows on the glass,
+which is the cheapest way to assert what a board is actually showing.
 
-### Splitting the board
-
-Reserve rows at the bottom and they become a second band with its own queue,
-playing independently of the one above — a standing strip while other content
-rotates:
+## The desktop shell
 
 ```bash
-curl -X PATCH http://127.0.0.1:4747/api/config -H 'content-type: application/json' -d '{"footerRows":2}'
-curl -X POST http://127.0.0.1:4747/api/message -H 'content-type: application/json' -d '{"text":"NOW PLAYING. THE STROKES","region":"footer"}'
+cd desktop && npm install && npm start
 ```
 
-A message's row budget is its band, so read `grid.mainRows` from `/api/status`
-rather than `rows`. `footerRows: 0` (the default) means one band and behaviour
-identical to a board that never had the concept. A drained queue holds its last
-page, so one message is enough to leave a footer standing.
+A kiosk window on the deployed web app: single instance, keeps the display
+awake, remembers the last board it showed (including a private board's `?key=`
+URL). `--url=` or `FLAPPER_URL` points it at a specific board; `--kiosk` locks
+it to the wall. `npm run pack` builds a universal macOS .app.
 
-Each band plays its own queue in order, laying every message into pages that fit
-that band and holding each page before the next begins. `repeat: true` sends a
-message back to the end of its band's queue when it finishes, so a band can cycle
-— and because it keeps its id, a cycling band is the same few messages going
-round. `DELETE /api/queue` won't stop a cycle (a showing message isn't pending);
-`POST /api/clear` with that band's `region` will.
+## How it works
 
-### Pointing an agent at it
+The engine is framework-free and unchanged since Flapper 1: one canvas, one
+integer per tile, strips of per-transition frame art, and an animation loop
+that stops completely when every tile has landed. Around it:
 
-```bash
-curl http://127.0.0.1:4747/AGENTS.md
-```
+- `lib/board/` — the engine and its pure logic (layout, timing, regions,
+  queues), all unit-tested under `node --test`
+- `lib/db/` — drizzle schema and queries: users (Better Auth) and boards
+  (slug, owner, privacy, API key, config). Neon in production, PGlite locally
+- `lib/broker/` — the realtime channel: commands in a Redis stream per board,
+  state snapshots posted back by the display. Upstash in production, in-memory
+  locally
+- `app/` — Next.js pages and the REST API as one-line route wrappers over
+  testable handlers
+- A display tab consumes its command stream over SSE and posts state back;
+  `preview` and `capabilities` run the same layout code server-side, so they
+  answer even when no display is connected
 
-Returns [docs/BOARD-API.md](docs/BOARD-API.md) — the whole contract in one
-document: how to connect, why there is nothing to authenticate with, what the
-tiles can and cannot draw, both input modes, bands, queue behaviour, and the
-endpoint list. The served copy has its example URLs rewritten to whatever address
-you asked, and a trailing block stating that instance's base URL, whether it is
-reachable beyond this machine, and whether the display is ready.
+[AGENTS.md](AGENTS.md) is the guide to working on the code.
 
-It tells an agent to **ask you for a URL** rather than scan for one when
-`127.0.0.1:4747` doesn't answer — a board is usually on another machine — and to
-ask again if handed `0.0.0.0`, since that's a bind address rather than a
-reachable one.
+## License
 
-### Letting other machines reach it
-
-Press <kbd>C</kbd> and click **Local only** — it switches to **Public** and
-rebinds the API to all interfaces. Click again to restrict it. The choice
-persists across restarts.
-
-**There is no authentication.** While Public is on, anyone who can reach the port
-can put anything on the board. That's a deliberate trade for a display on a
-trusted network — don't enable it on one you don't trust, and don't forward the
-port to the internet.
-
-The panel shows `0.0.0.0` in Public mode, which is the bind address, not
-something you can connect to. From another machine use this machine's LAN
-address:
-
-```bash
-ipconfig getifaddr en0
-```
-
-```bash
-curl -X POST http://192.168.1.42:4747/api/message -H 'content-type: application/json' -d '{"text":"HELLO FROM AWAY"}'
-```
-
-To fix the mode at launch instead — which also disables the button, so a kiosk
-script can't be overridden from the panel:
-
-```bash
-FLAPPER_HOST=0.0.0.0 npm start
-```
-
-| Setting | Env | Flag | Default |
-| --- | --- | --- | --- |
-| enable | `FLAPPER_SERVER=0` | `--no-server` | on |
-| host | `FLAPPER_HOST` | `--host=` | `127.0.0.1` |
-| port | `FLAPPER_PORT` | `--port=` | `4747` |
-| CORS origin | `FLAPPER_CORS_ORIGIN` | `--cors=` | none (off) |
-
-## Tests
-
-```bash
-npm test
-```
-
-167 tests over the testable modules — text layout, board regions, the queue
-controller, the panel view model, the REST routes, server config, and persisted
-settings — with no Electron in the loop. The controller and panel tests run
-against a stub board with mocked timers; the route tests drive real HTTP against
-`createServer`.
-
-CI runs them on every push. Tagging `v*` builds the macOS app on a runner and
-publishes a release, but only after the suite passes, the tag matches
-`package.json`, and the bundle is checked for its signature, both architectures,
-and that the source art hasn't leaked into it.
-
-## Building it yourself
-
-```bash
-npm run pack
-```
-
-Produces `dist/Flapper-darwin-universal/Flapper.app` and a ready-to-send
-`dist/Flapper-<version>-universal.zip` (~213 MB). Needs `assets/` and
-`build/icon.icns`, both committed; the script checks and tells you if they're
-missing. `npm run pack -- --arch=arm64` builds for Apple Silicon only, at
-roughly half the size.
-
-**Send the zip the script made, don't re-zip the .app.** Electron bundles contain
-symlinks inside `Electron Framework.framework`; `zip -r` dereferences them, which
-bloats the archive and invalidates the code signature. The script uses `ditto`,
-which preserves them. Finder's "Compress" is also safe.
-
-## How it's built
-
-The short version: each transition between two characters is a separate piece of
-frame art, stacked into a sprite strip at build time. A tile at runtime is one
-integer — which state it's resting on — and that index is both the character and
-the strip that leaves it. Tiles only ever travel **forward** through a closed
-ring of 42 states, which is the constraint every other design decision follows
-from.
-
-[AGENTS.md](AGENTS.md) covers the components and how to swap in your own
-character set. [SPEC.md](SPEC.md) has the engineering detail: the frame-level
-contract with the art, the timing model, the band system, and the reasoning
-behind the trade-offs.
+[MIT](LICENSE). The tile art in `public/assets/` is generated from source GIFs
+not included in the repo; the committed strips are part of the worked example.

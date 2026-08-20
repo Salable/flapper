@@ -9,8 +9,8 @@ on:
 jobs:
   test:
     name: Tests
-    # The suite deliberately needs no Electron and no display, so it runs on
-    # Linux in seconds rather than burning macOS minutes.
+    # The suite deliberately needs no browser and no display, so it runs on
+    # Linux in seconds.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -20,12 +20,26 @@ jobs:
           node-version: 22
           cache: npm
 
-      # No runtime dependencies, so this only installs Electron and the
-      # packager. --ignore-scripts skips Electron's binary download, which the
-      # tests never touch.
-      - run: npm ci --ignore-scripts
+      - run: npm ci
 
       - run: npm test
+
+  build:
+    name: Web app builds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # No Redis in CI: the build must succeed with the MemoryBroker fallback,
+      # because that is also what `next dev` runs with.
+      - run: npm run build
 
   assets:
     name: Tile art is reproducible
@@ -38,16 +52,14 @@ jobs:
           node-version: 22
           cache: npm
 
-      - run: npm ci --ignore-scripts
-
-      # assets/ is committed so a clone runs with no build step. That only stays
-      # true if the manifest keeps matching what the app expects, so check the
-      # shape rather than trusting it.
+      # public/assets/ is committed so a clone runs with no build step. That
+      # only stays true if the manifest keeps matching what the app expects, so
+      # check the shape rather than trusting it.
       - name: Check the manifest describes a closed ring
         run: |
           node --input-type=module -e '
             import { readFileSync } from "node:fs";
-            const m = JSON.parse(readFileSync("assets/manifest.json", "utf8"));
+            const m = JSON.parse(readFileSync("public/assets/manifest.json", "utf8"));
             const { cycle } = m;
             if (!Array.isArray(cycle) || cycle.length === 0) throw new Error("empty cycle");
             const names = cycle.map((s) => s.name);
@@ -66,8 +78,8 @@ jobs:
         run: |
           node --input-type=module -e '
             import { readFileSync, existsSync } from "node:fs";
-            const m = JSON.parse(readFileSync("assets/manifest.json", "utf8"));
-            const missing = m.cycle.map((s) => `assets/${s.strip}`).filter((p) => !existsSync(p));
+            const m = JSON.parse(readFileSync("public/assets/manifest.json", "utf8"));
+            const missing = m.cycle.map((s) => `public/assets/${s.strip}`).filter((p) => !existsSync(p));
             if (missing.length) throw new Error(`missing strips: ${missing.join(", ")}`);
             console.log(`all ${m.cycle.length} strips present`);
           '

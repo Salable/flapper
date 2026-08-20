@@ -8,7 +8,7 @@ import {
   regionCoords,
   regionTargets,
   composeLines,
-} from '../src/shared/regions.mjs';
+} from '../lib/board/regions.mjs';
 
 /** A tiny charset stand-in: A-C map to 1-3, everything else is blank (0). */
 const charToState = new Map([['A', 1], ['B', 2], ['C', 3]]);

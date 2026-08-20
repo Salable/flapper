@@ -1,9 +1,9 @@
 import { mock } from 'node:test';
 import { readFileSync } from 'node:fs';
-import { Controller } from '../src/renderer/controller.mjs';
-import { layout, layoutRows, charsetFromManifest } from '../src/shared/layout.mjs';
-import { footerLayout, composeLines } from '../src/shared/regions.mjs';
-import { MOTION_DEFAULTS } from '../src/shared/timing.mjs';
+import { Controller } from '../lib/board/controller.mjs';
+import { layout, layoutRows, charsetFromManifest } from '../lib/board/layout.mjs';
+import { footerLayout, composeLines } from '../lib/board/regions.mjs';
+import { MOTION_DEFAULTS } from '../lib/board/timing.mjs';
 
 /**
  * Shared test board. Lives outside a *.test.mjs file so `node --test` does not
@@ -11,7 +11,7 @@ import { MOTION_DEFAULTS } from '../src/shared/timing.mjs';
  * asserting against hand-written status fixtures.
  */
 
-const manifest = JSON.parse(readFileSync(new URL('../assets/manifest.json', import.meta.url)));
+const manifest = JSON.parse(readFileSync(new URL('../public/assets/manifest.json', import.meta.url)));
 const charset = charsetFromManifest(manifest);
 
 export { manifest, charset };

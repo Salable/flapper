@@ -1,5 +1,17 @@
 # Flapper — Specification
 
+> **Historical note (v2.0.0):** this document specifies Flapper **1.x**, the
+> Electron desktop app. In 2.0 the shell changed — the board is a Next.js web
+> app on Vercel, the IPC bridge and local HTTP server became a cloud broker
+> (Upstash Redis + SSE), and the desktop app is a thin kiosk shell in
+> `desktop/`. The **engine sections remain accurate**: the character ring, the
+> asset pipeline, layout, timing, regions, tracks and the controller (now in
+> `lib/board/`) carried over unchanged. For the current architecture read
+> [AGENTS.md](AGENTS.md); for the current API contract read
+> [docs/BOARD-API.md](docs/BOARD-API.md). Sections below describing the main
+> process, the bridge, `serve.js`, access control, and packaging describe the
+> 1.x design and are kept for the reasoning they record.
+
 A desktop split-flap board. It flips from whatever it is currently showing,
 scrolls forward through the character set, and lands on requested text — using
 the designer's own per-transition frame art rather than a simulation of it.

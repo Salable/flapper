@@ -7,9 +7,9 @@ import {
   normalize,
   charsetFromManifest,
   DEFAULT_SUBSTITUTIONS,
-} from '../src/shared/layout.mjs';
+} from '../lib/board/layout.mjs';
 
-const manifest = JSON.parse(readFileSync(new URL('../assets/manifest.json', import.meta.url)));
+const manifest = JSON.parse(readFileSync(new URL('../public/assets/manifest.json', import.meta.url)));
 const charset = charsetFromManifest(manifest);
 
 /** Lay out and strip padding, so assertions read like the visible text. */

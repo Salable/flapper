@@ -1,6 +1,6 @@
 import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
-import { Controller } from '../src/renderer/controller.mjs';
+import { Controller } from '../lib/board/controller.mjs';
 import { stubBoard, setup } from './stub-board.mjs';
 
 test('messages play strictly in order', (t) => {
