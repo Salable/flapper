@@ -9,7 +9,7 @@ to running the repo.
 
 ```bash
 npm run dev                        # Next.js dev server (PGlite + memory broker, no env)
-npm test                           # ~190 tests, a few seconds, no browser
+npm test                           # ~230 tests, a few seconds, no browser
 node --test tests/layout.test.mjs  # a single file
 npm run build                      # migrates (when DATABASE_URL) then next build
 npm run db:generate                # after editing lib/db/schema.mjs
@@ -76,3 +76,14 @@ connected.
   reconnection with `Last-Event-ID` is the design, not a bug.
 - Slug renames move the API base; open displays 404 on reconnect and tell the
   user to reopen — documented behaviour.
+- **Board-type definitions must stay client-safe**: the display player
+  imports `lib/board-types/` in the browser, so a definition may import only
+  pure `lib/` modules — never `lib/db/`, never react. The contract harness
+  greps for this.
+- **Tile-art bitmaps are shared property** (`components/flapper/assets.ts`):
+  one decode per tab, used by the wordmark and the display alike. Never call
+  `.close()` on them.
+- **Callback-prop identity is never behavioral** in `components/ui/` —
+  callers pass inline closures; an effect keyed on one re-runs every parent
+  render (the Modal once re-focused itself on every keystroke). Rules:
+  docs/DESIGN-SYSTEM.md, "Forms hold focus".

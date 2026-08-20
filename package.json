@@ -1,7 +1,7 @@
 {
   "name": "flapper",
   "productName": "Flapper",
-  "version": "2.0.0",
+  "version": "4.0.0",
   "description": "A split-flap board for the web: create a board, put it on a wall, drive it over REST.",
   "license": "MIT",
   "homepage": "https://github.com/Salable/flapper#readme",

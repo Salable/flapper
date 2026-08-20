@@ -41,7 +41,7 @@ Everything the UI does is also on the API:
 | --- | --- |
 | `GET /queue` | the list + what is current |
 | `POST /queue/items` | add (same body as `/message`) |
-| `PATCH /queue/items/{id}` | edit text/rows or toggle `loop` |
+| `PATCH /queue/items/{id}` | edit text/rows, toggle `loop`, change `schedule` |
 | `DELETE /queue/items/{id}` | remove (removing current skips) |
 | `POST /queue/reorder` | `{itemId, afterId}` — `afterId: null` is the front |
 | `DELETE /queue` | flush pending |

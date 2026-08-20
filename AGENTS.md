@@ -8,8 +8,8 @@ way.
 This file is for whoever — or whatever — is working on the code. If you want to
 *drive* a running board instead, that contract is
 [docs/BOARD-API.md](docs/BOARD-API.md), served live from every board at
-`GET /api/b/{slug}/AGENTS.md`. For the engineering detail behind the engine,
-see [SPEC.md](SPEC.md).
+`GET /api/b/{slug}/AGENTS.md`. For adding a board type — the main extension
+point — see [docs/BOARD-TYPES.md](docs/BOARD-TYPES.md).
 
 **The one idea worth taking away:** a split-flap tile can only ever move
 *forward*, one step at a time, through a fixed ring of characters. Getting from

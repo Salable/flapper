@@ -10,14 +10,14 @@ across the grid, the board splitting into two independently-driven bands, a
 paginated message, a departures frame placed cell by cell, and an urgent message
 pre-empting the queue before the displaced one resumes](docs/flapper.gif)
 
-*Everything above is driven over HTTP. The bottom strip is a second band running
-its own queue on its own clock — note it changes out of step with the rows above
-it. Near the end, `FIRE DRILL` jumps the queue and what it displaced comes back
-where it left off.*
+*Everything above is driven over HTTP. The bottom strip is a second band —
+an engine capability currently paused in the app while the layout system
+grows into it. Near the end, `FIRE DRILL` jumps the queue and what it
+displaced comes back where it left off.*
 
-Flapper is a **multi-user web app for Vercel**: sign in, provision boards from
-a dashboard, open a board's URL on whatever should display it — a browser tab,
-a TV, the desktop kiosk shell — and drive it from the on-page panel or over a
+Flapper is a **multi-user web app for Vercel**: sign in, create boards from a
+dashboard, open a board's URL on whatever should display it — a browser tab, a
+TV, the desktop kiosk shell — and drive it from its settings page or over a
 REST API from anywhere.
 
 - **Sign in** (email + password, [Better Auth](https://better-auth.com)) and
@@ -30,8 +30,11 @@ REST API from anywhere.
 - **Public or private** — public boards can be watched by anyone with the URL;
   private boards need the key (`?key=` works for wall displays) or the
   owner's login, even to read
-- **Split the board into bands** — a rotating queue up top, a standing strip
-  below, each with its own queue and clock
+- **Boards come in types** — a rolling **live queue**, a clock-driven
+  **schedule** (down to the second, DST-correct, with a fallback message
+  between slots), or **shared screens**: one slug on any number of displays,
+  all in step on the server clock. New types are a documented extension
+  point — see [docs/BOARD-TYPES.md](docs/BOARD-TYPES.md)
 - **A thin desktop shell** (`desktop/`) for kiosk installs: fullscreen, keeps
   the display awake, remembers its board
 
@@ -40,7 +43,8 @@ REST API from anywhere.
 | run it and put text on it | this file |
 | build my own version | [AGENTS.md](AGENTS.md) |
 | drive a board over HTTP | [docs/BOARD-API.md](docs/BOARD-API.md) |
-| know why the engine is built this way | [SPEC.md](SPEC.md) |
+| add a new board type | [docs/BOARD-TYPES.md](docs/BOARD-TYPES.md) |
+| understand every screen | [docs/SCREENS.md](docs/SCREENS.md) |
 
 ## Run it locally
 
@@ -58,7 +62,7 @@ first run. You only need `npm run build:assets` (Python 3 + Pillow) when you
 change the art — see [Making it your own](AGENTS.md#making-it-your-own).
 
 ```bash
-npm test             # ~190 tests, a few seconds, no browser needed
+npm test             # ~230 tests, a few seconds, no browser needed
 npm run db:generate  # after editing lib/db/schema.mjs: new SQL migration
 ```
 
@@ -82,17 +86,18 @@ npm run db:generate  # after editing lib/db/schema.mjs: new SQL migration
 
 ## Using a board
 
-The board page is chrome-free — just the tiles. Press <kbd>C</kbd> for the
-control panel: one card per band, a compose row, board/motion settings, and an
-Access section pointing at the API and (for the owner) the settings page.
+The board page is deliberately passive — just the tiles, playing whatever its
+type's playback says. Only two keys exist on the glass: <kbd>F</kbd> for
+fullscreen and <kbd>Esc</kbd> to blank in place (the queue is untouched; the
+blank lifts when the queue next changes).
 
-**Settings** (`/b/{slug}/settings`, owner-only) holds the rest: rename the
-board or its slug, toggle privacy, reveal/copy/regenerate the API key, the
-copy-pasteable curl, and the AGENTS.md link. For a private board it also
-builds the `?key=` display URL a wall screen can open without logging in.
-
-Keys: <kbd>C</kbd> controls · <kbd>Space</kbd> add saved lines ·
-<kbd>Esc</kbd> clear every band · <kbd>F</kbd> fullscreen.
+**Settings** (`/b/{slug}/settings`, owner-only) is the control room, in three
+tabs: **Queue** (compose and manage — a rolling list on a live board, the
+schedule editor on a clock board), **Display** (the drag-and-scale layout
+picker plus grid/motion config), and **General** (identity, privacy, the API
+key and copy-pasteable curl, pause & JSON export, delete). For a private
+board it also builds the `?key=` display URL a wall screen can open without
+logging in.
 
 Driving it over HTTP:
 
@@ -103,8 +108,9 @@ curl -X POST https://YOUR-APP.vercel.app/api/b/YOUR-SLUG/message \
   -d '{"text":"NOW BOARDING GATE 14"}'
 ```
 
-`GET /api/b/{slug}/AGENTS.md` returns the full contract — endpoints, the
-character set and its substitutions, bands, priorities, `rows` mode.
+`GET /api/b/{slug}/AGENTS.md` returns the full contract for that board's
+type — endpoints, the character set and its substitutions, priorities or
+schedule specs, `rows` mode.
 `GET /api/b/{slug}/status` returns `lines`, the literal rows on the glass,
 which is the cheapest way to assert what a board is actually showing.
 
