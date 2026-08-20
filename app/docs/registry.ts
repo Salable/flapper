@@ -9,8 +9,14 @@ export const DOCS: { slug: string; file: string; title: string; blurb: string }[
   {
     slug: 'queues',
     file: 'QUEUES.md',
-    title: 'Queues',
-    blurb: 'How playback works: order, loops, holding, priorities, and the queue API.',
+    title: 'Queues & board types',
+    blurb: 'Live, scheduled, and shared boards: what the queue means and how each plays.',
+  },
+  {
+    slug: 'board-types',
+    file: 'BOARD-TYPES.md',
+    title: 'Authoring board types',
+    blurb: 'The definition contract, the harness, and a worked example — enough to build a new type.',
   },
   {
     slug: 'design-system',

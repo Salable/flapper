@@ -186,6 +186,17 @@ count characters, do not eyeball them.
 
 ## 6. How playback works
 
+**Playback depends on the board's type** — the per-board copy of this guide
+(`GET {apiBase}/AGENTS.md`) documents only the type it belongs to. A **live
+queue** board plays in order, below. A **scheduled** or **shared screens**
+board is a clock: every item carries a `schedule` spec (`interval`,
+`everyN`, `hourly`, `daily`, `weekly`, `once` — plus `durationMs`), the
+active item is a pure function of the server clock on every screen, a
+fallback message stands in the gaps, and there is nothing to advance. A
+message without a schedule on a clock board plays once, immediately.
+
+### Live queues
+
 **The queue lives on the server.** `POST {apiBase}/message` adds to it; the
 display plays it strictly in order and reports each completion. You can stack
 messages while no display is connected — they play when one opens. A `202`
