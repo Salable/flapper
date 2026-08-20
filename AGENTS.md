@@ -47,7 +47,8 @@ canvas, the DOM, or Redis are left as thin appliers.
 
 ```
 lib/board/    the engine and its logic: pure ESM, no React     ← all unit-tested
-lib/db/       drizzle schema + board/user queries (Neon or PGlite) ← PGlite-tested
+lib/board-types/  one definition per board type + the registry  ← contract-tested
+lib/db/       drizzle schema + board/queue queries (Neon or PGlite) ← PGlite-tested
 lib/api/      validation + route handlers as (Request) -> Response  ← unit-tested
 lib/broker/   the realtime channel (Upstash or memory)         ← contract-tested
 lib/auth.ts   Better Auth over the same db; next-ctx.ts injects sessions
@@ -66,10 +67,11 @@ tools/        asset build, icon build, build-time migration
 | `lib/board/flipboard.js` | the engine: tiles, frames, the animation loop |
 | `lib/board/track.mjs` | one queue, dwell clock and watchdog **per band** |
 | `lib/board/controller.mjs` | routes messages to bands; owns geometry and status |
-| `lib/board/dispatch.mjs` | the fixed method surface remote commands call into |
-| `lib/board/panel.mjs` | what the control panel shows, worked out purely |
-| `components/BoardApp.tsx` | boots the engine, owns panel state, wires keys |
-| `components/Panel.tsx` | the panel's markup; decisions stay in panel.mjs |
+| `lib/board/player.mjs` | the display's playback machines: live (play/report) and clock (evaluate/cut/sleep) |
+| `lib/board/schedule.mjs` | the pure schedule evaluator: triggers, ties, DST, next-change |
+| `lib/board-types/index.mjs` | the type registry; `docs/BOARD-TYPES.md` is the authoring guide |
+| `lib/db/queue.mjs` | the server-side queue: order, caps, the playback head, epochs |
+| `components/BoardApp.tsx` | boots the engine and the player, applies layout, wires F/Esc |
 | `lib/api/validators.mjs` | request validation, every 422 named |
 | `lib/api/handlers.mjs` | the API surface; route.ts files are one-line wrappers |
 | `lib/api/headless-board.mjs` | the real Controller over stored config, server-side |
@@ -83,12 +85,13 @@ A message's journey, end to end:
 ```
 POST /api/b/{slug}/message
   → handlers.mjs        slug → board row, key check, validation, source:'api'
-  → broker              XADD to the board's command stream, 202
-  → commands/stream     SSE: a route handler polls the stream, pushes frames
-  → useCommandStream    the display tab dispatches {method, params}
-  → controller.mjs      picks the band (default: main)
-  → track.mjs           lays it out, queues it, starts the dwell clock
-  → flipboard.js        retargets that band's tiles; rAF until they settle
+  → type.ingest         the board's type says what the message becomes
+  → db/queue.mjs        the item lands in the server-side queue (202)
+  → broker              a sync nudge on the board's command stream
+  → player.mjs          each display resyncs; live plays the head, clock
+                        evaluates the schedule against the server clock
+  → controller.mjs      lays it out, queues it, starts the dwell clock
+  → flipboard.js        retargets the tiles; rAF until they settle
   → useStatePublisher   posts the new state; /status now shows it
 ```
 
@@ -206,9 +209,9 @@ controller.enqueue('HELLO', { region: 'footer', repeat: true })
 These are the rules the existing code follows. Break them deliberately, not by
 accident.
 
-- **Pure logic goes in a module a test can import.** The panel's decisions live
-  in `panel.mjs`, not the component; the API's decisions live in `lib/api/`,
-  not the route files. If you find yourself writing a decision inside a
+- **Pure logic goes in a module a test can import.** The player's and
+  evaluator's decisions live in `lib/board/`, not the components; the API's
+  decisions live in `lib/api/`, not the route files. If you find yourself writing a decision inside a
   component or a `route.ts`, that is the signal.
 - **Reject, don't ignore.** An option that doesn't apply gets a `422` naming
   the field and why. Silently dropping it reads as a bug from the caller's
@@ -236,7 +239,7 @@ node --test tests/layout.test.mjs # one file
 ```
 
 `node --test` only — no framework, no mocking library, no jsdom. The controller
-and panel suites share `tests/stub-board.mjs`, a fake board that resolves its
+and player suites share `tests/stub-board.mjs`, a fake board that resolves its
 bands with the *real* `regions.mjs`, so band behaviour is exercised rather than
 described. `tests/api.test.mjs` calls the real handlers with `new Request(...)`
 against a `MemoryBroker` and an in-memory PGlite, with sessions stubbed
