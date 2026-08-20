@@ -3,6 +3,8 @@ const nextConfig = {
   // PGlite loads its WASM and filesystem bundles from disk relative to the
   // package; bundling it breaks those paths, so it runs as a plain require.
   serverExternalPackages: ['@electric-sql/pglite'],
+  // /docs reads the repo's markdown at request time; trace it into the bundle.
+  outputFileTracingIncludes: { '/docs/[doc]': ['./docs/*.md'] },
   async headers() {
     return [
       {

@@ -235,20 +235,17 @@ end-to-end, tier toggles proven in both directions on a real account.
 
 ---
 
-## 8. Decisions needed from Neal
+## 8. Decisions — resolved 2026-08-20
 
-1. **Tier strawman (§2)** — right lines? In particular: board count limit on
-   Standard, and whether private boards stay free.
-2. **Board passivity (task 1)** — does *no keyboard interactions* include
-   fullscreen (`F`) and the panic clear (`Esc`), or do those survive as the
-   only two? Recommendation: keep `F` (it's display-local and harmless),
-   move panic-clear to Settings.
-3. **R1 architecture** — sign-off on the RFC when it lands; the strawman
-   leaning is **C (hybrid)**: display-driven for single boards, compiled
-   timeline for shared queues.
-4. **Bands in a queue world** — does the footer band get its own queue in
-   the new model (parity with today) or is multi-band deferred to keep W2
-   small? Recommendation: parity — a queue per band, same schema.
-5. **Priority `now`/`next`** — keep as queue-insert positions (head/splice)
-   or drop in favour of explicit reordering in Settings? Recommendation:
-   keep; API clients rely on them.
+1. **Tier strawman (§2)** — ACCEPTED as proposed (Standard: 3 boards,
+   private boards free; Plus: unlimited, shared queues, scheduling).
+2. **Board passivity (task 1)** — DECIDED: `F` (fullscreen) and `Esc`
+   (panic blank; the queue is untouched and the blank lifts when the queue's
+   content changes) are the only keys. No `C` panel or anything like it.
+3. **R1 architecture** — APPROVED: hybrid. Display-driven queue for single
+   boards (shipped in 3.0); compiled timeline for shared queues. Refined by
+   Neal into an explicit per-queue **mode toggle** (live queue vs time-based;
+   multi-board requires time-based) — see docs/rfcs/0002-scheduling.md.
+4. **Bands** — DEFERRED to a future iteration with a bigger UX overhaul.
+   3.0 boards are single-band: `region ≠ main` and `footerRows > 0` are 422s.
+5. **Priority `now`/`next`** — KEPT as queue-insert positions.

@@ -1,8 +1,11 @@
 # Flapper — Screen & Functionality Audit
 
-*As deployed at https://flapper-tan.vercel.app, commit `b713c89`, 2026-08-20.
-This is the baseline document for the next design phase: what exists, how it
-behaves, and where it is thin.*
+*Baseline of the **2.0** release (commit `b713c89`, 2026-08-20), kept as the
+before-picture of the 3.0 rework. Since then: the queue moved server-side,
+the on-board panel and keyboard are gone (Settings is the control room),
+bands are paused, /docs exists, and findings 2, 3, 4, 6 (partially), 7 and 13
+(queue cap + spoof-proof state) have been addressed. A fresh survey follows
+the 3.0 feedback phase.*
 
 ---
 

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="10" fill="#0a0a0b"/>
+  <rect x="8" y="10" width="48" height="44" rx="6" fill="#1a1a1d" stroke="#3a3a40" stroke-width="2"/>
+  <text x="32" y="43" font-family="ui-monospace, Menlo, monospace" font-size="30" font-weight="700" fill="#ece7dd" text-anchor="middle">F</text>
+  <line x1="8" y1="32" x2="56" y2="32" stroke="#0a0a0b" stroke-width="3"/>
+</svg>

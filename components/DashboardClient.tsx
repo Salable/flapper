@@ -11,6 +11,8 @@ type BoardRow = {
   name: string;
   private: boolean;
   createdAt: number;
+  connected: boolean;
+  showing: string | null;
 };
 
 export function DashboardClient({ userName, boards }: { userName: string; boards: BoardRow[] }) {
@@ -104,8 +106,18 @@ export function DashboardClient({ userName, boards }: { userName: string; boards
               {boards.map((board) => (
                 <article className="board-card" key={board.id}>
                   <a className="board-card-open" href={`/b/${board.slug}`}>
-                    <span className="board-card-name">{board.name || board.slug}</span>
+                    <span className="board-card-name">
+                      <i className={`live-dot${board.connected ? ' is-live' : ''}`} title={board.connected ? 'A display is connected' : 'No display connected'} />
+                      {board.name || board.slug}
+                    </span>
                     <span className="board-card-slug muted">/b/{board.slug}</span>
+                    <span className="board-card-meta muted">
+                      {board.connected
+                        ? board.showing
+                          ? `showing ${board.showing}`
+                          : 'connected · blank'
+                        : 'no display connected'}
+                    </span>
                     <span className="board-card-meta muted">
                       {/* ISO, not toLocaleDateString: the server's locale and
                           the visitor's can disagree, and hydration notices. */}

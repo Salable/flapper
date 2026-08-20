@@ -20,7 +20,13 @@ import {
   agentsDoc,
   commandEvents,
   stateEvents,
+  getQueue,
+  patchQueueItem,
+  deleteQueueItem,
+  reorderQueue,
+  advanceQueue,
 } from '../lib/api/handlers.mjs';
+import { mintDisplayToken } from '../lib/api/display-token.mjs';
 
 /**
  * The whole API surface, driven as plain (Request) -> Response calls against a
@@ -177,7 +183,7 @@ test('delete requires the owner and clears the realtime channel', async () => {
 
 /* ---- write auth ---- */
 
-test('writes need the API key; owner session alone is not a write key (except config)', async () => {
+test('writes need the API key or the owner session; strangers get nothing', async () => {
   const board = await makeBoard();
   const message = { method: 'POST', body: { text: 'HI' } };
 
@@ -190,6 +196,9 @@ test('writes need the API key; owner session alone is not a write key (except co
     (await call(postMessage, ctx(board.slug), '/x', { ...message, key: board.apiKey })).status,
     202,
   );
+  // The Settings path: the owner's session is a write credential everywhere.
+  assert.equal((await call(postMessage, ctx(board.slug, 'owner'), '/x', message)).status, 202);
+  assert.equal((await call(postMessage, ctx(board.slug, 'stranger'), '/x', message)).status, 401);
 
   assert.equal(
     (await call(flushQueue, ctx(board.slug), '/x', { method: 'DELETE', body: {} })).status,
@@ -199,7 +208,6 @@ test('writes need the API key; owner session alone is not a write key (except co
     (await call(clearBoard, ctx(board.slug), '/x', { method: 'POST', body: {} })).status,
     401,
   );
-  // config accepts the owner's session as an alternative to the key
   assert.equal(
     (await call(patchConfig, ctx(board.slug, 'owner'), '/x', { method: 'PATCH', body: { cols: 30 } }))
       .status,
@@ -210,6 +218,20 @@ test('writes need the API key; owner session alone is not a write key (except co
       .status,
     401,
   );
+});
+
+test('a standard account is refused a fourth board with a named 403', async () => {
+  for (const slug of ['one-board', 'two-board', 'three-board']) {
+    await makeBoard({ slug });
+  }
+  const result = await jsonOf(
+    call(createBoard, ctx(undefined, 'owner'), '/api/boards', {
+      method: 'POST',
+      body: { slug: 'four-board' },
+    }),
+  );
+  assert.equal(result.status, 403);
+  assert.match(result.body.error, /standard tier allows 3 boards/);
 });
 
 /* ---- privacy matrix ---- */
@@ -225,7 +247,6 @@ test('private boards gate reads: none 403, key 200, ?key= 200, owner 200, strang
     [boardIndex, '/', {}],
     [agentsDoc, '/AGENTS.md', {}],
     [preview, '/preview', { method: 'POST', body: { text: 'X' } }],
-    [postState, '/state', { method: 'POST', body: { state: { queue: [] } } }],
   ];
 
   for (const [handler, path, opts] of readers) {
@@ -269,23 +290,43 @@ test('public boards keep open reads', async () => {
 
 /* ---- messages ---- */
 
-test('a message is validated, stamped as api, and appended to the stream', async () => {
+test('a message lands in the server queue and nudges displays', async () => {
   const board = await makeBoard();
   const { status: code, body } = await jsonOf(
     call(postMessage, ctx(board.slug), '/message', {
       method: 'POST',
-      body: { text: 'HELLO', priority: 'next' },
+      body: { text: 'HELLO' },
       key: board.apiKey,
     }),
   );
   assert.equal(code, 202);
   assert.ok(body.id);
+  assert.equal(body.loop, false);
 
-  const [entry] = await broker.commandsAfter(board.boardId, '0', 10);
-  assert.equal(entry.cmd.method, 'enqueue');
-  assert.equal(entry.cmd.params.text, 'HELLO');
-  assert.equal(entry.cmd.params.options.priority, 'next');
-  assert.equal(entry.cmd.params.options.source, 'api');
+  const q = (await jsonOf(call(getQueue, ctx(board.slug), '/queue'))).body;
+  assert.equal(q.items.length, 1);
+  assert.equal(q.items[0].payload.text, 'HELLO');
+  assert.equal(q.currentItemId, body.id);
+  assert.equal(q.currentState, 'playing');
+
+  const [nudged] = await broker.commandsAfter(board.boardId, '0', 10);
+  assert.equal(nudged.cmd.method, 'sync');
+  assert.equal(nudged.cmd.params.currentItemId, body.id);
+});
+
+test('priorities place items; repeat is accepted as the loop alias', async () => {
+  const board = await makeBoard();
+  const send = (body) =>
+    jsonOf(call(postMessage, ctx(board.slug), '/message', { method: 'POST', body, key: board.apiKey }));
+  await send({ text: 'A' });
+  await send({ text: 'B' });
+  await send({ text: 'NEXT', priority: 'next' });
+  const now = await send({ text: 'NOW', priority: 'now', repeat: true });
+  assert.equal(now.body.loop, true);
+
+  const q = (await jsonOf(call(getQueue, ctx(board.slug), '/queue'))).body;
+  assert.deepEqual(q.items.map((item) => item.payload.text), ['NOW', 'A', 'NEXT', 'B']);
+  assert.equal(q.currentItemId, now.body.id);
 });
 
 test('invalid options are refused with the desktop wording', async () => {
@@ -304,7 +345,7 @@ test('invalid options are refused with the desktop wording', async () => {
   }
 });
 
-test('a region the board does not have is a 422 naming the ones it does', async () => {
+test('bands are deferred: any non-main region is refused', async () => {
   const board = await makeBoard();
   const result = await jsonOf(
     call(postMessage, ctx(board.slug), '/message', {
@@ -314,7 +355,14 @@ test('a region the board does not have is a 422 naming the ones it does', async 
     }),
   );
   assert.equal(result.status, 422);
-  assert.match(result.body.error, /unknown region: footer.*main/);
+  assert.match(result.body.error, /multi-band.*future release/);
+  // Naming main explicitly still works.
+  const ok = await call(postMessage, ctx(board.slug), '/message', {
+    method: 'POST',
+    body: { text: 'X', region: 'main' },
+    key: board.apiKey,
+  });
+  assert.equal(ok.status, 202);
 });
 
 test('a malformed body is a 400 and an oversized one a 413', async () => {
@@ -359,7 +407,7 @@ test('preview refuses priority and repeat', async () => {
   }
 });
 
-test('capabilities and config round-trip through Postgres', async () => {
+test('capabilities and config round-trip through Postgres, and nudge displays', async () => {
   const board = await makeBoard();
   const before = (await jsonOf(call(capabilities, ctx(board.slug), '/capabilities'))).body;
   assert.deepEqual(before.regions, ['main']);
@@ -368,50 +416,157 @@ test('capabilities and config round-trip through Postgres', async () => {
   const patched = await jsonOf(
     call(patchConfig, ctx(board.slug), '/config', {
       method: 'PATCH',
-      body: { footerRows: 2, cols: 30, regions: { footer: { dwellMs: 8000 } } },
+      body: { cols: 30, dwellMs: 1500 },
       key: board.apiKey,
     }),
   );
   assert.equal(patched.status, 200);
 
   const after = (await jsonOf(call(capabilities, ctx(board.slug), '/capabilities'))).body;
-  assert.deepEqual(after.regions, ['main', 'footer']);
   assert.equal(after.grid.cols, 30);
-  assert.equal(after.grid.mainRows, 6);
 
   const commands = await broker.commandsAfter(board.boardId, '0', 10);
-  assert.equal(commands[0].cmd.method, 'configure');
+  assert.equal(commands[0].cmd.method, 'sync');
 });
 
-test('a per-band setting for a band the new geometry lacks is refused', async () => {
+test('bands cannot be configured back in yet: footerRows and per-band settings 422', async () => {
   const board = await makeBoard();
-  const result = await jsonOf(
-    call(patchConfig, ctx(board.slug), '/config', {
-      method: 'PATCH',
-      body: { regions: { footer: { dwellMs: 8000 } } },
-      key: board.apiKey,
-    }),
-  );
-  assert.equal(result.status, 422);
-  assert.match(result.body.error, /unknown region: footer/);
+  for (const body of [{ footerRows: 2 }, { regions: { footer: { dwellMs: 8000 } } }]) {
+    const result = await jsonOf(
+      call(patchConfig, ctx(board.slug), '/config', { method: 'PATCH', body, key: board.apiKey }),
+    );
+    assert.equal(result.status, 422, JSON.stringify(body));
+    assert.match(result.body.error, /future release/);
+  }
+  // footerRows: 0 stays legal - it is the current truth.
+  const zero = await call(patchConfig, ctx(board.slug), '/config', {
+    method: 'PATCH',
+    body: { footerRows: 0 },
+    key: board.apiKey,
+  });
+  assert.equal(zero.status, 200);
 });
 
 /* ---- flush & clear ---- */
 
-test('flush and clear append commands, with and without a region', async () => {
+test('flush drops pending with a synchronous count; clear empties and blanks', async () => {
   const board = await makeBoard();
   const key = board.apiKey;
+  const send = (text) =>
+    call(postMessage, ctx(board.slug), '/message', { method: 'POST', body: { text }, key });
+  await send('A');
+  await send('B');
+  await send('C');
+
+  const flushed = await jsonOf(
+    call(flushQueue, ctx(board.slug), '/queue', { method: 'DELETE', body: {}, key }),
+  );
+  assert.equal(flushed.status, 200);
+  assert.equal(flushed.body.removed, 2); // the current item keeps playing
+
+  const cleared = await jsonOf(
+    call(clearBoard, ctx(board.slug), '/clear', { method: 'POST', body: {}, key }),
+  );
+  assert.equal(cleared.status, 200);
+  assert.equal(cleared.body.removed, 1);
+
+  const q = (await jsonOf(call(getQueue, ctx(board.slug), '/queue'))).body;
+  assert.equal(q.items.length, 0);
+  assert.equal(q.currentState, 'idle');
+  const last = (await broker.commandsAfter(board.boardId, '0', 100)).at(-1);
+  assert.equal(last.cmd.method, 'clear');
+});
+
+test('the queue is editable over the API: patch, delete, reorder', async () => {
+  const board = await makeBoard();
+  const key = board.apiKey;
+  const send = async (text) =>
+    (await jsonOf(
+      call(postMessage, ctx(board.slug), '/message', { method: 'POST', body: { text }, key }),
+    )).body.id;
+  const a = await send('A');
+  const b = await send('B');
+  const c = await send('C');
+
+  const edited = await jsonOf(
+    call(patchQueueItem, { ...ctx(board.slug), itemId: b }, '/queue/items/x', {
+      method: 'PATCH',
+      body: { text: 'B EDITED', loop: true },
+      key,
+    }),
+  );
+  assert.equal(edited.status, 200);
+  assert.equal(edited.body.item.payload.text, 'B EDITED');
+  assert.equal(edited.body.item.loop, true);
+
   assert.equal(
-    (await call(flushQueue, ctx(board.slug), '/queue', { method: 'DELETE', body: {}, key })).status,
-    202,
+    (await call(reorderQueue, ctx(board.slug), '/queue/reorder', {
+      method: 'POST',
+      body: { itemId: c, afterId: null },
+      key,
+    })).status,
+    200,
   );
   assert.equal(
-    (await call(clearBoard, ctx(board.slug), '/clear', { method: 'POST', body: { region: 'main' }, key }))
-      .status,
-    202,
+    (await call(deleteQueueItem, { ...ctx(board.slug), itemId: b }, '/queue/items/x', {
+      method: 'DELETE',
+      key,
+    })).status,
+    200,
   );
-  const commands = await broker.commandsAfter(board.boardId, '0', 10);
-  assert.deepEqual(commands.map((entry) => entry.cmd.method), ['flush', 'clear']);
+  const q = (await jsonOf(call(getQueue, ctx(board.slug), '/queue'))).body;
+  assert.deepEqual(q.items.map((item) => item.payload.text), ['A', 'C']);
+  assert.equal(q.currentItemId, a);
+
+  // Strangers cannot touch the queue.
+  assert.equal(
+    (await call(deleteQueueItem, { ...ctx(board.slug, 'stranger'), itemId: a }, '/x', {
+      method: 'DELETE',
+    })).status,
+    401,
+  );
+});
+
+test('advance needs a display credential and is idempotent per play', async () => {
+  const board = await makeBoard();
+  const key = board.apiKey;
+  const send = async (text) =>
+    (await jsonOf(
+      call(postMessage, ctx(board.slug), '/message', { method: 'POST', body: { text }, key }),
+    )).body.id;
+  const a = await send('A');
+  await send('B');
+  const q = (await jsonOf(call(getQueue, ctx(board.slug), '/queue'))).body;
+
+  // A public board's audience cannot fast-forward it.
+  const anon = await call(advanceQueue, ctx(board.slug), '/queue/advance', {
+    method: 'POST',
+    body: { itemId: a, epoch: q.epoch },
+  });
+  assert.equal(anon.status, 401);
+
+  const displayToken = await mintDisplayToken({ id: board.boardId, apiKey: key });
+  const first = await jsonOf(
+    call(advanceQueue, ctx(board.slug), '/queue/advance', {
+      method: 'POST',
+      body: { itemId: a, epoch: q.epoch },
+      key: displayToken,
+    }),
+  );
+  assert.equal(first.status, 200);
+  assert.equal(first.body.advanced, true);
+  assert.equal(first.body.current.payload.text, 'B');
+
+  // The mirror's duplicate report is a no-op that returns the truth.
+  const dupe = await jsonOf(
+    call(advanceQueue, ctx(board.slug), '/queue/advance', {
+      method: 'POST',
+      body: { itemId: a, epoch: q.epoch },
+      key: displayToken,
+    }),
+  );
+  assert.equal(dupe.body.advanced, false);
+  assert.equal(dupe.body.current.payload.text, 'B');
 });
 
 /* ---- state & status ---- */
@@ -424,18 +579,48 @@ test('status is honest about a display that has never reported', async () => {
   assert.equal(body.showing, null);
 });
 
-test('a posted state snapshot round-trips through status and health', async () => {
+test('state posts are display writes: credentialed, spoof-proof, stale-dropped', async () => {
   const board = await makeBoard();
-  const snapshot = { showing: { id: 'm1' }, lines: ['HELLO'], queue: [], regions: {} };
+  const snapshot = { showing: { id: 'm1' }, lines: ['HELLO'], regions: {} };
+
+  // No credential: the audience cannot rewrite /status.
   assert.equal(
     (await call(postState, ctx(board.slug), '/state', { method: 'POST', body: { state: snapshot } }))
       .status,
+    401,
+  );
+
+  const displayToken = await mintDisplayToken({ id: board.boardId, apiKey: board.apiKey });
+  assert.equal(
+    (await call(postState, ctx(board.slug), '/state', {
+      method: 'POST',
+      body: { state: snapshot },
+      key: displayToken,
+    })).status,
     200,
   );
   const { body } = await jsonOf(call(status, ctx(board.slug), '/status'));
   assert.equal(body.stale, false);
   assert.deepEqual(body.lines, ['HELLO']);
   assert.equal((await jsonOf(call(health, ctx(board.slug), '/health'))).body.boardReady, true);
+
+  // A stale mirror replaying an old item is acknowledged but ignored.
+  const stale = await jsonOf(
+    call(postState, ctx(board.slug), '/state', {
+      method: 'POST',
+      body: { state: { ...snapshot, lines: ['OLD'], playingItemId: 'ghost' } },
+      key: displayToken,
+    }),
+  );
+  assert.equal(stale.body.ignored, 'stale item');
+  assert.deepEqual((await jsonOf(call(status, ctx(board.slug), '/status'))).body.lines, ['HELLO']);
+
+  const empty = await call(postState, ctx(board.slug), '/state', {
+    method: 'POST',
+    body: {},
+    key: displayToken,
+  });
+  assert.equal(empty.status, 422);
 });
 
 /* ---- stream generators ---- */

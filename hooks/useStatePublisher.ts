@@ -4,7 +4,8 @@
  * Pushes the controller's state snapshots up to the broker, throttled: at most
  * one POST per THROTTLE_MS with the latest snapshot, plus a slow heartbeat so
  * an idle board keeps reading as connected (status marks a board stale after
- * ten silent seconds).
+ * ten silent seconds). Authenticates with the display token - state is a
+ * write, and the audience of a public board must not hold the pen.
  */
 
 import { useEffect } from 'react';
@@ -14,14 +15,13 @@ const HEARTBEAT_MS = 5000;
 
 export function useStatePublisher(
   apiBase: string,
-  boardKey: string | null,
+  displayToken: string,
   ready: boolean,
   onStateRef: React.MutableRefObject<((state: unknown) => void) | null>,
 ) {
   useEffect(() => {
     if (!ready) return;
 
-    const suffix = boardKey ? `?key=${encodeURIComponent(boardKey)}` : '';
     let latest: unknown = null;
     let inFlightAt = 0;
     let trailing: ReturnType<typeof setTimeout> | null = null;
@@ -29,9 +29,12 @@ export function useStatePublisher(
     const post = () => {
       if (latest === null) return;
       inFlightAt = performance.now();
-      fetch(`${apiBase}/state${suffix}`, {
+      fetch(`${apiBase}/state`, {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          authorization: `Bearer ${displayToken}`,
+        },
         body: JSON.stringify({ state: latest }),
       }).catch(() => {
         /* transient network loss; the heartbeat retries */
@@ -57,5 +60,5 @@ export function useStatePublisher(
       clearInterval(beat);
       if (trailing) clearTimeout(trailing);
     };
-  }, [apiBase, boardKey, ready, onStateRef]);
+  }, [apiBase, displayToken, ready, onStateRef]);
 }

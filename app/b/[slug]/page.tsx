@@ -4,6 +4,7 @@ import { sessionFromHeaders } from '@/lib/auth';
 import { getDb } from '@/lib/db/client.mjs';
 import { getBySlug } from '@/lib/db/boards.mjs';
 import { secretsMatch } from '@/lib/broker/tokens.mjs';
+import { mintDisplayToken } from '@/lib/api/display-token.mjs';
 import { BoardPageClient } from '@/components/BoardPageClient';
 
 export const dynamic = 'force-dynamic';
@@ -43,14 +44,16 @@ export default async function BoardPage({ params, searchParams }: Props) {
     );
   }
 
+  // The display credential: scopes this page to its two write-backs (advance,
+  // state) without handing it the API key. Key rotation revokes it.
+  const displayToken = await mintDisplayToken(board);
+
   return (
     <BoardPageClient
       slug={slug}
       apiBase={`/api/b/${slug}`}
-      // The key rides along only when access arrived through it; an owner's
-      // session authenticates the display's own calls via cookies instead.
       boardKey={keyValid ? key! : null}
-      isOwner={isOwner}
+      displayToken={displayToken}
     />
   );
 }

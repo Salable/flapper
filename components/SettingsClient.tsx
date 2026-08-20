@@ -9,6 +9,8 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppBar } from '@/components/AppBar';
+import { QueueManager } from '@/components/QueueManager';
+import { DisplayConfig } from '@/components/DisplayConfig';
 
 type Board = {
   id: string;
@@ -16,6 +18,7 @@ type Board = {
   name: string;
   private: boolean;
   apiKey: string;
+  config: Record<string, unknown>;
   createdAt: number;
 };
 
@@ -127,6 +130,9 @@ export function SettingsClient({ board: initial }: { board: Board }) {
       <main className="dash settings">
         {error !== '' && <p className="error">{error}</p>}
         {notice !== '' && <p className="muted">{notice}</p>}
+
+        <QueueManager slug={board.slug} />
+        <DisplayConfig slug={board.slug} initial={board.config} />
 
       <section className="settings-block">
         <h2>Identity</h2>

@@ -37,7 +37,7 @@ curl -s --max-time 5 {apiBase}/health
 ```
 
 ```json
-{ "ok": true, "version": "2.0.0", "boardReady": true, "uptimeMs": 12345 }
+{ "ok": true, "version": "3.0.0", "boardReady": true, "uptimeMs": 12345 }
 ```
 
 **`boardReady` means a display is connected right now** — some browser tab or
@@ -127,42 +127,13 @@ mid-message. Be considerate: if a user asked you to display something, do not
 silently reshape their board to make your text fit. Fit the text to the board,
 or ask.
 
-### Bands: the board can be split in two
+### Bands are paused
 
-A board can reserve rows at the bottom for a **footer** — a second band with
-its own queue, playing independently of the one above it. The usual reason is
-a standing strip: a "now playing" line, a room name, a URL, while other
-content rotates above.
-
-```bash
-curl -X PATCH {apiBase}/config \
-  -H 'authorization: Bearer KEY' -H 'content-type: application/json' \
-  -d '{"footerRows":2}'
-```
-
-By default `footerRows` is `0` and the board is one band called `main`. With a
-footer configured there are two, `main` and `footer`, and every message names
-the one it is for with `"region"`. Omitting `region` means `main`, so a client
-that has never heard of bands behaves exactly as before.
-
-**The row budget for a message is its band, not the board.** On an 8-row board
-with a 2-row footer, a message to `main` has six rows. Read `grid.mainRows`
-and `regions.<id>.rows` from `/status` rather than working it out from `rows`
-yourself.
-
-`footerRows` is clamped so the main band always keeps at least one row — ask
-for more than the board has and `/status` reports what you actually got.
-Setting it back to `0` removes the band and hands the rows back.
-
-**A footer does not need topping up.** When a queue drains its last page stays
-on the board, so a single message to the footer is enough to leave it standing
-there. `/status` tells the two states apart: `regions.<id>.showing` is what is
-*playing*, and `holding` is the message a drained band is still displaying.
-
-Each band can hold for its own length:
-`{"regions":{"footer":{"dwellMs":8000}}}`. `null` hands a band back to the
-board-wide `dwellMs`; `regions.<id>.dwellOverride` in `/status` says whether a
-band set its own or inherited it.
+Flapper 1.x/2.x could split the board into a main band and a footer.
+**Multi-band boards return in a future release**: for now every board is one
+band (`main`), `footerRows` must stay `0`, and a `region` other than `main`
+is refused with a `422` rather than misplayed. Do not design around footers
+until they come back.
 
 ## 5. Two ways to send content
 
@@ -211,21 +182,16 @@ curl -X POST {apiBase}/message \
 - Always exactly one page
 
 Pad your rows to the full column count yourself if you care about the result;
-count characters, do not eyeball them. On a board with a footer, `rows`
-addresses **the band you are sending to**, not the whole board.
+count characters, do not eyeball them.
 
 ## 6. How playback works
 
-**Within a band, messages queue and play strictly in order unless you ask for
-a jump.** Bands are independent: each has its own queue, its own `priority`
-ordering and its own dwell. Fire several messages at once without
-coordinating; the display works out the rest.
-
-A `202` from `message` means **validated and delivered to the board's command
-stream** — not that a display showed it, or even that one is connected. Queue
-position and page counts appear in `/status` once a display picks the message
-up (normally well under a second). `preview` gives page counts and
-`estimatedMs` up front if you need them before sending.
+**The queue lives on the server.** `POST {apiBase}/message` adds to it; the
+display plays it strictly in order and reports each completion. You can stack
+messages while no display is connected — they play when one opens. A `202`
+means **validated and queued**; `/status`'s `boardReady`/`stale` say whether
+a display is showing it, and its `queue` block is server truth either way.
+`preview` gives page counts and `estimatedMs` up front if you need them.
 
 ### Jumping the queue
 
@@ -241,22 +207,31 @@ resumes on the page it was showing. Use the lightest thing that works: `next`
 is almost always enough; save `now` for things that are actually urgent.
 `priority` is rejected on `preview`.
 
-### Cycling a band
+### Looping
 
-`repeat: true` sends a message back to the end of its own band's queue when it
-finishes, so a band can rotate through the same few messages indefinitely. A
-recycled message **keeps its id**.
+`loop: true` (alias: `repeat`) sends a played message to the back of the
+queue instead of removing it, so a few looping messages rotate indefinitely.
+A looping item keeps its id, and you can switch a loop off:
+`PATCH {apiBase}/queue/items/{id}` with `{"loop": false}`, or remove the
+item.
 
-**`DELETE {apiBase}/queue` will not stop a cycle.** It drops what is
-*pending*, and a message that is currently showing is not pending — it
-finishes and rejoins. Use `POST {apiBase}/clear` with the band's `region` to
-stop it. There is no way to switch `repeat` off on a message once it is
-queued.
+**`DELETE {apiBase}/queue` will not stop a loop.** It drops what is
+*pending*, and the playing message is not pending — it finishes and rejoins.
+Use `POST {apiBase}/clear` to stop everything, or edit the item.
 
-- When the queue drains, **the last page stays on the board.** There is no
-  automatic blanking
-- Poll `GET {apiBase}/status`, or subscribe to `GET {apiBase}/events` for a
-  server-sent-events stream of board state
+- When the queue drains, **the last page stays on the board**, across display
+  reloads. `clear` is the deliberate blank
+- The queue holds at most 500 items; a full queue answers `429`
+
+### Editing the queue
+
+| Call | Does |
+| --- | --- |
+| `GET {apiBase}/queue` | the list, what is current, and the board config |
+| `POST {apiBase}/queue/items` | add — same body as `/message` |
+| `PATCH {apiBase}/queue/items/{id}` | edit `text`/`rows`, toggle `loop` |
+| `DELETE {apiBase}/queue/items/{id}` | remove; removing the playing item skips |
+| `POST {apiBase}/queue/reorder` | `{itemId, afterId}` — `afterId: null` is the front |
 
 ## 7. Endpoints
 
@@ -268,16 +243,21 @@ queued.
 | `GET` | `/api/b/{slug}/capabilities` | read | charset, grid, accepted values, limits |
 | `GET` | `/api/b/{slug}/status` | read | last reported state, plus `stale`/`updatedAt` |
 | `GET` | `/api/b/{slug}/events` | read | SSE stream of board state |
-| `POST` | `/api/b/{slug}/message` | key | queue `text` or `rows` → `202` |
+| `POST` | `/api/b/{slug}/message` | key | queue `text` or `rows` (+`loop`) → `202` |
+| `GET` | `/api/b/{slug}/queue` | read | the queue: items, current, config |
+| `POST` | `/api/b/{slug}/queue/items` | key | add — same body as `/message` |
+| `PATCH` | `/api/b/{slug}/queue/items/{id}` | key | edit, toggle `loop` |
+| `DELETE` | `/api/b/{slug}/queue/items/{id}` | key | remove (current = skip) |
+| `POST` | `/api/b/{slug}/queue/reorder` | key | `{itemId, afterId}` |
 | `POST` | `/api/b/{slug}/preview` | read | lay out and return pages **without displaying** |
 | `POST` | `/api/b/{slug}/clear` | key | stop and blank; optional `region`, omitted = every band |
 | `DELETE` | `/api/b/{slug}/queue` | key | drop pending, leave the current message playing |
 | `PATCH` | `/api/b/{slug}/config` | key | grid, `footerRows`, motion, dwell, per-band `regions` |
 
-"read" is open on a public board and needs the key on a private one. Two
-further routes exist for the display itself and are not for API clients:
-`GET .../commands/stream` (the SSE feed a display consumes) and
-`POST .../state` (how a display reports what is on the glass).
+"read" is open on a public board and needs the key on a private one. Three
+further routes belong to the display itself and are not for API clients:
+`GET .../commands/stream`, `POST .../state`, and `POST .../queue/advance`
+(the last two take a display credential the board page holds).
 
 ### Status codes
 
@@ -290,6 +270,7 @@ further routes exist for the display itself and are not for API clients:
 | `404` | unknown board — wrong, renamed, or deleted slug | ask the user for the board URL |
 | `413` | body or text too large | send less; limits are in `/capabilities` |
 | `422` | invalid value | the message says which field and why |
+| `429` | queue full (500 items) | flush, clear, or wait |
 
 ## 8. Recommended workflow
 

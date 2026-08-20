@@ -40,6 +40,7 @@ export default async function SettingsPage({ params }: { params: Promise<{ slug:
         name: board.name,
         private: board.private,
         apiKey: board.apiKey,
+        config: (board.config ?? {}) as Record<string, unknown>,
         createdAt: board.createdAt.getTime(),
       }}
     />
