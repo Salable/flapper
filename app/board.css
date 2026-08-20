@@ -1102,3 +1102,34 @@ a.button.primary {
   border-left: 2px solid #d8b25a;
   color: var(--muted);
 }
+
+/* ---- queue mode & sharing ---- */
+
+.mode-toggle {
+  display: flex;
+  gap: 2px;
+  border: 1px solid var(--edge);
+  border-radius: 5px;
+  padding: 2px;
+}
+
+.mode-toggle button {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  border-radius: 3px;
+}
+
+.mode-toggle button.is-on {
+  background: var(--ink);
+  color: #101012;
+}
+
+.attach-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  align-self: stretch;
+  padding: 4px 0;
+}

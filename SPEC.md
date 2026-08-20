@@ -188,11 +188,14 @@ Ordered so each lands green and shippable; W2 is the long pole.
 - Dashboard cards get the live signal this unlocks for free (connected/
   now-showing — audit finding 2).
 
-### W4 — Shared queues & scheduling *(task 6, Plus-gated, per R2)*
+### W4 — Shared queues & scheduling *(task 6, Plus-gated, per R2)* — SHIPPED
 
-- Queue becomes attachable to multiple boards; the scheduling surface from
-  R2; entitlement checks; dormancy behaviour on downgrade.
-- Ships last, dark-launched behind the entitlement so it can bake.
+- Built per the accepted RFC 0002 (all four decisions): queues are entities
+  with a live/timed mode toggle; timed queues compile to a clock-driven
+  cycle (`lib/board/schedule.mjs` shared by server and displays); one-shots
+  splice once at the next boundary; boards attach many-to-one (Plus, timed
+  only); dormancy on downgrade is configurable (card/blank) and never
+  destroys; the offering itself toggles from the dashboard.
 
 Testing bar throughout: every decision in `lib/` under `node --test`
 (queue semantics get the same treatment the privacy matrix got); browser

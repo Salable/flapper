@@ -51,10 +51,31 @@ On the display itself only two keys exist: **F** for fullscreen and **Esc**
 to blank the glass in place — the queue is untouched, and the blank lifts as
 soon as someone adds or edits a message.
 
-## Multiple boards, one queue
+## Playback modes — live and time-based
 
-Coming in a future release (the Plus offering): a queue will have a mode
-toggle — **live queue** (what this page describes) or **time-based** — and a
-time-based queue will be attachable to several boards at once, all showing
-the same thing on the same clock. Design notes live in the repo under
+Every queue has an explicit **mode**, set in Settings → Playback mode:
+
+- **Live queue** (default, everything above): the display plays the list top
+  to bottom and reports back. One board per queue.
+- **Time-based** (Plus): the queue compiles into a repeating cycle — every
+  loop message gets a slot sized to how long it takes to flip and dwell — and
+  each display renders whatever the clock says. One-off messages are spliced
+  in once at the next slot boundary (`priority: now` starts immediately),
+  play once, and drop out. Editing the queue recompiles the cycle without
+  jumping whatever is showing.
+
+## Multiple boards, one queue (Plus)
+
+A **time-based** queue can drive several boards at once: Settings → Playback
+mode → Attach board. Every attached display evaluates the same timeline from
+the same (server) clock, so they stay in step with no coordination — a
+reloaded board lands mid-cycle exactly where its siblings are. The arriving
+board's own queue must be empty first (nothing is ever deleted for you), and
+Detach gives a board a fresh live queue of its own.
+
+**Offerings:** time-based mode and sharing are part of **Plus** (toggle your
+offering from the dashboard — free while Flapper has no billing). Switching
+back to Standard *pauses* Plus features rather than deleting anything: paused
+displays show a labelled notice or a blank board (your choice, per queue),
+and everything resumes exactly where it was on re-upgrade. Design notes:
 `docs/rfcs/0002-scheduling.md`.

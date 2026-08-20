@@ -15,7 +15,15 @@ type BoardRow = {
   showing: string | null;
 };
 
-export function DashboardClient({ userName, boards }: { userName: string; boards: BoardRow[] }) {
+export function DashboardClient({
+  userName,
+  tier,
+  boards,
+}: {
+  userName: string;
+  tier: 'standard' | 'plus';
+  boards: BoardRow[];
+}) {
   const router = useRouter();
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
@@ -59,6 +67,30 @@ export function DashboardClient({ userName, boards }: { userName: string; boards
         right={
           <>
             <span className="muted">{userName}</span>
+            <button
+              title={
+                tier === 'plus'
+                  ? 'Plus: time-based playback and shared queues. Click to switch to Standard - Plus features pause, nothing is deleted.'
+                  : 'Standard: up to 3 boards, live queues. Click to switch to Plus (free while Flapper has no billing).'
+              }
+              onClick={async () => {
+                const next = tier === 'plus' ? 'standard' : 'plus';
+                if (
+                  next === 'standard' &&
+                  !confirm('Switch to Standard? Time-based and shared queues pause (nothing is deleted).')
+                ) {
+                  return;
+                }
+                await fetch('/api/account/tier', {
+                  method: 'POST',
+                  headers: { 'content-type': 'application/json' },
+                  body: JSON.stringify({ tier: next }),
+                });
+                router.refresh();
+              }}
+            >
+              {tier === 'plus' ? 'Plus' : 'Standard'}
+            </button>
             <button
               onClick={async () => {
                 await signOut();

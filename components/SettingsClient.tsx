@@ -11,6 +11,7 @@ import { useRouter } from 'next/navigation';
 import { AppBar } from '@/components/AppBar';
 import { QueueManager } from '@/components/QueueManager';
 import { DisplayConfig } from '@/components/DisplayConfig';
+import { QueueModePanel } from '@/components/QueueModePanel';
 
 type Board = {
   id: string;
@@ -22,7 +23,15 @@ type Board = {
   createdAt: number;
 };
 
-export function SettingsClient({ board: initial }: { board: Board }) {
+type QueueMeta = {
+  mode: 'live' | 'timed';
+  dormancyDisplay: 'card' | 'blank';
+  tier: 'standard' | 'plus';
+  attached: { slug: string; name: string }[];
+  attachable: { slug: string; name: string }[];
+};
+
+export function SettingsClient({ board: initial, queue }: { board: Board; queue: QueueMeta }) {
   const router = useRouter();
   const [board, setBoard] = useState(initial);
   const [name, setName] = useState(initial.name);
@@ -132,6 +141,14 @@ export function SettingsClient({ board: initial }: { board: Board }) {
         {notice !== '' && <p className="muted">{notice}</p>}
 
         <QueueManager slug={board.slug} />
+        <QueueModePanel
+          slug={board.slug}
+          mode={queue.mode}
+          dormancyDisplay={queue.dormancyDisplay}
+          tier={queue.tier}
+          attached={queue.attached}
+          attachable={queue.attachable}
+        />
         <DisplayConfig slug={board.slug} initial={board.config} />
 
       <section className="settings-block">

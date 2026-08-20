@@ -1,6 +1,9 @@
 # RFC 0002 — Queue modes and time-based playback (shared queues)
 
-*Status: awaiting sign-off · Author: Claude · 2026-08-20*
+*Status: ACCEPTED 2026-08-20 · Author: Claude · Decisions: cycle-first (A);
+timed mode is Plus (Standard is live-only); one-shots splice into the next
+boundary once then drop; dormancy display is configurable per queue
+(labelled card or blank).*
 *Scope: SPEC workstream W4 (Plus offering). Nothing here ships in 3.0.*
 
 ## The frame (Neal's toggle model)
@@ -17,8 +20,9 @@ behaviour never changes silently under a user. Attaching a **second board**
 to a queue *requires* time-based mode: the UI offers a confirmed conversion
 ("this queue will switch to time-based playback"), never an automatic flip.
 Detaching back to one board does **not** auto-revert; the owner can toggle
-back to live explicitly. Both modes are Plus-gated only where sharing is:
-a single board may use either mode; multiple boards require Plus.
+back to live explicitly. Timed mode is itself Plus
+(decision 2): Standard queues are live-only, and sharing — which requires
+timed — is therefore Plus twice over.
 
 This resolves the R1 hybrid cleanly: two playback machines, each engaged by
 an explicit state everyone can see.
