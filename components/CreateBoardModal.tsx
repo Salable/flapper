@@ -115,11 +115,13 @@ export function CreateBoardModal({
           {picked.createParams.map((param) => (
             <Field key={param.key} label={param.label} hint={param.hint} htmlFor={`cp-${param.key}`}>
               {param.kind === 'number' ? (
+                // Raw string while typing - the server coerces and validates,
+                // so a half-typed value never echoes back as NaN or 0.
                 <TextInput
                   id={`cp-${param.key}`}
                   inputMode="numeric"
                   value={String(values[param.key] ?? param.default ?? '')}
-                  onChange={(e) => set(param.key, Number(e.target.value))}
+                  onChange={(e) => set(param.key, e.target.value)}
                 />
               ) : param.kind === 'select' ? (
                 <Select

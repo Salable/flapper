@@ -8,6 +8,7 @@ import {
   zonedToUtc,
   expiryOf,
   describeSchedule,
+  relativeWhen,
   isTimezone,
 } from '../lib/board/schedule.mjs';
 
@@ -211,4 +212,12 @@ test('describeSchedule reads like a schedule', () => {
   assert.equal(describeSchedule({ kind: 'daily', at: '09:00' }), 'daily at 09:00');
   assert.equal(describeSchedule({ kind: 'interval', everyMs: 90_000 }), 'every 90s');
   assert.equal(describeSchedule({ kind: 'hourly', minute: 5 }), 'hourly at :05');
+});
+
+test('relativeWhen phrases distances unmistakably', () => {
+  assert.equal(relativeWhen(1000, 500), 'now');
+  assert.equal(relativeWhen(45_000, 0), 'in 45s');
+  assert.equal(relativeWhen(5 * 60_000, 0), 'in 5 min');
+  assert.equal(relativeWhen(3 * 3_600_000, 0), 'in 3 h');
+  assert.equal(relativeWhen(3 * 86_400_000, 0), 'in 3 days');
 });

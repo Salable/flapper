@@ -12,6 +12,7 @@ import {
   describeSchedule,
   occurrencesAfter,
   isTimezone,
+  relativeWhen,
 } from '@/lib/board/schedule.mjs';
 import { Button } from '@/components/ui/Button';
 import { Field, TextInput, Select } from '@/components/ui/Field';
@@ -160,12 +161,21 @@ export default function ScheduleEditor({ slug }: { slug: string }) {
   }, [kind, minutes, seconds, minute, at, dow, onceAt, duration]);
 
   const tz = snapshot?.config?.timezone ?? 'UTC';
+  /**
+   * When an occurrence happens, phrased so it cannot be misread: relative
+   * for anything soon ("in 4 min" - a bare "Thu 23:15" near midnight reads
+   * as next Thursday), a clock time for later today, and a weekday only
+   * when it really is days away.
+   */
   const timeIn = useCallback(
     (ms: number) => {
+      const delta = ms - (Date.now() + skewRef.current);
+      if (delta < 90 * 60_000) return relativeWhen(ms, ms - delta);
       try {
+        const far = delta > 20 * 3_600_000;
         return new Intl.DateTimeFormat(undefined, {
           timeZone: tz,
-          weekday: 'short',
+          ...(far ? { weekday: 'short', day: 'numeric', month: 'short' } : {}),
           hour: '2-digit',
           minute: '2-digit',
           second: '2-digit',
@@ -305,7 +315,12 @@ export default function ScheduleEditor({ slug }: { slug: string }) {
         <span className="ui-hint">
           {spec
             ? preview.length > 0
-              ? `Next: ${preview.map(timeIn).join('  ·  ')} (${tz})`
+              ? (() => {
+                  const labels = preview.map(timeIn);
+                  // The zone only matters when a wall-clock time is shown.
+                  const clocked = labels.some((label) => label.includes(':'));
+                  return `Next: ${labels.join('  ·  ')}${clocked ? ` (${tz})` : ''}`;
+                })()
               : 'This schedule has no upcoming occurrence.'
             : 'Finish the schedule fields to see the next occurrences.'}
         </span>
