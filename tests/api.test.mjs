@@ -875,3 +875,37 @@ test('patching a scheduled item revalidates and recuts its slot', async () => {
   const exported = await jsonOf(call(exportQueue, ctx(board.slug, 'owner'), '/x'));
   assert.deepEqual(exported.body.items[0].schedule, { kind: 'hourly', minute: 30 });
 });
+
+/* ---- shared boards & type-aware docs ---- */
+
+test('a shared board is scheduled machinery with the multi-screen promise', async () => {
+  const board = await makeBoard({ slug: 'shared-lobby', type: 'shared', fallback: 'HELLO' });
+  assert.equal(board.type, 'shared');
+  const posted = await jsonOf(
+    call(postMessage, ctx(board.slug), '/x', {
+      method: 'POST',
+      key: board.apiKey,
+      body: { text: 'STANDUP', schedule: { kind: 'daily', at: '09:30', durationMs: 60_000 } },
+    }),
+  );
+  assert.equal(posted.status, 202);
+  const q = await jsonOf(call(getQueue, ctx(board.slug), '/x'));
+  assert.equal(q.body.playback, 'clock');
+  assert.ok('activeItemId' in q.body);
+});
+
+test('AGENTS.md speaks the board’s type', async () => {
+  const live = await makeBoard({ slug: 'doc-live' });
+  const liveDoc = await (await call(agentsDoc, ctx(live.slug), '/x')).text();
+  assert.match(liveDoc, /type is `live`/);
+  assert.match(liveDoc, /Jumping the queue/);
+  assert.ok(!liveDoc.includes('Time-based'), 'the 3.0 Plus section is gone');
+  assert.ok(!liveDoc.includes('schedule.kind'), 'live docs do not document schedules');
+
+  const clock = await makeBoard({ slug: 'doc-clock', type: 'scheduled' });
+  const clockDoc = await (await call(agentsDoc, ctx(clock.slug), '/x')).text();
+  assert.match(clockDoc, /type is `scheduled`/);
+  assert.match(clockDoc, /The clock owns playback/);
+  assert.match(clockDoc, /schedule\.kind/);
+  assert.ok(!clockDoc.includes('Jumping the queue'), 'no priority table on a clock board');
+});
