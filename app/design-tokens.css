@@ -1,0 +1,93 @@
+/**
+ * Flapper design tokens - the single vocabulary every screen and component
+ * draws from. The palette is the board's own world: the black of the glass,
+ * the bone of the painted flaps, the amber of a departure warning. See
+ * docs/DESIGN-SYSTEM.md for usage rules.
+ */
+
+:root {
+  /* ---- color: grounds ---- */
+  --bg: #0a0a0b;            /* the room the board hangs in */
+  --surface-1: #141417;      /* panels, cards */
+  --surface-2: #1b1b1f;      /* raised elements, inputs on panels */
+  --tile-hi: #232327;        /* tile face, upper half */
+  --tile-lo: #131316;        /* tile face, lower half */
+  --edge: rgba(236, 231, 221, 0.11);
+  --edge-strong: rgba(236, 231, 221, 0.28);
+  --shade: rgba(0, 0, 0, 0.45);
+
+  /* ---- color: ink ---- */
+  --ink: #ece7dd;            /* bone - the painted flap character */
+  --muted: rgba(236, 231, 221, 0.52);
+  --faint: rgba(236, 231, 221, 0.28);
+  --ink-inverse: #101012;    /* on amber or bone grounds */
+
+  /* ---- color: signals ---- */
+  --amber: #d8b25a;          /* brand accent; attention, priority, warmth */
+  --amber-dim: rgba(216, 178, 90, 0.42);
+  --live: #7dc47a;           /* a display is connected */
+  --danger: #e08870;         /* destructive, errors */
+  --danger-dim: rgba(224, 136, 112, 0.4);
+
+  /* ---- type ---- */
+  --font-mono: var(--next-font-mono, ui-monospace, "SF Mono", Menlo, monospace);
+  --font-sans: var(--next-font-sans, -apple-system, "Segoe UI", sans-serif);
+  --text-xs: 10px;
+  --text-sm: 12px;
+  --text-md: 13.5px;
+  --text-lg: 16px;
+  --text-xl: 22px;
+  --track-label: 0.16em;     /* uppercase labels */
+  --track-display: 0.32em;   /* the wordmark register */
+
+  /* ---- space & shape ---- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-pill: 999px;
+
+  /* ---- motion: the flap ---- */
+  /* A flap falls fast and lands with a slight catch - front-loaded, no bounce. */
+  --flap-ms: 240ms;
+  --flap-ms-slow: 420ms;
+  --ease-flap: cubic-bezier(0.55, 0, 0.3, 1);
+  --ease-settle: cubic-bezier(0.2, 0.9, 0.25, 1);
+}
+
+/* The half-flip reveal. Apply .flap-in to elements entering the page. */
+@keyframes flap-in {
+  0% {
+    transform: perspective(600px) rotateX(-55deg);
+    opacity: 0;
+  }
+  60% {
+    transform: perspective(600px) rotateX(8deg);
+    opacity: 1;
+  }
+  100% {
+    transform: perspective(600px) rotateX(0deg);
+    opacity: 1;
+  }
+}
+
+.flap-in {
+  animation: flap-in var(--flap-ms-slow) var(--ease-flap) both;
+  transform-origin: 50% 0%;
+}
+
+/* Stagger helper: parents set --flap-i per child. */
+.flap-in[style*='--flap-i'] {
+  animation-delay: calc(var(--flap-i) * 50ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flap-in {
+    animation: none;
+  }
+}

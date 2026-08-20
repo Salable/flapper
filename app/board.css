@@ -1,11 +1,8 @@
 :root {
-  --bg: #0a0a0b;
-  --panel: rgba(22, 22, 25, 0.92);
-  --edge: rgba(255, 255, 255, 0.1);
-  --ink: #ece7dd;
-  --muted: rgba(236, 231, 221, 0.42);
-  --accent: #ece7dd;
-  --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
+  /* Legacy aliases onto design-tokens.css; new styles use the tokens directly. */
+  --panel: var(--surface-1);
+  --accent: var(--ink);
+  --mono: var(--font-mono);
 }
 
 * {
@@ -1132,4 +1129,8 @@ a.button.primary {
   gap: 10px;
   align-self: stretch;
   padding: 4px 0;
+}
+
+.landing-hero {
+  margin-bottom: 6px;
 }

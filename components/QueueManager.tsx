@@ -7,6 +7,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
 
 type QueueItem = {
   id: string;
@@ -34,6 +35,7 @@ export function QueueManager({ slug }: { slug: string }) {
   const [editing, setEditing] = useState<{ id: string; text: string } | null>(null);
   const [error, setError] = useState('');
   const busyRef = useRef(false);
+  const { confirm, dialog } = useConfirm();
 
   const refresh = useCallback(async () => {
     try {
@@ -112,6 +114,7 @@ export function QueueManager({ slug }: { slug: string }) {
 
   return (
     <>
+      {dialog}
       <section className="settings-block">
         <h2>Compose</h2>
         <div className="field">
@@ -247,8 +250,16 @@ export function QueueManager({ slug }: { slug: string }) {
             Flush pending
           </button>
           <button
-            onClick={() => {
-              if (confirm('Clear the queue and blank the board?')) act(() => post('/clear', 'POST', {}));
+            onClick={async () => {
+              if (
+                await confirm({
+                  title: 'Clear the queue and blank the board?',
+                  confirmLabel: 'Clear board',
+                  danger: true,
+                })
+              ) {
+                act(() => post('/clear', 'POST', {}));
+              }
             }}
             title="Stop everything and blank the glass"
           >

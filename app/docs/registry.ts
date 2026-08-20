@@ -13,6 +13,12 @@ export const DOCS: { slug: string; file: string; title: string; blurb: string }[
     blurb: 'How playback works: order, loops, holding, priorities, and the queue API.',
   },
   {
+    slug: 'design-system',
+    file: 'DESIGN-SYSTEM.md',
+    title: 'Design system',
+    blurb: 'Tokens, components, type and motion rules - the contract for anything visual.',
+  },
+  {
     slug: 'board-api',
     file: 'BOARD-API.md',
     title: 'Board API',

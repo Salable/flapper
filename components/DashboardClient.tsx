@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { signOut } from '@/lib/auth-client';
 import { AppBar } from '@/components/AppBar';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
 
 type BoardRow = {
   id: string;
@@ -25,6 +26,7 @@ export function DashboardClient({
   boards: BoardRow[];
 }) {
   const router = useRouter();
+  const { confirm, dialog } = useConfirm();
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -48,9 +50,13 @@ export function DashboardClient({
   }
 
   async function remove(board: BoardRow) {
-    if (!confirm(`Delete "${board.name || board.slug}"? Its URL, key, and queue are gone for good.`)) {
-      return;
-    }
+    const ok = await confirm({
+      title: `Delete ${board.name || board.slug}?`,
+      body: 'Its URL, key, and queue are gone for good.',
+      confirmLabel: 'Delete board',
+      danger: true,
+    });
+    if (!ok) return;
     setError('');
     const response = await fetch(`/api/b/${board.slug}`, { method: 'DELETE' });
     if (!response.ok) {
@@ -63,6 +69,7 @@ export function DashboardClient({
 
   return (
     <div className="app-shell">
+      {dialog}
       <AppBar
         right={
           <>
@@ -77,7 +84,11 @@ export function DashboardClient({
                 const next = tier === 'plus' ? 'standard' : 'plus';
                 if (
                   next === 'standard' &&
-                  !confirm('Switch to Standard? Time-based and shared queues pause (nothing is deleted).')
+                  !(await confirm({
+                    title: 'Switch to Standard?',
+                    body: 'Time-based and shared queues pause (nothing is deleted).',
+                    confirmLabel: 'Switch',
+                  }))
                 ) {
                   return;
                 }

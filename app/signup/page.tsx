@@ -1,10 +1,11 @@
 import { Suspense } from 'react';
 import { AuthForm } from '@/components/AuthForm';
+import { MiniBoard } from '@/components/ui/MiniBoard';
 
 export default function SignupPage() {
   return (
     <main className="landing">
-      <h1>FLAPPER</h1>
+      <div className="landing-hero"><MiniBoard text="FLAPPER" size="md" animate /></div>
       <Suspense>
         <AuthForm mode="signup" />
       </Suspense>

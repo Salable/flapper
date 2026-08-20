@@ -1,6 +1,8 @@
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { sessionFromHeaders } from '@/lib/auth';
+import { MiniBoard } from '@/components/ui/MiniBoard';
+import { LinkButton } from '@/components/ui/Button';
 
 export default async function LandingPage() {
   const session = await sessionFromHeaders(await headers());
@@ -8,22 +10,26 @@ export default async function LandingPage() {
 
   return (
     <main className="landing">
-      <h1>FLAPPER</h1>
+      <div className="landing-hero">
+        <MiniBoard text="FLAPPER" size="lg" animate />
+      </div>
       <p>
         A split-flap departure board for any screen. Create a board, open it on the display, and
-        drive it from the panel — or over a REST API from anything that can speak HTTP.
+        drive it from your control room — or over a REST API from anything that can speak HTTP.
       </p>
       <div className="actions">
-        <a className="button primary" href="/signup">
+        <LinkButton variant="primary" href="/signup">
           Create account
-        </a>
-        <a className="button" href="/login">
-          Sign in
-        </a>
+        </LinkButton>
+        <LinkButton href="/login">Sign in</LinkButton>
+        <LinkButton variant="ghost" href="/docs">
+          Docs
+        </LinkButton>
       </div>
       <p className="muted">
-        Every board gets its own URL, its own API key, and its own agent guide at{' '}
-        <code>/AGENTS.md</code>. Boards can be public to watch or private to a key.
+        Boards come in types — a rolling live queue, a clock-driven schedule, a synchronized
+        multi-screen sign — each with its own URL, API key, and agent guide at{' '}
+        <code>/AGENTS.md</code>.
       </p>
     </main>
   );

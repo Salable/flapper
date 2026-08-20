@@ -9,6 +9,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppBar } from '@/components/AppBar';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { QueueManager } from '@/components/QueueManager';
 import { DisplayConfig } from '@/components/DisplayConfig';
 import { QueueModePanel } from '@/components/QueueModePanel';
@@ -33,6 +34,7 @@ type QueueMeta = {
 
 export function SettingsClient({ board: initial, queue }: { board: Board; queue: QueueMeta }) {
   const router = useRouter();
+  const { confirm, dialog } = useConfirm();
   const [board, setBoard] = useState(initial);
   const [name, setName] = useState(initial.name);
   const [slug, setSlug] = useState(initial.slug);
@@ -88,9 +90,13 @@ export function SettingsClient({ board: initial, queue }: { board: Board; queue:
   }
 
   async function regenerate() {
-    if (!confirm('Regenerate the API key? The current key stops working immediately - every script and display URL using it must be updated.')) {
-      return;
-    }
+    const ok = await confirm({
+      title: 'Regenerate the API key?',
+      body: 'The current key stops working immediately — every script and display URL using it must be updated.',
+      confirmLabel: 'Regenerate',
+      danger: true,
+    });
+    if (!ok) return;
     setBusy(true);
     setError('');
     try {
@@ -107,9 +113,13 @@ export function SettingsClient({ board: initial, queue }: { board: Board; queue:
   }
 
   async function remove() {
-    if (!confirm(`Delete "${board.name || board.slug}"? Its URL, key, and queue are gone for good.`)) {
-      return;
-    }
+    const ok = await confirm({
+      title: `Delete ${board.name || board.slug}?`,
+      body: 'Its URL, key, and queue are gone for good.',
+      confirmLabel: 'Delete board',
+      danger: true,
+    });
+    if (!ok) return;
     const response = await fetch(`/api/b/${board.slug}`, { method: 'DELETE' });
     if (!response.ok) {
       const payload = await response.json().catch(() => ({}));
@@ -123,6 +133,7 @@ export function SettingsClient({ board: initial, queue }: { board: Board; queue:
 
   return (
     <div className="app-shell">
+      {dialog}
       <AppBar
         right={
           <>
