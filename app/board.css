@@ -696,64 +696,8 @@ a.button.primary {
   font-weight: 600;
 }
 
-main.landing.dashboard {
-  justify-content: flex-start;
-  padding-top: 60px;
-}
-
-.dash-head {
-  display: flex;
-  align-items: baseline;
-  gap: 16px;
-}
-
-.dash-head h1 {
-  font-size: 20px;
-  letter-spacing: 0.35em;
-  margin: 0;
-  font-weight: 600;
-}
-
-.board-row {
-  display: flex;
-  align-items: stretch;
-  gap: 8px;
-}
-
-.board-row .board-open {
-  flex: 1;
-  color: var(--ink);
-  text-decoration: none;
-  border: 1px solid var(--edge);
-  padding: 8px 12px;
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  min-width: 0;
-}
-
-.board-row .board-open:hover {
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.board-row .board-actions {
-  display: flex;
-  gap: 8px;
-  flex: none;
-}
 
 /* ---- settings page ---- */
-
-main.landing.settings {
-  align-items: stretch;
-  max-width: 640px;
-  margin: 0 auto;
-  text-align: left;
-}
-
-main.landing.settings .dash-head {
-  flex-wrap: wrap;
-}
 
 .settings-block {
   border: 1px solid var(--edge);
@@ -796,4 +740,169 @@ main.landing.settings .dash-head {
 
 .settings-block.danger {
   border-color: rgba(224, 136, 112, 0.4);
+}
+
+/* ---- signed-in chrome: app bar + content shell ---- */
+
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.app-bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 24px;
+  border-bottom: 1px solid var(--edge);
+  background: var(--panel);
+}
+
+.app-bar .brand {
+  font-size: 16px;
+  letter-spacing: 0.35em;
+  font-weight: 600;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.app-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.app-bar-right .muted {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dash {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  width: 100%;
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 28px 24px 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.dash-create {
+  display: flex;
+  gap: 10px;
+}
+
+.dash-create input {
+  flex: 1;
+  max-width: 420px;
+  font: inherit;
+  color: var(--ink);
+  background: rgba(0, 0, 0, 0.42);
+  border: 1px solid var(--edge);
+  border-radius: 4px;
+  padding: 8px 10px;
+  user-select: text;
+  cursor: text;
+}
+
+.dash-title {
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 8px 0 0;
+  font-weight: 600;
+}
+
+.dash-empty {
+  margin: auto;
+  text-align: center;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.board-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.board-card {
+  border: 1px solid var(--edge);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.board-card-open {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 14px 12px;
+  color: var(--ink);
+  text-decoration: none;
+  min-width: 0;
+}
+
+.board-card-open:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.board-card-name {
+  font-size: 14px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.board-card-slug,
+.board-card-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+}
+
+.board-card-actions {
+  display: flex;
+  gap: 6px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--edge);
+}
+
+.board-card-actions .button,
+.board-card-actions button {
+  padding: 5px 10px;
+  font-size: 11px;
+}
+
+.board-card-actions button.ghost {
+  margin-left: auto;
+  background: transparent;
+  border-style: dashed;
+  color: var(--muted);
+}
+
+.board-card-actions button.ghost:hover {
+  color: #e08870;
+  border-color: rgba(224, 136, 112, 0.5);
+}
+
+/* Settings shares the shell; its column reads better narrower. */
+.dash.settings {
+  max-width: 680px;
 }

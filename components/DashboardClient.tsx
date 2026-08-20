@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { signOut } from '@/lib/auth-client';
+import { AppBar } from '@/components/AppBar';
 
 type BoardRow = {
   id: string;
@@ -51,60 +52,84 @@ export function DashboardClient({ userName, boards }: { userName: string; boards
   }
 
   return (
-    <main className="landing dashboard">
-      <div className="dash-head">
-        <h1>FLAPPER</h1>
-        <span className="muted">{userName}</span>
-        <button
-          onClick={async () => {
-            await signOut();
-            router.push('/');
-            router.refresh();
-          }}
-        >
-          Sign out
-        </button>
-      </div>
+    <div className="app-shell">
+      <AppBar
+        right={
+          <>
+            <span className="muted">{userName}</span>
+            <button
+              onClick={async () => {
+                await signOut();
+                router.push('/');
+                router.refresh();
+              }}
+            >
+              Sign out
+            </button>
+          </>
+        }
+      />
 
-      <div className="actions">
-        <input
-          type="text"
-          placeholder="Board name (optional)"
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') create();
-          }}
-        />
-        <button className="primary" onClick={create} disabled={busy}>
-          {busy ? 'Creating…' : 'New board'}
-        </button>
-      </div>
-      {error !== '' && <p className="error">{error}</p>}
-
-      {boards.length === 0 ? (
-        <p className="muted">No boards yet. Create one — it takes a second.</p>
-      ) : (
-        <div className="boards">
-          {boards.map((board) => (
-            <div className="board-row" key={board.id}>
-              <a className="board-open" href={`/b/${board.slug}`}>
-                <span>{board.name || board.slug}</span>
-                <span className="muted">
-                  /b/{board.slug}
-                  {board.private ? ' · private' : ''}
-                </span>
-              </a>
-              <div className="board-actions">
-                <a className="button" href={`/b/${board.slug}/settings`}>
-                  Settings
-                </a>
-                <button onClick={() => remove(board)}>Delete</button>
-              </div>
-            </div>
-          ))}
+      <main className="dash">
+        <div className="dash-create">
+          <input
+            type="text"
+            placeholder="Board name (optional)"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') create();
+            }}
+          />
+          <button className="primary" onClick={create} disabled={busy}>
+            {busy ? 'Creating…' : 'New board'}
+          </button>
         </div>
-      )}
-    </main>
+        {error !== '' && <p className="error">{error}</p>}
+
+        {boards.length === 0 ? (
+          <div className="dash-empty">
+            <p>No boards yet.</p>
+            <p className="muted">
+              A board is a split-flap display with its own URL and its own API — put it on a wall,
+              drive it from anywhere. Create one; it takes a second.
+            </p>
+          </div>
+        ) : (
+          <>
+            <h2 className="dash-title">
+              Boards <span className="muted">{boards.length}</span>
+            </h2>
+            <div className="board-grid">
+              {boards.map((board) => (
+                <article className="board-card" key={board.id}>
+                  <a className="board-card-open" href={`/b/${board.slug}`}>
+                    <span className="board-card-name">{board.name || board.slug}</span>
+                    <span className="board-card-slug muted">/b/{board.slug}</span>
+                    <span className="board-card-meta muted">
+                      {/* ISO, not toLocaleDateString: the server's locale and
+                          the visitor's can disagree, and hydration notices. */}
+                      {board.private ? 'private' : 'public'} · created{' '}
+                      {new Date(board.createdAt).toISOString().slice(0, 10)}
+                    </span>
+                  </a>
+                  <div className="board-card-actions">
+                    <a className="button" href={`/b/${board.slug}`}>
+                      Open
+                    </a>
+                    <a className="button" href={`/b/${board.slug}/settings`}>
+                      Settings
+                    </a>
+                    <button className="ghost" onClick={() => remove(board)}>
+                      Delete
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </>
+        )}
+      </main>
+    </div>
   );
 }

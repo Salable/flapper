@@ -6,8 +6,9 @@
  * component gates before this ever renders.
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { AppBar } from '@/components/AppBar';
 
 type Board = {
   id: string;
@@ -29,7 +30,10 @@ export function SettingsClient({ board: initial }: { board: Board }) {
   const [error, setError] = useState('');
   const [copied, setCopied] = useState('');
 
-  const origin = typeof window === 'undefined' ? '' : window.location.origin;
+  // Resolved after mount: the server does not know the public origin, and
+  // rendering it there would make hydration disagree with the glass.
+  const [origin, setOrigin] = useState('');
+  useEffect(() => setOrigin(window.location.origin), []);
   const boardUrl = `${origin}/b/${board.slug}`;
   const displayUrl = board.private ? `${boardUrl}?key=${board.apiKey}` : boardUrl;
   const apiBase = `${origin}/api/b/${board.slug}`;
@@ -106,20 +110,23 @@ export function SettingsClient({ board: initial }: { board: Board }) {
   const identityDirty = name !== board.name || slug !== board.slug;
 
   return (
-    <main className="landing dashboard settings">
-      <div className="dash-head">
-        <h1>FLAPPER</h1>
-        <span className="muted">/b/{board.slug} · settings</span>
-        <a className="button" href={boardUrl}>
-          Open board
-        </a>
-        <a className="button" href="/dashboard">
-          Dashboard
-        </a>
-      </div>
-
-      {error !== '' && <p className="error">{error}</p>}
-      {notice !== '' && <p className="muted">{notice}</p>}
+    <div className="app-shell">
+      <AppBar
+        right={
+          <>
+            <span className="muted">/b/{board.slug} · settings</span>
+            <a className="button" href={boardUrl}>
+              Open board
+            </a>
+            <a className="button" href="/dashboard">
+              Dashboard
+            </a>
+          </>
+        }
+      />
+      <main className="dash settings">
+        {error !== '' && <p className="error">{error}</p>}
+        {notice !== '' && <p className="muted">{notice}</p>}
 
       <section className="settings-block">
         <h2>Identity</h2>
@@ -204,12 +211,13 @@ export function SettingsClient({ board: initial }: { board: Board }) {
         </div>
       </section>
 
-      <section className="settings-block danger">
-        <h2>Danger</h2>
-        <button onClick={remove} disabled={busy}>
-          Delete this board
-        </button>
-      </section>
-    </main>
+        <section className="settings-block danger">
+          <h2>Danger</h2>
+          <button onClick={remove} disabled={busy}>
+            Delete this board
+          </button>
+        </section>
+      </main>
+    </div>
   );
 }
