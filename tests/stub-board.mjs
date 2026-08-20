@@ -14,8 +14,6 @@ import { MOTION_DEFAULTS } from '../lib/board/timing.mjs';
 const manifest = JSON.parse(readFileSync(new URL('../public/assets/manifest.json', import.meta.url)));
 const charset = charsetFromManifest(manifest);
 
-export { manifest, charset };
-
 /**
  * A board stand-in. Real animation is irrelevant here; what matters is the
  * contract a track depends on — that a band shown without `immediate`

@@ -1,8 +1,7 @@
-import { apiCtx } from "@/lib/api/next-ctx";
-type Ctx = { params: Promise<{ slug: string }> };
-import { queueDetach } from '@/lib/api/handlers.mjs';
+const GONE = JSON.stringify({
+  error: 'detach was removed with queue sharing in Flapper 4.0; see /docs',
+});
 
-export async function POST(request: Request, ctx: Ctx) {
-  const { slug } = await ctx.params;
-  return queueDetach(request, await apiCtx(request, slug));
+export async function POST() {
+  return new Response(GONE, { status: 410, headers: { 'content-type': 'application/json' } });
 }

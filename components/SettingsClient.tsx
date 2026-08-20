@@ -12,27 +12,20 @@ import { AppBar } from '@/components/AppBar';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { QueueManager } from '@/components/QueueManager';
 import { DisplayConfig } from '@/components/DisplayConfig';
-import { QueueModePanel } from '@/components/QueueModePanel';
 
 type Board = {
   id: string;
   slug: string;
   name: string;
+  type: string;
+  status: 'active' | 'deactivated';
   private: boolean;
   apiKey: string;
   config: Record<string, unknown>;
   createdAt: number;
 };
 
-type QueueMeta = {
-  mode: 'live' | 'timed';
-  dormancyDisplay: 'card' | 'blank';
-  tier: 'standard' | 'plus';
-  attached: { slug: string; name: string }[];
-  attachable: { slug: string; name: string }[];
-};
-
-export function SettingsClient({ board: initial, queue }: { board: Board; queue: QueueMeta }) {
+export function SettingsClient({ board: initial }: { board: Board }) {
   const router = useRouter();
   const { confirm, dialog } = useConfirm();
   const [board, setBoard] = useState(initial);
@@ -152,14 +145,6 @@ export function SettingsClient({ board: initial, queue }: { board: Board; queue:
         {notice !== '' && <p className="muted">{notice}</p>}
 
         <QueueManager slug={board.slug} />
-        <QueueModePanel
-          slug={board.slug}
-          mode={queue.mode}
-          dormancyDisplay={queue.dormancyDisplay}
-          tier={queue.tier}
-          attached={queue.attached}
-          attachable={queue.attachable}
-        />
         <DisplayConfig slug={board.slug} initial={board.config} />
 
       <section className="settings-block">

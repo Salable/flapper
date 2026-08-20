@@ -4,7 +4,6 @@ import { sessionFromHeaders } from '@/lib/auth';
 import { getDb } from '@/lib/db/client.mjs';
 import { listByOwner } from '@/lib/db/boards.mjs';
 import { getBroker } from '@/lib/broker/index.mjs';
-import { getUserTier } from '@/lib/db/entitlements.mjs';
 import { DashboardClient } from '@/components/DashboardClient';
 
 export const dynamic = 'force-dynamic';
@@ -38,8 +37,5 @@ export default async function DashboardPage() {
     }),
   );
 
-  const tier = (await getUserTier(db, session.user.id)) as 'standard' | 'plus';
-  return (
-    <DashboardClient userName={session.user.name || session.user.email} tier={tier} boards={rows} />
-  );
+  return <DashboardClient userName={session.user.name || session.user.email} boards={rows} />;
 }

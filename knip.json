@@ -1,0 +1,23 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": [
+    "app/**/{page,layout,route,error,not-found}.{ts,tsx}",
+    "tests/*.test.mjs",
+    "tools/*.mjs",
+    "lib/auth-client.ts",
+    "components/ui/*.tsx",
+    "components/board-types/registry.ts"
+  ],
+  "project": [
+    "app/**",
+    "components/**",
+    "hooks/**",
+    "lib/**",
+    "tools/**",
+    "tests/**"
+  ],
+  "ignore": [
+    "attic/**",
+    ".next/**"
+  ]
+}

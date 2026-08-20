@@ -1,8 +1,8 @@
-import { apiCtx } from "@/lib/api/next-ctx";
-type Ctx = { params: Promise<{ slug: string }> };
-import { queueAttach } from '@/lib/api/handlers.mjs';
+const GONE = JSON.stringify({
+  error:
+    'attaching boards to a queue was removed in Flapper 4.0 - a shared board is the same board URL opened on many screens; see /docs',
+});
 
-export async function POST(request: Request, ctx: Ctx) {
-  const { slug } = await ctx.params;
-  return queueAttach(request, await apiCtx(request, slug));
+export async function POST() {
+  return new Response(GONE, { status: 410, headers: { 'content-type': 'application/json' } });
 }

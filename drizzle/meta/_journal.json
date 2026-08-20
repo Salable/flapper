@@ -22,6 +22,13 @@
       "when": 1787255909378,
       "tag": "0002_cynical_stellaris",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1787262872172,
+      "tag": "0003_bumpy_inertia",
+      "breakpoints": true
     }
   ]
 }

@@ -17,6 +17,7 @@ import {
   clearBoard,
   patchConfig,
   postState,
+  exportQueue,
   agentsDoc,
   commandEvents,
   stateEvents,
@@ -220,18 +221,89 @@ test('writes need the API key or the owner session; strangers get nothing', asyn
   );
 });
 
-test('a standard account is refused a fourth board with a named 403', async () => {
-  for (const slug of ['one-board', 'two-board', 'three-board']) {
-    await makeBoard({ slug });
-  }
-  const result = await jsonOf(
+test('boards are created as a type; unknown types are named 422s', async () => {
+  const live = await jsonOf(
     call(createBoard, ctx(undefined, 'owner'), '/api/boards', {
       method: 'POST',
-      body: { slug: 'four-board' },
+      body: { slug: 'typed-board', type: 'live', queueCap: 3 },
     }),
   );
-  assert.equal(result.status, 403);
-  assert.match(result.body.error, /standard tier allows 3 boards/);
+  assert.equal(live.status, 201);
+  assert.equal(live.body.type, 'live');
+
+  const bad = await jsonOf(
+    call(createBoard, ctx(undefined, 'owner'), '/api/boards', {
+      method: 'POST',
+      body: { slug: 'weird-board', type: 'hologram' },
+    }),
+  );
+  assert.equal(bad.status, 422);
+  assert.match(bad.body.error, /unknown board type/);
+
+  const badParam = await jsonOf(
+    call(createBoard, ctx(undefined, 'owner'), '/api/boards', {
+      method: 'POST',
+      body: { slug: 'capless-board', type: 'live', queueCap: 999 },
+    }),
+  );
+  assert.equal(badParam.status, 422);
+  assert.match(badParam.body.error, /queueCap/);
+});
+
+test('a live board rolls its queue at the cap instead of refusing', async () => {
+  const board = (
+    await jsonOf(
+      call(createBoard, ctx(undefined, 'owner'), '/api/boards', {
+        method: 'POST',
+        body: { slug: 'ticker-board', type: 'live', queueCap: 3 },
+      }),
+    )
+  ).body;
+  const send = (text) =>
+    call(postMessage, ctx(board.slug), '/message', {
+      method: 'POST',
+      body: { text },
+      key: board.apiKey,
+    });
+  for (const text of ['A', 'B', 'C', 'D']) assert.equal((await send(text)).status, 202);
+  const q = (await jsonOf(call(getQueue, ctx(board.slug), '/queue'))).body;
+  assert.equal(q.items.length, 3);
+  // A is on the glass; B - the oldest waiting - rolled off.
+  assert.deepEqual(q.items.map((item) => item.payload.text), ['A', 'C', 'D']);
+});
+
+test('deactivation pauses the display, keeps the queue, and exports items', async () => {
+  const board = await makeBoard({ slug: 'pause-board' });
+  await call(postMessage, ctx(board.slug), '/message', {
+    method: 'POST',
+    body: { text: 'KEEP ME', loop: true },
+    key: board.apiKey,
+  });
+
+  const off = await jsonOf(
+    call(boardPatch, ctx(board.slug, 'owner'), '/x', {
+      method: 'PATCH',
+      body: { status: 'deactivated' },
+    }),
+  );
+  assert.equal(off.status, 200);
+
+  const q = (await jsonOf(call(getQueue, ctx(board.slug), '/queue'))).body;
+  assert.equal(q.paused, true);
+  assert.equal(q.status, 'deactivated');
+  assert.equal(q.items.length, 1);
+
+  const exported = (await jsonOf(call(exportQueue, ctx(board.slug, 'owner'), '/export'))).body;
+  assert.equal(exported.items.length, 1);
+  assert.equal(exported.items[0].payload.text, 'KEEP ME');
+  assert.equal(exported.items[0].loop, true);
+
+  // Reactivation is one PATCH; nothing was lost.
+  await call(boardPatch, ctx(board.slug, 'owner'), '/x', {
+    method: 'PATCH',
+    body: { status: 'active' },
+  });
+  assert.equal((await jsonOf(call(getQueue, ctx(board.slug), '/queue'))).body.paused, false);
 });
 
 /* ---- privacy matrix ---- */

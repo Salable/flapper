@@ -15,7 +15,6 @@ import {
   clearQueue,
   MAX_ITEMS,
 } from '../lib/db/queue.mjs';
-import { TIERS, can, boardLimitFor, tierOf } from '../lib/db/entitlements.mjs';
 
 let db;
 let board;
@@ -25,7 +24,8 @@ before(async () => {
 beforeEach(async () => {
   await resetTestDb(db);
   await makeTestUser(db, { id: 'u1' });
-  board = await createBoard(db, { ownerId: 'u1', slug: 'queue-board' });
+  // A generous cap: these tests exercise ordering mechanics, not the roll.
+  board = await createBoard(db, { ownerId: 'u1', slug: 'queue-board', config: { queueCap: 500 } });
 });
 
 const msg = (text, extra = {}) => ({ payload: { text, options: {} }, ...extra });
@@ -247,19 +247,25 @@ test('flush drops pending only; clear empties and blanks', async () => {
   assert.equal(queue.currentItemId, null);
 });
 
-test('the queue refuses growth past the cap with a 429', { timeout: 120000 }, async () => {
+test('the absolute backstop still refuses growth past MAX_ITEMS', { timeout: 120000 }, async () => {
+  const big = await createBoard(db, {
+    ownerId: 'u1',
+    slug: 'backstop-board',
+    config: { queueCap: MAX_ITEMS + 100 },
+  });
   const rows = Array.from({ length: MAX_ITEMS }, (_, i) => msg(`M${i}`));
-  for (const entry of rows) await appendItem(db, board.id, entry);
-  await assert.rejects(appendItem(db, board.id, msg('OVER')), (e) => e.status === 429);
+  for (const entry of rows) await appendItem(db, big.id, entry);
+  await assert.rejects(appendItem(db, big.id, msg('OVER')), (e) => e.status === 429);
 });
 
-/* ---- entitlements ---- */
-
-test('tiers: standard caps boards at 3, plus is unlimited; unknown tiers read standard', () => {
-  assert.equal(boardLimitFor('standard'), 3);
-  assert.equal(boardLimitFor('plus'), Infinity);
-  assert.equal(can('standard', 'sharedQueues'), false);
-  assert.equal(can('plus', 'sharedQueues'), true);
-  assert.equal(tierOf({ tier: 'gibberish' }), 'standard');
-  assert.ok(Object.isFrozen(TIERS.standard));
+test('a live board rolls: the 6th message drops the oldest waiting one', async () => {
+  const small = await createBoard(db, { ownerId: 'u1', slug: 'rolling-board' });
+  for (const text of ['A', 'B', 'C', 'D', 'E']) await appendItem(db, small.id, msg(text));
+  const { item } = await appendItem(db, small.id, msg('F'));
+  const queue = await listQueue(db, small.id);
+  assert.equal(queue.items.length, 5);
+  // A is playing (current) so B - the oldest *waiting* - rolled off.
+  assert.deepEqual(queue.items.map((entry) => entry.payload.text), ['A', 'C', 'D', 'E', 'F']);
+  assert.equal(queue.currentItemId, queue.items[0].id);
+  assert.ok(item.id);
 });
