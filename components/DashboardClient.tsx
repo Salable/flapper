@@ -5,11 +5,16 @@ import { useRouter } from 'next/navigation';
 import { signOut } from '@/lib/auth-client';
 import { AppBar } from '@/components/AppBar';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
+import { Button, LinkButton } from '@/components/ui/Button';
+import { Chip, EmptyState } from '@/components/ui/bits';
+import { CreateBoardModal, type TypeMeta } from '@/components/CreateBoardModal';
 
 type BoardRow = {
   id: string;
   slug: string;
   name: string;
+  type: string;
+  status: string;
   private: boolean;
   createdAt: number;
   connected: boolean;
@@ -19,33 +24,18 @@ type BoardRow = {
 export function DashboardClient({
   userName,
   boards,
+  types,
 }: {
   userName: string;
   boards: BoardRow[];
+  types: TypeMeta[];
 }) {
   const router = useRouter();
   const { confirm, dialog } = useConfirm();
-  const [name, setName] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
 
-  async function create() {
-    setBusy(true);
-    setError('');
-    try {
-      const response = await fetch('/api/boards', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(name.trim() === '' ? {} : { name: name.trim() }),
-      });
-      const body = await response.json();
-      if (!response.ok) throw new Error(body.error || `HTTP ${response.status}`);
-      router.push(`/b/${body.slug}/settings`);
-    } catch (err: any) {
-      setError(`Could not create a board: ${err.message}`);
-      setBusy(false);
-    }
-  }
+  const typeName = (id: string) => types.find((type) => type.id === id)?.name ?? id;
 
   async function remove(board: BoardRow) {
     const ok = await confirm({
@@ -68,11 +58,12 @@ export function DashboardClient({
   return (
     <div className="app-shell">
       {dialog}
+      <CreateBoardModal open={creating} types={types} onClose={() => setCreating(false)} />
       <AppBar
         right={
           <>
             <span className="muted">{userName}</span>
-            <button
+            <Button
               onClick={async () => {
                 await signOut();
                 router.push('/');
@@ -80,36 +71,24 @@ export function DashboardClient({
               }}
             >
               Sign out
-            </button>
+            </Button>
           </>
         }
       />
 
       <main className="dash">
         <div className="dash-create">
-          <input
-            type="text"
-            placeholder="Board name (optional)"
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') create();
-            }}
-          />
-          <button className="primary" onClick={create} disabled={busy}>
-            {busy ? 'Creating…' : 'New board'}
-          </button>
+          <Button variant="primary" onClick={() => setCreating(true)}>
+            New board
+          </Button>
         </div>
         {error !== '' && <p className="error">{error}</p>}
 
         {boards.length === 0 ? (
-          <div className="dash-empty">
-            <p>No boards yet.</p>
-            <p className="muted">
-              A board is a split-flap display with its own URL and its own API — put it on a wall,
-              drive it from anywhere. Create one; it takes a second.
-            </p>
-          </div>
+          <EmptyState title="No boards yet.">
+            A board is a split-flap display with its own URL and its own API — put it on a wall,
+            drive it from anywhere. Create one; it takes a second.
+          </EmptyState>
         ) : (
           <>
             <h2 className="dash-title">
@@ -118,12 +97,21 @@ export function DashboardClient({
             <div className="board-grid">
               {boards.map((board) => (
                 <article className="board-card" key={board.id}>
-                  <a className="board-card-open" href={`/b/${board.slug}`}>
+                  {/* The card opens the control room; the display is explicit. */}
+                  <a className="board-card-open" href={`/b/${board.slug}/settings`}>
                     <span className="board-card-name">
-                      <i className={`live-dot${board.connected ? ' is-live' : ''}`} title={board.connected ? 'A display is connected' : 'No display connected'} />
+                      <i
+                        className={`live-dot${board.connected ? ' is-live' : ''}`}
+                        title={board.connected ? 'A display is connected' : 'No display connected'}
+                      />
                       {board.name || board.slug}
                     </span>
                     <span className="board-card-slug muted">/b/{board.slug}</span>
+                    <span className="board-card-meta">
+                      <Chip>{typeName(board.type)}</Chip>
+                      {board.private && <Chip>private</Chip>}
+                      {board.status !== 'active' && <Chip tone="danger">paused</Chip>}
+                    </span>
                     <span className="board-card-meta muted">
                       {board.connected
                         ? board.showing
@@ -131,23 +119,14 @@ export function DashboardClient({
                           : 'connected · blank'
                         : 'no display connected'}
                     </span>
-                    <span className="board-card-meta muted">
-                      {/* ISO, not toLocaleDateString: the server's locale and
-                          the visitor's can disagree, and hydration notices. */}
-                      {board.private ? 'private' : 'public'} · created{' '}
-                      {new Date(board.createdAt).toISOString().slice(0, 10)}
-                    </span>
                   </a>
                   <div className="board-card-actions">
-                    <a className="button" href={`/b/${board.slug}`}>
-                      Open
-                    </a>
-                    <a className="button" href={`/b/${board.slug}/settings`}>
-                      Settings
-                    </a>
-                    <button className="ghost" onClick={() => remove(board)}>
+                    <LinkButton size="sm" href={`/b/${board.slug}`}>
+                      Open display
+                    </LinkButton>
+                    <Button size="sm" variant="ghost" onClick={() => remove(board)}>
                       Delete
-                    </button>
+                    </Button>
                   </div>
                 </article>
               ))}

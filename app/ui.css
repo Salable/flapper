@@ -389,3 +389,17 @@
   background: none;
   border: none;
 }
+
+/* The app-bar wordmark never wraps; it shrinks instead. */
+.brand .ui-miniboard {
+  flex-wrap: nowrap;
+}
+
+@media (max-width: 560px) {
+  .brand .ui-miniboard-sm .ui-tile,
+  .brand .ui-miniboard-sm .ui-tile-gap {
+    width: 14px;
+    height: 19px;
+    font-size: 10px;
+  }
+}

@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { sessionFromHeaders } from '@/lib/auth';
 import { getDb } from '@/lib/db/client.mjs';
 import { getBySlug } from '@/lib/db/boards.mjs';
+import { getBoardType } from '@/lib/board-types/index.mjs';
 import { SettingsClient } from '@/components/SettingsClient';
 
 export const dynamic = 'force-dynamic';
@@ -39,6 +40,7 @@ export default async function SettingsPage({ params }: { params: Promise<{ slug:
         slug: board.slug,
         name: board.name,
         type: board.type,
+        typeName: getBoardType(board.type)?.name ?? board.type,
         status: board.status as 'active' | 'deactivated',
         private: board.private,
         apiKey: board.apiKey,

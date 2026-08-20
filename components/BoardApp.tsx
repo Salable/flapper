@@ -59,6 +59,7 @@ export function BoardApp({
   const [progress, setProgress] = useState(0);
   const [failure, setFailure] = useState('');
   const [note, setNote] = useState('');
+  const [layout, setLayout] = useState<{ xPct: number; yPct: number; wPct: number; hPct: number } | null>(null);
 
   /** Set by the state-publisher hook; called on every controller change. */
   const onStateRef = useRef<((state: any) => void) | null>(null);
@@ -135,6 +136,7 @@ export function BoardApp({
       const player = new Player(controller, board, api, {
         onConfig: (config: any) => {
           try {
+            setLayout(config?.layout ?? null);
             controller.configure(sanitizeConfig(config));
           } catch (error: any) {
             console.warn(`flapper: stored config refused - ${error.message}`);
@@ -252,7 +254,21 @@ export function BoardApp({
   return (
     <>
       <main id="stage">
-        <canvas id="board" ref={canvasRef} />
+        <div
+          className="board-frame"
+          style={
+            layout
+              ? {
+                  left: `${layout.xPct}%`,
+                  top: `${layout.yPct}%`,
+                  width: `${layout.wPct}%`,
+                  height: `${layout.hPct}%`,
+                }
+              : { inset: 0, width: '100%', height: '100%' }
+          }
+        >
+          <canvas id="board" ref={canvasRef} />
+        </div>
         {phase === 'loading' && (
           <div id="loading" className="overlay">
             <div className="loading-label">Loading tiles</div>
