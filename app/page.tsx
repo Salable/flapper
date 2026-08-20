@@ -1,7 +1,7 @@
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { sessionFromHeaders } from '@/lib/auth';
-import { MiniBoard } from '@/components/ui/MiniBoard';
+import { Flapper } from '@/components/flapper/Flapper';
 import { LinkButton } from '@/components/ui/Button';
 
 export default async function LandingPage() {
@@ -11,7 +11,7 @@ export default async function LandingPage() {
   return (
     <main className="landing">
       <div className="landing-hero">
-        <MiniBoard text="FLAPPER" size="lg" animate />
+        <Flapper text="FLAPPER" tilePx={48} />
       </div>
       <p>
         A split-flap departure board for any screen. Create a board, open it on the display, and

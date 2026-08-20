@@ -49,11 +49,38 @@ entrances: modals, tab panels, hero tiles. Stagger children with
 | `useConfirm` | destructive/irreversible actions — **native `confirm()` is banned** |
 | `Card`, `Chip`, `Segmented`, `EmptyState` | layout & state vocabulary |
 | `CopyButton`, `KeyReveal` | credentials and copyable values |
-| `MiniBoard` | the brand mark — text as split-flap tiles; `animate` for entrances |
+| `MiniBoard` | text as CSS split-flap tiles — the server-renderable stand-in and loading fallback for `Flapper` |
 
 Screen-level scaffolding: `.app-shell` + `AppBar` (brand left, context
 right), `.dash` content column. Board-type-specific UI lives in
 `components/board-types/<id>/` and composes these primitives.
+
+## The flapper as a component (`components/flapper/`)
+
+The brand mark is not a picture of the product — it is the product.
+`Flapper` runs the real engine (`lib/board/flipboard.js`, the same tile
+art and motion as a display) in an embeddable box:
+
+```tsx
+<Flapper text="FLAPPER" tilePx={22} />          // the app bar
+<Flapper text="FLAPPER" tilePx={48} />          // a hero
+<Flapper text="ON AIR" tilePx={30} ambient={false} />  // a still sign
+```
+
+- **Assets are shared**: `components/flapper/assets.ts` fetches and decodes
+  the manifest + strips once per tab; every flapper (the display included)
+  uses the same bitmaps, and nothing ever closes them.
+- **It server-renders as `MiniBoard`** in the same footprint, then the
+  canvas takes over — the swap is a settle, not a jump.
+- **It animates itself**: text flips in from blank on mount, and the
+  ambient loop keeps it alive — occasional single-tile misfires that
+  correct with a full revolution, and a whole-board sweep about once a
+  minute. The choreography is pure and tested (`lib/board/idle.mjs`);
+  the component only applies it. `prefers-reduced-motion` gets the text
+  immediately and no ambient loop.
+
+Restraint is part of the design: at rest the mark is mostly still, the
+way a real board is.
 
 ## Adding a component
 

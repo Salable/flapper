@@ -17,23 +17,7 @@ import { Flipboard } from '@/lib/board/flipboard.js';
 import { Controller } from '@/lib/board/controller.mjs';
 import { Player } from '@/lib/board/player.mjs';
 import { useStatePublisher } from '@/hooks/useStatePublisher';
-
-const ASSETS = '/assets';
-
-async function loadStrips(manifest: any, onProgress: (fraction: number) => void) {
-  const strips = new Array(manifest.cycle.length);
-  let done = 0;
-  await Promise.all(
-    manifest.cycle.map(async (state: any, i: number) => {
-      const response = await fetch(`${ASSETS}/${state.strip}`);
-      if (!response.ok) throw new Error(`${state.strip}: HTTP ${response.status}`);
-      strips[i] = await createImageBitmap(await response.blob());
-      done += 1;
-      onProgress(done / manifest.cycle.length);
-    }),
-  );
-  return strips as ImageBitmap[];
-}
+import { loadFlapperAssets, onAssetProgress } from '@/components/flapper/assets';
 
 /** Board config is trusted but bands are deferred: never let a footer in. */
 function sanitizeConfig(config: any) {
@@ -68,7 +52,6 @@ export function BoardApp({
     const canvas = canvasRef.current;
     if (!canvas) return;
     let cancelled = false;
-    let strips: ImageBitmap[] = [];
     let source: EventSource | null = null;
     let boardObserver: ResizeObserver | null = null;
     let ratioQuery: MediaQueryList | null = null;
@@ -77,15 +60,17 @@ export function BoardApp({
 
     const keySuffix = boardKey ? `?key=${encodeURIComponent(boardKey)}` : '';
 
+    // The tile art comes from the shared loader (one decode per tab, shared
+    // with the wordmark); the bitmaps are shared property and never closed.
+    const stopProgress = onAssetProgress((fraction) => {
+      if (!cancelled) setProgress(fraction);
+    });
+
     (async () => {
       let manifest;
+      let strips: ImageBitmap[];
       try {
-        const response = await fetch(`${ASSETS}/manifest.json`);
-        if (!response.ok) throw new Error(`manifest.json: HTTP ${response.status}`);
-        manifest = await response.json();
-        strips = await loadStrips(manifest, (fraction) => {
-          if (!cancelled) setProgress(fraction);
-        });
+        ({ manifest, strips } = await loadFlapperAssets());
       } catch (error: any) {
         if (cancelled) return;
         console.error(`flapper: tile art failed to load — ${error.message}`);
@@ -93,10 +78,7 @@ export function BoardApp({
         setPhase('failed');
         return;
       }
-      if (cancelled) {
-        strips.forEach((bitmap) => bitmap.close());
-        return;
-      }
+      if (cancelled) return;
 
       const board = new Flipboard(canvas, manifest, strips, {});
       const controller = new Controller(board, {});
@@ -220,13 +202,13 @@ export function BoardApp({
 
     return () => {
       cancelled = true;
+      stopProgress();
       source?.close();
       boardObserver?.disconnect();
       if (ratioQuery && onRatioChange) ratioQuery.removeEventListener('change', onRatioChange);
       if (onVisibility) document.removeEventListener('visibilitychange', onVisibility);
       playerRef.current?.stop();
       playerRef.current = null;
-      strips.forEach((bitmap) => bitmap.close());
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug, apiBase, boardKey, displayToken]);
