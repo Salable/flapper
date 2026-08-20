@@ -15,7 +15,7 @@ const settings = require('./settings');
  *   3. the last board this machine navigated to (persisted in userData)
  *   4. the service landing page, to create or open one
  */
-const SERVICE_URL = 'https://flapper.vercel.app';
+const SERVICE_URL = 'https://flapper-tan.vercel.app';
 
 if (!app.requestSingleInstanceLock()) {
   console.error('flapper: another instance is already running; focusing it and exiting');
