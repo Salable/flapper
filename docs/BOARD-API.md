@@ -46,6 +46,27 @@ When it is `false` your messages are still accepted and queued, but nothing is
 showing them; tell the user to open the board URL on the screen that should
 show it.
 
+### MCP
+
+Every board also speaks the Model Context Protocol at `{apiBase}/mcp`
+(Streamable HTTP, stateless). The bearer token is the same board API key, and
+the tools mirror the REST endpoints — same validation, same access gates, same
+status semantics carried inside tool errors. Connect with:
+
+- **Claude Code**: `claude mcp add --transport http <name> {apiBase}/mcp
+  --header "authorization: Bearer <key>"`
+- **claude.ai / Claude Desktop**: Settings → Connectors → *Add custom
+  connector* → `{apiBase}/mcp`, with the key as an `authorization` request
+  header (`Bearer <key>`).
+- **ChatGPT**: developer mode → add connector → `{apiBase}/mcp`, auth =
+  bearer token.
+
+The MCP surface is the API-key surface: board management and the display's own
+calls are not tools. The tool set: `get_board_info`, `get_docs`, `get_health`,
+`get_capabilities`, `get_status`, `preview`, `post_message`, `list_queue`,
+`update_queue_item`, `delete_queue_item`, `reorder_queue`, `flush_queue`,
+`clear_board`, `update_config`, `export_queue`.
+
 ## 2. Access — reads are open, writes need the key
 
 - **Writes** (`message`, `clear`, the queue, `config`) always need the key:

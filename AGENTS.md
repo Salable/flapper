@@ -74,6 +74,7 @@ tools/        asset build, icon build, build-time migration
 | `components/BoardApp.tsx` | boots the engine and the player, applies layout, wires F/Esc |
 | `lib/api/validators.mjs` | request validation, every 422 named |
 | `lib/api/handlers.mjs` | the API surface; route.ts files are one-line wrappers |
+| `lib/api/mcp.mjs` | the MCP tools: each drives a REST handler with a constructed Request |
 | `lib/api/headless-board.mjs` | the real Controller over stored config, server-side |
 | `lib/broker/index.mjs` | picks RedisBroker or MemoryBroker; the only chooser |
 | `lib/db/client.mjs` | picks Neon or PGlite; the only chooser |
@@ -99,6 +100,12 @@ Access in one sentence each: writes need the board's API key; reads are open
 on public boards and need the key (or the owner's session) on private ones;
 management — rename, slug, privacy, rotation, deletion — is owner-session
 only, from the dashboard and `/b/{slug}/settings`.
+
+The same surface is exposed over MCP at `POST /api/b/{slug}/mcp` (Streamable
+HTTP, stateless, bearer = the board key). `lib/api/mcp.mjs` holds the tool
+definitions and the key verifier, both Next-free; each tool constructs a
+`Request` and calls the REST handler — the tests' own trick — so the two
+interfaces cannot drift. Only the route file imports `mcp-handler`.
 
 Two things follow from the fire-and-forget shape: a `202` never proves a
 display is connected (`/status`'s `stale` field is the truth), and `preview` /
