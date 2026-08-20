@@ -739,3 +739,139 @@ test('stateEvents emits only when the snapshot moves', async () => {
   }
   assert.deepEqual(seen, ['ONE', 'TWO']);
 });
+
+/* ---- scheduled boards ---- */
+
+test('a scheduled board rejects a bad timezone and accepts a good one', async () => {
+  const bad = await jsonOf(
+    call(createBoard, ctx(undefined, 'owner'), '/api/boards', {
+      method: 'POST',
+      body: { type: 'scheduled', slug: 'bad-tz', timezone: 'Mars/Olympus' },
+    }),
+  );
+  assert.equal(bad.status, 422);
+  assert.match(bad.body.error, /IANA timezone/);
+
+  const board = await makeBoard({
+    slug: 'clock-board',
+    type: 'scheduled',
+    timezone: 'Europe/London',
+    fallback: 'STAND BY',
+  });
+  assert.equal(board.type, 'scheduled');
+});
+
+test('schedule specs are stored, validated, and refused on live boards', async () => {
+  const live = await makeBoard({ slug: 'live-one' });
+  const refused = await jsonOf(
+    call(postMessage, ctx(live.slug), '/x', {
+      method: 'POST',
+      key: live.apiKey,
+      body: { text: 'NOPE', schedule: { kind: 'daily', at: '09:00' } },
+    }),
+  );
+  assert.equal(refused.status, 422);
+  assert.match(refused.body.error, /no clock/);
+
+  const board = await makeBoard({ slug: 'clock-two', type: 'scheduled', fallback: 'STAND BY' });
+  const junk = await jsonOf(
+    call(postMessage, ctx(board.slug), '/x', {
+      method: 'POST',
+      key: board.apiKey,
+      body: { text: 'X', schedule: { kind: 'daily', at: '25:99' } },
+    }),
+  );
+  assert.equal(junk.status, 422);
+
+  const posted = await jsonOf(
+    call(postMessage, ctx(board.slug), '/x', {
+      method: 'POST',
+      key: board.apiKey,
+      body: { text: 'LUNCH', schedule: { kind: 'daily', at: '12:00', durationMs: 60_000 } },
+    }),
+  );
+  assert.equal(posted.status, 202);
+  assert.deepEqual(posted.body.schedule, { kind: 'daily', at: '12:00', durationMs: 60_000 });
+
+  const q = await jsonOf(call(getQueue, ctx(board.slug), '/x'));
+  assert.equal(q.body.playback, 'clock');
+  assert.equal(q.body.items.length, 1);
+  assert.ok(q.body.items[0].computedDurationMs >= 3000);
+  assert.ok('activeItemId' in q.body, 'clock extras merged into the snapshot');
+});
+
+test('a plain post on a scheduled board becomes a once-now spec; fallback fills gaps', async () => {
+  const board = await makeBoard({ slug: 'clock-three', type: 'scheduled', fallback: 'STAND BY' });
+  const posted = await jsonOf(
+    call(postMessage, ctx(board.slug), '/x', {
+      method: 'POST',
+      key: board.apiKey,
+      body: { text: 'FLASH', priority: 'now' },
+    }),
+  );
+  assert.equal(posted.status, 202);
+  assert.equal(posted.body.schedule.kind, 'once');
+
+  const q = await jsonOf(call(getQueue, ctx(board.slug), '/x'));
+  // Just posted: the once item is inside its window right now.
+  assert.equal(q.body.activeItemId, posted.body.id);
+  assert.equal(q.body.onFallback, false);
+});
+
+test('expired once items are swept on read; the schedule never accretes', async () => {
+  const board = await makeBoard({ slug: 'clock-sweep', type: 'scheduled' });
+  const posted = await jsonOf(
+    call(postMessage, ctx(board.slug), '/x', {
+      method: 'POST',
+      key: board.apiKey,
+      // Played out long ago: expiry (at + duration + grace) is in the past.
+      body: { text: 'OLD', schedule: { kind: 'once', atMs: 1_000_000, durationMs: 1000 } },
+    }),
+  );
+  assert.equal(posted.status, 202);
+  const keeper = await jsonOf(
+    call(postMessage, ctx(board.slug), '/x', {
+      method: 'POST',
+      key: board.apiKey,
+      body: { text: 'DAILY', schedule: { kind: 'daily', at: '09:00' } },
+    }),
+  );
+  assert.equal(keeper.status, 202);
+
+  const q = await jsonOf(call(getQueue, ctx(board.slug), '/x'));
+  assert.deepEqual(q.body.items.map((item) => item.id), [keeper.body.id]);
+});
+
+test('patching a scheduled item revalidates and recuts its slot', async () => {
+  const board = await makeBoard({ slug: 'clock-patch', type: 'scheduled' });
+  const posted = await jsonOf(
+    call(postMessage, ctx(board.slug), '/x', {
+      method: 'POST',
+      key: board.apiKey,
+      body: { text: 'SHORT', schedule: { kind: 'daily', at: '09:00' } },
+    }),
+  );
+  const itemId = posted.body.id;
+
+  const badPatch = await jsonOf(
+    call(patchQueueItem, { ...ctx(board.slug), itemId }, '/x', {
+      method: 'PATCH',
+      key: board.apiKey,
+      body: { schedule: { kind: 'interval', everyMs: 1 } },
+    }),
+  );
+  assert.equal(badPatch.status, 422);
+
+  const patched = await jsonOf(
+    call(patchQueueItem, { ...ctx(board.slug), itemId }, '/x', {
+      method: 'PATCH',
+      key: board.apiKey,
+      body: { schedule: { kind: 'hourly', minute: 30 } },
+    }),
+  );
+  assert.equal(patched.status, 200);
+  assert.deepEqual(patched.body.item.schedule, { kind: 'hourly', minute: 30 });
+
+  const exported = await jsonOf(call(exportQueue, ctx(board.slug, 'owner'), '/x'));
+  assert.deepEqual(exported.body.items[0].schedule, { kind: 'hourly', minute: 30 });
+});

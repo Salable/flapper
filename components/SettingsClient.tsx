@@ -6,10 +6,11 @@
  * Owner-only - the server component gates before this renders.
  */
 
-import { useEffect, useState } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppBar } from '@/components/AppBar';
 import { QueueManager } from '@/components/QueueManager';
+import { BOARD_TYPE_CLIENTS } from '@/components/board-types/registry';
 import { DisplayConfig } from '@/components/DisplayConfig';
 import { LayoutPicker, type Layout } from '@/components/LayoutPicker';
 import { Tabs } from '@/components/ui/Tabs';
@@ -167,6 +168,21 @@ export function SettingsClient({ board: initial }: { board: Board }) {
 
   const identityDirty = name !== board.name || slug !== board.slug;
 
+  // A type may bring its own queue tab (the schedule editor); the generic
+  // rolling-queue manager is the default.
+  const TypeQueueEditor = useMemo(() => {
+    const thunk = BOARD_TYPE_CLIENTS.find((c) => c.id === board.type)?.queueEditor;
+    return thunk ? lazy(thunk) : null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [board.type]);
+  const queueTab = TypeQueueEditor ? (
+    <Suspense fallback={null}>
+      <TypeQueueEditor slug={board.slug} />
+    </Suspense>
+  ) : (
+    <QueueManager slug={board.slug} />
+  );
+
   const generalTab = (
     <>
       <section className="settings-block">
@@ -283,7 +299,7 @@ export function SettingsClient({ board: initial }: { board: Board }) {
         {notice !== '' && <p className="muted">{notice}</p>}
         <Tabs
           tabs={[
-            { id: 'queue', label: 'Queue', content: <QueueManager slug={board.slug} /> },
+            { id: 'queue', label: 'Queue', content: queueTab },
             {
               id: 'display',
               label: 'Display',

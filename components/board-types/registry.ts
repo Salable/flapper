@@ -13,4 +13,5 @@ export type BoardTypeClient = {
 
 export const BOARD_TYPE_CLIENTS: BoardTypeClient[] = [
   { id: 'live', queueEditor: null },
+  { id: 'scheduled', queueEditor: () => import('./scheduled/ScheduleEditor') },
 ];

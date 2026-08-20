@@ -229,3 +229,97 @@ test('config in the snapshot reaches the config hook', async (t) => {
   await player.start();
   assert.deepEqual(configs, [{ cols: 30 }]);
 });
+
+/* ---- clock playback ---- */
+
+const clockSnap = (items, config, serverNowMs, extra = {}) => ({
+  playback: 'clock',
+  type: 'scheduled',
+  paused: false,
+  currentItemId: null,
+  currentState: 'idle',
+  epoch: 0,
+  queueUpdatedAt: 1,
+  serverNowMs,
+  items,
+  config,
+  ...extra,
+});
+
+function clockPlayer(t, api) {
+  const timers = [];
+  const { board, controller } = setup(t, 20, 1);
+  const player = new Player(controller, board, api, {
+    setTimer: (fn, ms) => (timers.push({ fn, ms }), timers.length),
+    clearTimer: () => {},
+  });
+  return { board, controller, player, timers };
+}
+
+test('clock: shows the active item and sleeps until the next change', async (t) => {
+  const now = Date.now();
+  const api = fakeApi();
+  api.fetches.push(
+    clockSnap(
+      [
+        {
+          ...item('slot', 'OPEN'),
+          schedule: { kind: 'once', atMs: now - 1000, durationMs: 60_000 },
+          createdAt: now - 1000,
+          computedDurationMs: 3000,
+        },
+      ],
+      { timezone: 'UTC', fallback: 'STAND BY' },
+      now,
+    ),
+  );
+  const { board, player, timers } = clockPlayer(t, api);
+  await player.start();
+  board.settle();
+  assert.equal(board.shown.at(-1).trim(), 'OPEN');
+  // The next change is the slot's end, ~59s out; the tick sleeps until then.
+  assert.equal(timers.length, 1);
+  assert.ok(timers[0].ms > 55_000 && timers[0].ms <= 60_000, `slept ${timers[0].ms}`);
+  // No advance reporting on a clock board: the clock is the authority.
+  assert.equal(api.advances.length, 0);
+});
+
+test('clock: an empty schedule stands on the fallback message', async (t) => {
+  const now = Date.now();
+  const api = fakeApi();
+  api.fetches.push(clockSnap([], { timezone: 'UTC', fallback: 'STAND BY' }, now));
+  const { board, player, timers } = clockPlayer(t, api);
+  await player.start();
+  board.settle();
+  assert.equal(board.shown.at(-1).trim(), 'STAND BY');
+  // Nothing scheduled: nothing to wake for until the next nudge.
+  assert.equal(timers.length, 0);
+});
+
+test('clock: panic holds the blank through ticks until the schedule changes', async (t) => {
+  const now = Date.now();
+  const api = fakeApi();
+  const slotted = clockSnap(
+    [
+      {
+        ...item('slot', 'OPEN'),
+        schedule: { kind: 'once', atMs: now - 1000, durationMs: 600_000 },
+        createdAt: now - 1000,
+        computedDurationMs: 3000,
+      },
+    ],
+    { timezone: 'UTC' },
+    now,
+  );
+  api.fetches.push(slotted);
+  const { board, player } = clockPlayer(t, api);
+  await player.start();
+  board.settle();
+  assert.equal(board.shown.at(-1).trim(), 'OPEN');
+
+  player.panicBlank();
+  assert.equal(player.playing, null);
+  // A resync with the same content keeps the panic; the glass stays dark.
+  await player.onSync(undefined);
+  assert.equal(player.playing, null);
+});
