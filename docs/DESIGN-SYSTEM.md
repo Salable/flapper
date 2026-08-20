@@ -82,6 +82,16 @@ art and motion as a display) in an embeddable box:
 Restraint is part of the design: at rest the mark is mostly still, the
 way a real board is.
 
+## Buttons own their ink
+
+A `.ui-btn` never inherits contextual text color. Page CSS that colors
+links in a region (`main.landing a`, `.auth-form a`, …) must exclude
+buttons — write `a:not([class*='ui-btn'])` — and `ui.css` pins every
+variant's color at anchor+class specificity as a backstop. The concrete
+case this rule exists for: the landing page's **Create account** button is
+dark text (`--ink-inverse`) on the bone ground, and a region link rule
+once turned it bone-on-bone.
+
 ## Adding a component
 
 1. Build it from tokens; put styles in `app/ui.css` under a `ui-` class.

@@ -42,6 +42,26 @@
   font-weight: 600;
 }
 
+/* A button owns its ink. Contextual link styling (`main.landing a`, `.prose
+   a`, …) must never recolor a .ui-btn - these element+class rules outweigh
+   any single-class context rule, so a primary button stays dark-on-bone
+   wherever it lands. */
+a.ui-btn {
+  color: var(--ink);
+}
+
+a.ui-btn-primary {
+  color: var(--ink-inverse);
+}
+
+a.ui-btn-ghost {
+  color: var(--muted);
+}
+
+a.ui-btn-danger {
+  color: var(--danger);
+}
+
 .ui-btn-primary:hover:not(:disabled) {
   background: #fff;
 }

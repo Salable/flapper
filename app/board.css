@@ -663,8 +663,9 @@ main.landing .error {
   cursor: text;
 }
 
-.auth-form a,
-main.landing a {
+/* Prose links only - a .ui-btn owns its own ink (see ui.css). */
+.auth-form a:not([class*='ui-btn']),
+main.landing a:not([class*='ui-btn']) {
   color: var(--ink);
 }
 
