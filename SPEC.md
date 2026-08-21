@@ -16,13 +16,37 @@ the disconnect flow. Findings marked **[verified]** were reproduced
 deliberately; one is marked **[unverified]** and says what would settle it.
 Notes in `docs/attic/README.md` for anything removed, per the 4.0 convention.*
 
-> **Read this before starting.** The dashboard's "Connect Claude or ChatGPT"
-> card is live in production but is **not in `main`** — `components/
-> DashboardClient.tsx` on `main` is 139 lines and has no connect section, while
-> the version carrying it sits in
-> `.claude/worktrees/mcp-interface-integration-4cc845/`. Establish which tree is
-> authoritative before editing the dashboard, or section 1 below will be written
-> against a file that does not match what is deployed.
+> **Branch note, resolved 21 Aug:** `main`, the `mcp-interface-integration`
+> worktree, and this branch were all at `da895a8` with the connect card in
+> `DashboardClient.tsx` (215 lines) — the divergence warning was stale.
+
+## Status — executed 21 Aug 2026 (branch `claude/spec-tasks-improvements-f82704`)
+
+| # | Ask | Status | Where |
+| --- | --- | --- | --- |
+| 1–2 | Boards heading; New board on its row | **Done** | `DashboardClient`, `.dash-head` |
+| 3 | Three columns below the grid (stateful connect) | **Done** | `.dash-more`; connections managed on `/account` |
+| 4 | Identity out of the AppBar (paused chip stays) | **Done** | `SettingsClient` |
+| 5 | Board sidebar (name at last) | **Done** | `components/BoardSidebar.tsx` |
+| 6 | Tabs as a vertical menu + "always" links | **Done** | `Tabs orientation="vertical"`, `before`/`after` |
+| 7 | Disconnect disconnects | **Done — immediate, not "within the hour"** | `lib/api/revocations.mjs`, `oauth_client_revocation` (migration 0005). Root cause: the provider never stores JWT access tokens, so nothing was being revoked |
+| 8 | Key masked in its own code blocks | **Done** | `lib/api/mask.mjs`; Reveal unmasks all together; Copy copies real |
+| 9 | `create_board` returns no key | **Done** | REST and MCP; `get_board_key` is the explicit ask |
+| 10 | Background tab = `frozen`, loudly | **Done** | `hooks/useStatePublisher.ts` stamps visibility + frame age; `lib/api/liveness.mjs`; amber dot; Getting Started §3½ |
+| 11 | Stale board list; three empty states | **Done** | Sign-in/out are full navigations (router cache was the cause); bfcache refresh; load-error + removed states |
+| 12 | Catalogue | **Groundwork done; split is RFC 0003** | outcome copy, live previews, Start here, `tier` enforced in `createBoard` (402) |
+| 13 | Ask for less at creation | **Done** | `advanced` params → Settings › Type settings; name required; `PATCH /config` validates params |
+| 14 | `showing` null when settled | **Done** | `showing` always the glass (`held`), `phase` playing/holding/blank; `holding` retired (attic) |
+| 15 | `lines` is intended state | **Done (docs softened)** | MCP/REST docs: "what the display was last told to show"; `animating` flagged |
+| 16 | `position` leaks ordering key | **Done** | 1-based `position` + `ahead` |
+| 17 | Card accessible names | **Not a bug — deleted** | Plain `<button>` with text content; name-from-content applies. The flattening was the reading tool's (reproduced with a second tool on the DOM). Cards now also carry an explicit `aria-label` |
+| 18 | Account area | **Done** | `/account`; name in the AppBar is the link (`UserMenu`) |
+| 19 | Smaller items | **Done / explained** | Flush/Clear disabled when idle; visible Cancel on step one; a pristine board already greets "FLAPPER" — the blank grid is a *cleared* board, by design |
+| 9.1–6 | Open questions | **Options + recommendations** | [docs/rfcs/0003-catalogue-and-open-questions.md](docs/rfcs/0003-catalogue-and-open-questions.md) |
+
+Also from the spruce-up ledger: the AuthForm OAuth continuation is explicit,
+consent Deny says "nothing was connected" before following `access_denied`,
+and the AppBar wraps at phone width.
 
 ---
 
