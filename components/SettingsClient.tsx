@@ -20,6 +20,8 @@ import { Field, TextInput } from '@/components/ui/Field';
 import { Chip, CopyButton, KeyReveal } from '@/components/ui/bits';
 import { BoardSidebar } from '@/components/BoardSidebar';
 import { TypeSettings } from '@/components/TypeSettings';
+import { ThemeSettings, type ThemeDraft } from '@/components/ThemeSettings';
+import { draftFromConfig } from '@/lib/board/theme-editor.mjs';
 import type { TypeMeta } from '@/components/board-types/type-meta';
 import { maskSecret } from '@/lib/api/mask.mjs';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
@@ -49,6 +51,9 @@ export function SettingsClient({ board: initial }: { board: Board }) {
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const [exported, setExported] = useState<string | null>(null);
+  // The theme draft lives here, above the tabs: Tabs remounts its panel on a
+  // switch, and a half-edited theme (an uploaded logo) must survive one.
+  const [themeDraft, setThemeDraft] = useState<ThemeDraft>(() => draftFromConfig(initial.config));
 
   // Resolved after mount: the server does not know the public origin, and
   // rendering it there would make hydration disagree with the glass.
@@ -364,6 +369,13 @@ export function SettingsClient({ board: initial }: { board: Board }) {
                       busy={busy}
                     />
                   </section>
+                  <ThemeSettings
+                    slug={board.slug}
+                    draft={themeDraft}
+                    onDraft={setThemeDraft}
+                    config={board.config}
+                    onSaved={(config) => setBoard((prev) => ({ ...prev, config }))}
+                  />
                   <DisplayConfig slug={board.slug} initial={board.config} />
                 </>
               ),

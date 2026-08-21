@@ -55,7 +55,7 @@ connected.
   React components are in the same position. Anything with a decision in it
   belongs in `lib/board/`, `lib/api/`, or `lib/db/` instead.
   The skins are tested against a stub 2D context (call sequence, not
-  pixels); for *looks*, open `/lab/skins` on the dev server.
+  pixels); for *looks*, open a board's Settings → Display → Theme.
 - **Singletons live on `globalThis` behind promises** (`getDb`, `getBroker`,
   `getAuth`) so dev-server recompiles share one instance — two PGlites on one
   `./.pglite` directory corrupt it. Never delete `./.pglite` while the dev
