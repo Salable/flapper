@@ -1246,3 +1246,27 @@ a.button.primary {
 .dash-connect {
   margin-top: 2.5rem;
 }
+
+.dash-connections {
+  margin-top: 1.25rem;
+}
+.dash-connections h3 {
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 0.5rem;
+}
+.dash-connections ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.dash-connections li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--edge);
+}

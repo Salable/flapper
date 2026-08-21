@@ -10,24 +10,27 @@ commits straight to main; move items down the lists as they move.
 
 ## To fix
 
-- [ ] **Nowhere in the product says "connect Claude / ChatGPT".** Homepage copy,
-      README, GETTING-STARTED §5, the dashboard, and Settings → General's
-      "For agents" block all predate MCP and only mention the REST API.
-      The MCP URL is account-level → the dashboard needs a "Connect an AI"
-      card (OAuth mode); Settings → General needs the key-mode recipe
-      (`claude mcp add … --header`) with a copy button.
-- [ ] No "disconnect this app" UI for OAuth consents (revoking = deleting
-      the `oauth_consent` row). Account-level; dashboard or a /account page.
-- [ ] Consent page shows the raw client_id URL when the client has no
-      registered name (CIMD clients mostly do; DCR ones may not).
-- [ ] GitHub Dependabot: 1 moderate alert on main — check what/if relevant.
-- [ ] README feature bullets: add MCP.
-- [ ] Docs registry (/docs): Getting Started should cover "connect an agent";
-      consider a short dedicated page.
+- [ ] Dependabot (medium, esbuild@0.18 under drizzle-kit's deprecated
+      @esbuild-kit loader): a dev-server CORS issue in a tool we never serve
+      from. Not exploitable here; clears when drizzle-kit drops the loader.
+      Not forcing an override that could break migrations. **Noted, won't fix.**
 
 ## Fixing
 
 ## Fixed
+
+- [x] Homepage, README (intro, features, deploy table, "Using a board"),
+      Getting Started §5, /docs blurb: all lead with connecting Claude or
+      ChatGPT. `6372c55`
+- [x] MCP tool schemas as the model sees them: update_config declares its
+      fields; get_status explains stale/lines; post_message says preview
+      first. `6372c55`
+- [x] Consent screen read `name` where OAuth says `client_name` → showed
+      the raw id for every client. Now names the app and its URI.
+- [x] **Disconnect an app**: dashboard lists connected OAuth clients with a
+      Disconnect that deletes the consent *and* revokes the refresh/access
+      tokens (Better Auth's own delete-consent leaves a 30-day refresh token
+      alive). `lib/api/connections.mjs`, GET/DELETE /api/account/connections.
 
 - [x] Dashboard: "Connect Claude or ChatGPT" card with the MCP URL + copy;
       Docs link in the signed-in header; empty state points at Claude.

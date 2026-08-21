@@ -38,7 +38,38 @@ export function DashboardClient({
   useEffect(() => setOrigin(window.location.origin), []);
   const [error, setError] = useState('');
 
+  // The OAuth clients this account has let in. Loaded client-side so the
+  // dashboard's server render stays a plain board list.
+  type Connection = { clientId: string; name: string; uri: string | null; grantedAt: number | null };
+  const [connections, setConnections] = useState<Connection[] | null>(null);
+  useEffect(() => {
+    fetch('/api/account/connections')
+      .then((response) => (response.ok ? response.json() : { connections: [] }))
+      .then((body) => setConnections(body.connections ?? []))
+      .catch(() => setConnections([]));
+  }, []);
+
   const typeName = (id: string) => types.find((type) => type.id === id)?.name ?? id;
+
+  async function disconnectApp(connection: Connection) {
+    const ok = await confirm({
+      title: `Disconnect ${connection.name}?`,
+      body: 'It loses access to your boards. Anything it already holds stops working within the hour; it can reconnect by signing in again.',
+      confirmLabel: 'Disconnect',
+      danger: true,
+    });
+    if (!ok) return;
+    setError('');
+    const response = await fetch(`/api/account/connections/${encodeURIComponent(connection.clientId)}`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      setError(body.error || `Disconnect failed: HTTP ${response.status}`);
+      return;
+    }
+    setConnections((prev) => (prev ?? []).filter((entry) => entry.clientId !== connection.clientId));
+  }
 
   async function remove(board: BoardRow) {
     const ok = await confirm({
@@ -152,6 +183,30 @@ export function DashboardClient({
               <code className="curl">{origin}/api/mcp</code>
               <CopyButton value={`${origin}/api/mcp`} label="Copy MCP URL" />
             </>
+          )}
+          {connections && connections.length > 0 && (
+            <div className="dash-connections">
+              <h3>Connected</h3>
+              <ul>
+                {connections.map((connection) => (
+                  <li key={connection.clientId}>
+                    <span>
+                      <strong>{connection.name}</strong>
+                      {connection.uri && <span className="muted"> · {connection.uri}</span>}
+                      {connection.grantedAt && (
+                        <span className="muted">
+                          {' '}
+                          · since {new Date(connection.grantedAt).toLocaleDateString()}
+                        </span>
+                      )}
+                    </span>
+                    <Button size="sm" variant="ghost" onClick={() => disconnectApp(connection)}>
+                      Disconnect
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
         </section>
       </main>
