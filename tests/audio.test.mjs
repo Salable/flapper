@@ -82,6 +82,21 @@ test('one flap is one voice at unit gain, panned by its column', () => {
   assert.ok(Math.abs(panForColumn(10, 21)) < 1e-9);
 });
 
+test('the stereo image is subtle: edges at PAN_WIDTH, the middle third near centre, symmetric', () => {
+  assert.ok(PAN_WIDTH <= 0.4, 'a wall is listened to from the front; edges should drift, not throw');
+  const cols = 21;
+  const mid = panForColumn(10, cols);
+  const third = panForColumn(13, cols); // a third of the way out from centre
+  const edge = panForColumn(20, cols);
+  assert.ok(Math.abs(mid) < 1e-9);
+  assert.ok(Math.abs(third) < PAN_WIDTH * 0.2, `the middle third stays near centre, got ${third}`);
+  assert.equal(edge, PAN_WIDTH);
+  for (let col = 0; col < cols; col += 1) {
+    assert.ok(Math.abs(panForColumn(col, cols) + panForColumn(cols - 1 - col, cols)) < 1e-9, 'mirror columns mirror');
+    if (col > 0) assert.ok(panForColumn(col, cols) > panForColumn(col - 1, cols), 'monotonic left to right');
+  }
+});
+
 test('a full-board sweep is capped in voices and in energy', () => {
   const flaps = Array.from({ length: 160 }, (_, i) => ({ col: i % 20 }));
   const plan = planVoices(flaps, { cols: 20, samples: 16, random: fixedRandom(0.5) });
