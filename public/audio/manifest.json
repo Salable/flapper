@@ -1,0 +1,86 @@
+{
+  "sampleRate": 24000,
+  "file": "flap.wav",
+  "samples": [
+    {
+      "offset": 0.0,
+      "duration": 0.088,
+      "sourceMs": 9577
+    },
+    {
+      "offset": 0.088,
+      "duration": 0.088,
+      "sourceMs": 14762
+    },
+    {
+      "offset": 0.176,
+      "duration": 0.088,
+      "sourceMs": 20670
+    },
+    {
+      "offset": 0.264,
+      "duration": 0.088,
+      "sourceMs": 29565
+    },
+    {
+      "offset": 0.352,
+      "duration": 0.088,
+      "sourceMs": 34238
+    },
+    {
+      "offset": 0.44,
+      "duration": 0.088,
+      "sourceMs": 42252
+    },
+    {
+      "offset": 0.528,
+      "duration": 0.088,
+      "sourceMs": 49133
+    },
+    {
+      "offset": 0.616,
+      "duration": 0.088,
+      "sourceMs": 57316
+    },
+    {
+      "offset": 0.704,
+      "duration": 0.088,
+      "sourceMs": 61432
+    },
+    {
+      "offset": 0.792,
+      "duration": 0.088,
+      "sourceMs": 68528
+    },
+    {
+      "offset": 0.88,
+      "duration": 0.088,
+      "sourceMs": 72136
+    },
+    {
+      "offset": 0.968,
+      "duration": 0.088,
+      "sourceMs": 90219
+    },
+    {
+      "offset": 1.056,
+      "duration": 0.088,
+      "sourceMs": 99602
+    },
+    {
+      "offset": 1.144,
+      "duration": 0.088,
+      "sourceMs": 108095
+    },
+    {
+      "offset": 1.232,
+      "duration": 0.088,
+      "sourceMs": 111689
+    },
+    {
+      "offset": 1.32,
+      "duration": 0.088,
+      "sourceMs": 118916
+    }
+  ]
+}

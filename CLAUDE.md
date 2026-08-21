@@ -14,6 +14,7 @@ node --test tests/layout.test.mjs  # a single file
 npm run build                      # migrates (when DATABASE_URL) then next build
 npm run db:generate                # after editing lib/db/schema.mjs
 python3 tools/build_assets.py      # only when the tile art changes (see AGENTS.md "Add a theme")
+python3 tools/build_audio.py --src x.mp3   # only when the flap recording changes
 cd desktop && npm start            # the Electron kiosk shell
 ```
 

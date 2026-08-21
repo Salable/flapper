@@ -3,10 +3,12 @@
 /**
  * The display: a passive renderer of its board's server-side queue.
  *
- * No panel, no compose, no local settings - configuration and the queue live
- * in Settings and the API; this page plays what the server says and reports
- * completions. The only keys are F (fullscreen) and Esc (panic blank - the
- * queue is untouched and resumes when it next changes).
+ * No panel, no compose - configuration and the queue live in Settings and the
+ * API; this page plays what the server says and reports completions. The keys
+ * are F (fullscreen), Esc (panic blank - the queue is untouched and resumes
+ * when it next changes), M (mute) and the up/down arrows (volume). Sound is
+ * the one thing that is the display's own rather than the board's: it is
+ * remembered per browser, not per board.
  *
  * Boot order matters: the command stream opens before the first queue fetch,
  * so a nudge can never fall between "read the queue" and "start listening".
@@ -19,6 +21,17 @@ import { Player } from '@/lib/board/player.mjs';
 import { useStatePublisher } from '@/hooks/useStatePublisher';
 import { loadFlapperAssets, onAssetProgress } from '@/components/flapper/assets';
 import { resolveTheme } from '@/lib/board/themes.mjs';
+import {
+  FlapSound,
+  VOLUME_STEP,
+  describeAudio,
+  nudgeVolume,
+  readAudioState,
+  toggleMute,
+  writeAudioState,
+} from '@/lib/board/audio.mjs';
+
+const TOAST_MS = 1800;
 
 /** Board config is trusted but bands are deferred: never let a footer in. */
 function sanitizeConfig(config: any) {
@@ -42,6 +55,9 @@ export function BoardApp({
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const playerRef = useRef<any>(null);
+  const soundRef = useRef<FlapSound | null>(null);
+  const [toast, setToast] = useState('');
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [phase, setPhase] = useState<'loading' | 'failed' | 'ready'>('loading');
   const [progress, setProgress] = useState(0);
@@ -85,6 +101,15 @@ export function BoardApp({
       if (cancelled) return;
 
       const board = new Flipboard(canvas, manifest, strips, {});
+
+      // The clacks. Loaded alongside the art; silent until the browser has
+      // had a gesture (see the keydown/pointerdown handlers below).
+      const sound = new FlapSound({ state: readAudioState(window.localStorage) });
+      soundRef.current = sound;
+      sound.attach(board);
+      sound.load().catch((error: any) => {
+        console.warn(`flapper: sound failed to load - ${error.message}`);
+      });
 
       // The theme lives in the board config, so a change in Settings reaches
       // every display through the same sync nudge as a grid change. The new
@@ -155,6 +180,7 @@ export function BoardApp({
       (window as any).flipboard = board;
       (window as any).controller = controller;
       (window as any).player = player;
+      (window as any).sound = sound;
 
       setPhase('ready');
 
@@ -232,6 +258,8 @@ export function BoardApp({
       if (onVisibility) document.removeEventListener('visibilitychange', onVisibility);
       playerRef.current?.stop();
       playerRef.current = null;
+      soundRef.current?.stop();
+      soundRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug, apiBase, boardKey, displayToken, initialTheme]);
@@ -239,8 +267,39 @@ export function BoardApp({
   useStatePublisher(apiBase, displayToken, phase === 'ready', onStateRef);
 
   useEffect(() => {
+    const showToast = (text: string) => {
+      setToast(text);
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+      toastTimer.current = setTimeout(() => setToast(''), TOAST_MS);
+    };
+    const setAudio = (next: { volume: number; muted: boolean }) => {
+      const sound = soundRef.current;
+      const state = sound ? sound.setState(next) : next;
+      writeAudioState(window.localStorage, state);
+      showToast(describeAudio(state));
+    };
+    // Browsers hold audio until the page has had a gesture. Any key or click
+    // on the display counts, so the first one wakes the sound up - and if it
+    // was a volume key, the toast says so rather than pretending it played.
+    const unlock = () => {
+      soundRef.current?.unlock();
+    };
+    const onPointerDown = () => unlock();
+
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.metaKey || event.ctrlKey || event.altKey) return;
+      unlock();
+      const sound = soundRef.current;
+      if (event.key.toLowerCase() === 'm') {
+        event.preventDefault();
+        if (sound) setAudio(toggleMute(sound.state));
+        return;
+      }
+      if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+        event.preventDefault();
+        if (sound) setAudio(nudgeVolume(sound.state, event.key === 'ArrowUp' ? VOLUME_STEP : -VOLUME_STEP));
+        return;
+      }
       if (event.key === 'Escape') {
         event.preventDefault();
         playerRef.current?.panicBlank();
@@ -253,7 +312,12 @@ export function BoardApp({
       }
     };
     window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    window.addEventListener('pointerdown', onPointerDown);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('pointerdown', onPointerDown);
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+    };
   }, []);
 
   return (
@@ -290,6 +354,9 @@ export function BoardApp({
       </main>
       <div id="hint" className={note !== '' ? 'visible' : ''}>
         {note}
+      </div>
+      <div id="audio-toast" className={toast !== '' ? 'visible' : ''} role="status" aria-live="polite">
+        {toast}
       </div>
     </>
   );

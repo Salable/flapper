@@ -183,6 +183,25 @@ a clock — the app does not need to know. Use `--size` to match how big your
 tiles actually render; every frame stays decoded in memory in the display tab
 (~105 MB at 256, ~28 MB at 128).
 
+### The sound
+
+Every tile step is a flap, and `Flipboard.onFlap` reports each frame's
+flaps to `lib/board/audio.mjs`. `planVoices` (pure, tested) decides how a
+frame's flaps are voiced: at most eight voices a frame, gain scaled so a
+full-board sweep is louder than one tile but plateaus well short of
+clipping, each voice spread through the frame, panned by column and
+pitch-jittered, playing one of sixteen single-flap samples at random.
+`FlapSound` is the Web Audio shell around it (master gain → limiter).
+The samples are cut from a recording of a real board by
+`tools/build_audio.py` into one WAV sprite in `public/audio/`:
+
+```bash
+python3 tools/build_audio.py --src recording.mp3 --out public/audio
+```
+
+Mute and volume (M, ↑/↓) are the display's, kept in localStorage under
+`flapper.audio.v1`, not the board's config.
+
 ### Add a theme
 
 A theme is a second set of strips with the *same* ring, in different paint.

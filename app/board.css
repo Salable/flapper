@@ -104,6 +104,23 @@ body {
   opacity: 1;
 }
 
+/* The volume / mute toast: bottom-left, opposite the hint, gone in a moment. */
+#audio-toast {
+  position: fixed;
+  left: 16px;
+  bottom: 14px;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  opacity: 0;
+  transition: opacity 300ms ease;
+  pointer-events: none;
+  z-index: 4;
+}
+
+#audio-toast.visible {
+  opacity: 1;
+}
+
 /* ---- controls ---- */
 
 #controls {

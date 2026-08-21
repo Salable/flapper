@@ -89,7 +89,9 @@ report completions (idempotent per play; mirrors advance once). Clock boards
 run the type's `itemAt` against the server clock — evaluate, cut, sleep
 until the next change; fallback in the gaps; an unplayable item shows the
 fallback, never a dark gap. Keys: **F** fullscreen, **Esc** panic-blank
-(held until the queue's content changes). Paused/unknown-type boards show
+(held until the queue's content changes), **M** mute, **↑ / ↓** volume in
+10% steps (sound is per browser, remembered in localStorage; a browser tab
+stays silent until its first key or click, the kiosk shell does not). Paused/unknown-type boards show
 "BOARD PAUSED. SEE SETTINGS".
 
 ### 6½. Account — `/account` (signed in)

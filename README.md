@@ -92,9 +92,14 @@ npm run db:generate  # after editing lib/db/schema.mjs: new SQL migration
 ## Using a board
 
 The board page is deliberately passive — just the tiles, playing whatever its
-type's playback says. Only two keys exist on the glass: <kbd>F</kbd> for
-fullscreen and <kbd>Esc</kbd> to blank in place (the queue is untouched; the
-blank lifts when the queue next changes).
+type's playback says. Four keys exist on the glass: <kbd>F</kbd> for
+fullscreen, <kbd>Esc</kbd> to blank in place (the queue is untouched; the
+blank lifts when the queue next changes), <kbd>M</kbd> to mute and
+<kbd>↑</kbd>/<kbd>↓</kbd> for volume. Every flip clacks — one recorded flap
+per tile step, panned across the board — and the level is the display's own,
+remembered per browser. A browser tab stays silent until its first key press
+or click (the browser's rule, not ours); the kiosk shell plays from the
+first flip.
 
 **Settings** (`/b/{slug}/settings`, owner-only) is the control room, in three
 tabs: **Queue** (compose and manage — a rolling list on a live board, the

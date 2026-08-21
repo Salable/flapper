@@ -34,6 +34,12 @@ function chosenUrl() {
 
 let blockerId = null;
 
+// Nobody presses a key on a wall display, and a browser will not make a
+// sound until somebody does. The kiosk is the one place that rule is
+// wrong, so here the clacks start with the first flip. (M and the arrow
+// keys still mute and set the level; the setting is per machine.)
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+
 function createWindow() {
   const win = new BrowserWindow({
     // Sized for the default 20 x 8 grid at a comfortable tile size.
