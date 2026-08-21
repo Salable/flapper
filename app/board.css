@@ -1270,3 +1270,15 @@ a.button.primary {
   padding: 0.5rem 0;
   border-top: 1px solid var(--edge);
 }
+
+/* Login/signup reached from an app's OAuth flow: name the app up front. */
+.auth-form .auth-context {
+  margin: 0 0 1rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--edge);
+  border-radius: 4px;
+  color: var(--muted);
+}
+.auth-form .auth-context strong {
+  color: var(--ink);
+}

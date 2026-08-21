@@ -19,6 +19,13 @@ commits straight to main; move items down the lists as they move.
 
 ## Fixed
 
+- [x] Login/signup reached from an app's OAuth redirect looked like a random
+      login. Now a banner names the app ("Claude wants to connect to your
+      Flapper boards. Sign in to continue."), via the provider's pre-login
+      lookup (`allowPublicClientPrelogin`). The login<->signup cross-links
+      dropped the OAuth query, stranding brand-new users; they carry it now.
+      Verified: redirect → Create one → signup → consent, end to end.
+
 - [x] Invisible button labels: the 404 page's "Your dashboard" and the
       private-board "Sign in" rendered bone-on-bone (a later
       `main.landing a` rule tied with `a.button.primary`). Moved those pages

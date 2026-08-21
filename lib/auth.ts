@@ -152,6 +152,9 @@ function makeAuth(db: unknown) {
         // unavailable and has no UI for pasting a client id.
         allowDynamicClientRegistration: true,
         allowUnauthenticatedClientRegistration: true,
+        // Lets the login page name the app asking to connect, before there
+        // is a session (the lookup still demands the signed oauth_query).
+        allowPublicClientPrelogin: true,
         // Claude's CIMD document declares the RFC 7523 jwt-bearer grant, and
         // registration rejects any declared grant outside this set. Listing
         // it makes registration accept the document; the token endpoint has
