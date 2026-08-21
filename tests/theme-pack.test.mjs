@@ -58,10 +58,15 @@ test('per-state overrides merge one level deep over the pack', () => {
   assert.equal(resolveStateStyle(pack, 'A').art, null);
 });
 
-test('art must look like an image reference', () => {
+test('art is shipped with the app or inlined - never fetched from elsewhere', () => {
   assert.equal(validatePack({ art: { a: 'javascript:alert(1)' } }).ok, false);
-  assert.equal(validatePack({ art: { a: 'https://x/y.png' } }).ok, true);
-  assert.equal(validatePack({ art: { a: '/assets/x.png' } }).ok, true);
+  assert.equal(validatePack({ art: { a: 'https://x/y.png' } }).ok, false, 'remote art would make every viewer fetch a third party');
+  assert.equal(validatePack({ art: { a: 'data:image/svg+xml;base64,PHN2Zz4=' } }).ok, false, 'svg decode is unreliable');
+  assert.equal(validatePack({ art: { a: 'data:image/png;base64,iVBORw0KGgo=' } }).ok, true);
+  assert.equal(validatePack({ art: { a: 'data:image/webp;base64,UklGRg==' } }).ok, true);
+  assert.equal(validatePack({ art: { a: '/brand/x.png' } }).ok, true);
+  assert.equal(validatePack({ fonts: [{ family: 'X', src: 'https://x/f.woff2' }] }).ok, false);
+  assert.equal(validatePack({ fonts: [{ family: 'X', src: '/fonts/x.woff2' }] }).ok, true);
 });
 
 test('fonts scale with the tile', () => {

@@ -96,6 +96,32 @@ test('theme must be one this build ships', () => {
   refused(() => validateConfigPatch({ theme: null }), /theme must be one of/);
   // The drawn twins' ids are aliases for reading old config, not values to write.
   refused(() => validateConfigPatch({ theme: 'classic-p' }), /theme must be one of/);
+});
+
+test('themePack: validated against the board\'s theme, stored sparse, sized as 413', () => {
+  assert.deepEqual(validateConfigPatch({ themePack: null }), { themePack: null });
+  // Identical to the preset: nothing to store.
+  assert.deepEqual(validateConfigPatch({ themePack: { card: { fill: '#2b2b2b' } } }, { theme: 'classic' }), { themePack: null });
+  // A real difference comes back sparse, other keys untouched.
+  assert.deepEqual(
+    validateConfigPatch({ cols: 12, themePack: { card: { fill: '#ffffff', edge: '#000000' }, id: 'ignored' } }, { theme: 'classic' }),
+    { cols: 12, themePack: { card: { fill: '#ffffff' } } },
+  );
+  // Validated against the theme named in the same patch when there is one.
+  assert.deepEqual(
+    validateConfigPatch({ theme: 'canary', themePack: { card: { fill: '#139a04' } } }, { theme: 'classic' }),
+    { theme: 'canary', themePack: null },
+  );
+  refused(() => validateConfigPatch({ themePack: [] }), /object or null/);
+  refused(() => validateConfigPatch({ themePack: { card: { fill: 'nope' } } }), /card.fill/);
+  refused(() => validateConfigPatch({ themePack: { art: { x: 'https://evil/x.png' }, states: { A: { art: 'x' } } } }), /root-relative/);
+  refused(() => validateConfigPatch({ themeRev: 'abc' }), /set by the server/);
+  try {
+    validateConfigPatch({ themePack: { card: { fill: '#' + 'f'.repeat(70000) } } });
+    assert.fail('should have thrown');
+  } catch (error) {
+    assert.equal(error.status, 413);
+  }
   assert.deepEqual(validateConfigPatch({ theme: 'canary' }), { theme: 'canary' });
   assert.deepEqual(validateConfigPatch({ theme: 'classic' }), { theme: 'classic' });
 });

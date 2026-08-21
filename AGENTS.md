@@ -237,6 +237,13 @@ Boards that were set to `classic-p` or `canary-p` while the drawn themes ran
 alongside the old art still resolve (to `classic`/`canary`); the ids are not
 accepted on write.
 
+**A board's own look** needs no preset at all: `themePack` in its config is
+a sparse set of overrides on top of its `theme` (`lib/board/board-theme.mjs`
+- merge, limits, `sparsify`, the revision). The server stores only what
+differs from the preset, `/queue` carries just the revision, and the display
+fetches `/theme` when it moves. `docs/BOARD-API.md` "A board's own look" is
+the contract; the Settings editor is the UI for it.
+
 ### Change how it moves
 
 Everything is in `lib/board/timing.mjs` and live-tunable from the panel under

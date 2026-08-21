@@ -19,8 +19,8 @@ import { Flipboard } from '@/lib/board/flipboard.js';
 import { Controller } from '@/lib/board/controller.mjs';
 import { Player } from '@/lib/board/player.mjs';
 import { useStatePublisher } from '@/hooks/useStatePublisher';
-import { loadSkin, onAssetProgress } from '@/components/flapper/assets';
-import { resolveTheme } from '@/lib/board/themes.mjs';
+import { loadBoardSkin, onAssetProgress } from '@/components/flapper/assets';
+import { resolveBoardTheme } from '@/lib/board/board-theme.mjs';
 import {
   FlapSound,
   VOLUME_STEP,
@@ -50,9 +50,13 @@ export function BoardApp({
   apiBase: string;
   boardKey: string | null;
   displayToken: string;
-  /** The board's theme as the server knew it at page load - the first paint is already the right colour. */
-  initialTheme: string;
+  /** The board's theme as the server resolved it at page load - the first paint is already the right colour. */
+  initialTheme: { rev: string; pack: any };
 }) {
+  // Read through a ref and keyed on the rev: an object prop must not re-run the boot effect on every parent render.
+  const initialThemeRef = useRef(initialTheme);
+  initialThemeRef.current = initialTheme;
+  const initialRev = initialTheme.rev;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const playerRef = useRef<any>(null);
   const soundRef = useRef<FlapSound | null>(null);
@@ -89,7 +93,7 @@ export function BoardApp({
     (async () => {
       let skin;
       try {
-        skin = await loadSkin(initialTheme);
+        skin = await loadBoardSkin(initialThemeRef.current.rev, initialThemeRef.current.pack);
       } catch (error: any) {
         if (cancelled) return;
         console.error(`flapper: tile art failed to load — ${error.message}`);
@@ -111,20 +115,29 @@ export function BoardApp({
       });
 
       // The theme lives in the board config, so a change in Settings reaches
-      // every display through the same sync nudge as a grid change. The new
-      // set decodes in the background; the board keeps playing in the old
-      // paint until it is ready, then swaps under the tiles in place.
-      let theme = resolveTheme(initialTheme).id;
-      const applyTheme = (wanted: string) => {
-        const next = resolveTheme(wanted).id;
-        if (next === theme) return;
-        theme = next;
-        loadSkin(next)
-          .then((nextSkin) => {
-            if (!cancelled && theme === next) board.setSkin(nextSkin);
+      // every display through the same sync nudge as a grid change. The
+      // queue snapshot carries only the theme's revision; when it moves, the
+      // display fetches /theme, builds the skin in the background, and swaps
+      // it under the tiles in place. A failed fetch leaves `rev` where it
+      // was, so the next nudge tries again.
+      let rev = initialThemeRef.current.rev;
+      const applyTheme = (wanted: string | undefined) => {
+        if (!wanted || wanted === rev) return;
+        const previous = rev;
+        rev = wanted;
+        fetch(`${apiBase}/theme${keySuffix}`)
+          .then(async (response) => {
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const body = await response.json();
+            // Defence in depth: draw what this build resolves from the stored
+            // config, not whatever the server says the pack is.
+            const resolved = resolveBoardTheme({ theme: body.theme, themePack: body.themePack });
+            const nextSkin = await loadBoardSkin(body.rev, resolved.pack);
+            if (!cancelled && rev === wanted) board.setSkin(nextSkin);
           })
           .catch((error: any) => {
-            console.warn(`flapper: theme ${JSON.stringify(next)} failed to load, keeping ${JSON.stringify(theme)} - ${error.message}`);
+            if (rev === wanted) rev = previous;
+            console.warn(`flapper: theme ${wanted} failed to load, keeping ${previous} - ${error.message}`);
           });
       };
       const controller = new Controller(board, {});
@@ -162,10 +175,10 @@ export function BoardApp({
       };
 
       const player = new Player(controller, board, api, {
-        onConfig: (config: any) => {
+        onConfig: (config: any, meta?: { themeRev?: string }) => {
           try {
             setLayout(config?.layout ?? null);
-            applyTheme(config?.theme);
+            applyTheme(meta?.themeRev);
             controller.configure(sanitizeConfig(config));
           } catch (error: any) {
             console.warn(`flapper: stored config refused - ${error.message}`);
@@ -261,7 +274,7 @@ export function BoardApp({
       soundRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slug, apiBase, boardKey, displayToken, initialTheme]);
+  }, [slug, apiBase, boardKey, displayToken, initialRev]);
 
   useStatePublisher(apiBase, displayToken, phase === 'ready', onStateRef);
 

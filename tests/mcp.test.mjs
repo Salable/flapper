@@ -222,6 +222,27 @@ test('update_config patches and export_queue round-trips payloads', async () => 
   assert.equal(exported.body.items[0].payload.text, 'KEEP THIS');
 });
 
+test('get_theme reads the resolved pack; update_config can set a themePack and list_queue never carries it', async () => {
+  const board = await makeBoard();
+  const initial = await run('get_theme', {}, board);
+  assert.equal(initial.isError, false, JSON.stringify(initial.body));
+  assert.equal(initial.body.theme, 'classic');
+  assert.equal(initial.body.themePack, null);
+  assert.equal(initial.body.pack.card.fill, '#2b2b2b');
+
+  // An agent sends the whole pack back with one change, identity and all.
+  const patched = await run('update_config', { themePack: { ...initial.body.pack, card: { ...initial.body.pack.card, fill: '#ffffff' } } }, board);
+  assert.equal(patched.isError, false, JSON.stringify(patched.body));
+  assert.deepEqual(patched.body.config.themePack, { card: { fill: '#ffffff' } });
+
+  const queue = await run('list_queue', {}, board);
+  assert.equal('themePack' in queue.body.config, false);
+  assert.equal(queue.body.themeRev, patched.body.themeRev);
+
+  const reset = await run('update_config', { themePack: null }, board);
+  assert.equal(reset.body.config.themePack, null);
+});
+
 /* ---- error mapping ---- */
 
 test('handler rejections become isError results carrying the HTTP status', async () => {

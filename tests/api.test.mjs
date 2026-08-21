@@ -27,6 +27,7 @@ import {
   reorderQueue,
   advanceQueue,
   getBoardKey,
+  getTheme,
 } from '../lib/api/handlers.mjs';
 import { mintDisplayToken } from '../lib/api/display-token.mjs';
 import { BOARD_TYPES } from '../lib/board-types/index.mjs';
@@ -589,6 +590,87 @@ test('capabilities and config round-trip through Postgres, and nudge displays', 
 
   const commands = await broker.commandsAfter(board.boardId, '0', 10);
   assert.equal(commands[0].cmd.method, 'sync');
+});
+
+test('a board\'s own theme: stored sparse, kept out of /queue, served by /theme with a revision', async () => {
+  const board = await makeBoard();
+  const before = (await jsonOf(call(getQueue, ctx(board.slug), '/queue'))).body;
+  assert.match(before.themeRev, /^[0-9a-f]{16}$/);
+  assert.equal('themePack' in before.config, false);
+
+  // Send a whole-ish pack; what is stored is the difference from Classic.
+  const patched = await jsonOf(
+    call(patchConfig, ctx(board.slug), '/config', {
+      method: 'PATCH',
+      body: { themePack: { card: { fill: '#f4efe6', edge: '#000000' }, glyph: { fill: '#1f2a44' } } },
+      key: board.apiKey,
+    }),
+  );
+  assert.equal(patched.status, 200, JSON.stringify(patched.body));
+  assert.deepEqual(patched.body.config.themePack, { card: { fill: '#f4efe6' }, glyph: { fill: '#1f2a44' } });
+  assert.notEqual(patched.body.themeRev, before.themeRev);
+
+  const after = (await jsonOf(call(getQueue, ctx(board.slug), '/queue'))).body;
+  assert.equal(after.themeRev, patched.body.themeRev);
+  assert.equal('themePack' in after.config, false, 'the pack does not ride along with every queue poll');
+
+  const theme = await call(getTheme, ctx(board.slug), '/theme');
+  assert.equal(theme.status, 200);
+  assert.equal(theme.headers.get('etag'), `"${after.themeRev}"`);
+  const themeBody = await theme.json();
+  assert.equal(themeBody.theme, 'classic');
+  assert.deepEqual(themeBody.themePack, { card: { fill: '#f4efe6' }, glyph: { fill: '#1f2a44' } });
+  assert.equal(themeBody.pack.card.fill, '#f4efe6');
+  assert.equal(themeBody.pack.card.edge, '#000000');
+  assert.equal(themeBody.rev, after.themeRev);
+
+  const unchanged = await call(getTheme, ctx(board.slug), '/theme', { headers: { 'if-none-match': `"${after.themeRev}"` } });
+  assert.equal(unchanged.status, 304);
+
+  // An unrelated config change leaves the revision alone.
+  await call(patchConfig, ctx(board.slug), '/config', { method: 'PATCH', body: { cols: 24 }, key: board.apiKey });
+  assert.equal((await jsonOf(call(getQueue, ctx(board.slug), '/queue'))).body.themeRev, after.themeRev);
+
+  // Switching preset keeps the overrides that still differ.
+  const swapped = await jsonOf(
+    call(patchConfig, ctx(board.slug), '/config', { method: 'PATCH', body: { theme: 'canary' }, key: board.apiKey }),
+  );
+  assert.equal(swapped.body.config.theme, 'canary');
+  assert.notEqual(swapped.body.themeRev, after.themeRev);
+
+  // null resets.
+  const reset = await jsonOf(
+    call(patchConfig, ctx(board.slug), '/config', { method: 'PATCH', body: { themePack: null }, key: board.apiKey }),
+  );
+  assert.equal(reset.body.config.themePack, null);
+
+  // Refusals carry the validator's words and statuses.
+  const bad = await jsonOf(
+    call(patchConfig, ctx(board.slug), '/config', { method: 'PATCH', body: { themePack: { glyph: { fill: 'nope' } } }, key: board.apiKey }),
+  );
+  assert.equal(bad.status, 422);
+  assert.match(bad.body.error, /glyph.fill/);
+  const fat = await jsonOf(
+    call(patchConfig, ctx(board.slug), '/config', {
+      method: 'PATCH',
+      body: { themePack: { card: { fill: '#' + 'f'.repeat(70000) } } },
+      key: board.apiKey,
+    }),
+  );
+  assert.equal(fat.status, 413);
+
+  const caps = (await jsonOf(call(capabilities, ctx(board.slug), '/capabilities'))).body;
+  assert.deepEqual(caps.themePack.presets.map((p) => p.id), ['classic', 'canary']);
+  assert.equal(typeof caps.themePack.maxBytes, 'number');
+});
+
+test('/theme follows the board\'s read access: private boards need the key or the owner', async () => {
+  const board = await makeBoard();
+  await call(boardPatch, ctx(board.slug, 'owner'), '/x', { method: 'PATCH', body: { private: true } });
+  assert.equal((await call(getTheme, ctx(board.slug), '/theme')).status, 403);
+  assert.equal((await call(getTheme, ctx(board.slug, 'stranger'), '/theme')).status, 403);
+  assert.equal((await call(getTheme, ctx(board.slug), '/theme', { key: board.apiKey })).status, 200);
+  assert.equal((await call(getTheme, ctx(board.slug, 'owner'), '/theme')).status, 200);
 });
 
 test('bands cannot be configured back in yet: footerRows and per-band settings 422', async () => {

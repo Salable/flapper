@@ -223,11 +223,11 @@ test('panic blanks and holds the blank until the queue actually changes', async 
 
 test('config in the snapshot reaches the config hook', async (t) => {
   const api = fakeApi();
-  api.fetches.push(playingSnap('a', [item('a', 'AAA')], 1, { config: { cols: 30 } }));
+  api.fetches.push(playingSnap('a', [item('a', 'AAA')], 1, { config: { cols: 30 }, themeRev: 'abc' }));
   const configs = [];
-  const { player } = makePlayer(t, api, { onConfig: (config) => configs.push(config) });
+  const { player } = makePlayer(t, api, { onConfig: (config, meta) => configs.push([config, meta]) });
   await player.start();
-  assert.deepEqual(configs, [{ cols: 30 }]);
+  assert.deepEqual(configs, [[{ cols: 30 }, { themeRev: 'abc' }]]);
 });
 
 /* ---- clock playback ---- */

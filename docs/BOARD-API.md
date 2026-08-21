@@ -164,6 +164,35 @@ the board in Norwich green; `"classic"` is the charcoal original. Always take
 the list from `/capabilities` (`themes`); a deployment may ship more, and an
 unknown id is a 422. Do not change a board's theme unless asked to.
 
+### A board's own look
+
+A board can go beyond the presets: `themePack` in the same config is the
+board's own overrides on top of its `theme`. Read `GET {apiBase}/theme` first
+- it returns the preset (`theme`), the stored overrides (`themePack`, `null`
+if none), the fully resolved `pack` the displays draw, and a `rev`.
+
+```bash
+curl -X PATCH {apiBase}/config \
+  -H "authorization: Bearer $KEY" -H 'content-type: application/json' \
+  -d '{"themePack":{"card":{"fill":"#f4efe6","edge":"#d8cfbf"},"glyph":{"fill":"#1f2a44","font":"400 0.9em Georgia, serif"},"states":{"!":{"glyph":{"fill":"#d9381e"}}}}}'
+```
+
+- `card`, `hinge`, `glyph`, `motion` merge a level deep over the preset;
+  `states` (per-character overrides), `art` (inline images by key) and
+  `fonts` replace whole when present.
+- The server stores only what differs from the preset, so sending the
+  whole `pack` back with one change is the same as sending the change.
+  `{"themePack": null}` resets to the preset.
+- Art is `data:image/png;base64,…` or `data:image/webp;base64,…` (or a path
+  the app ships) - never a remote URL. Limits and every field's range are in
+  `/capabilities` under `themePack`; an oversize pack is a `413`, a bad
+  value a `422` naming the field.
+- `/queue` carries `themeRev`, not the pack: a display refetches `/theme`
+  when the revision changes, and `/theme` honours `If-None-Match`.
+
+Changing a board's look is a visible act on someone's wall. Do it only when
+asked, and prefer the smallest change that does what was asked.
+
 ### Bands are paused
 
 Flapper 1.x/2.x could split the board into a main band and a footer.
@@ -300,7 +329,8 @@ Use `POST {apiBase}/clear` to stop everything, or edit the item.
 | `GET` | `/api/b/{slug}/status` | read | last reported state, plus `stale`/`frozen`/`updatedAt` |
 | `GET` | `/api/b/{slug}/events` | read | SSE stream of board state |
 | `POST` | `/api/b/{slug}/message` | key | queue `text` or `rows` (+`loop`) → `202` |
-| `GET` | `/api/b/{slug}/queue` | read | the queue: items, current, config |
+| `GET` | `/api/b/{slug}/queue` | read | the queue: items, current, config, `themeRev` |
+| `GET` | `/api/b/{slug}/theme` | read | the board's theme: preset, overrides, resolved pack, `rev` |
 | `POST` | `/api/b/{slug}/queue/items` | key | add — same body as `/message` |
 | `PATCH` | `/api/b/{slug}/queue/items/{id}` | key | edit, toggle `loop` |
 | `DELETE` | `/api/b/{slug}/queue/items/{id}` | key | remove (current = skip) |
@@ -308,7 +338,7 @@ Use `POST {apiBase}/clear` to stop everything, or edit the item.
 | `POST` | `/api/b/{slug}/preview` | read | lay out and return pages **without displaying** |
 | `POST` | `/api/b/{slug}/clear` | key | stop and blank; optional `region`, omitted = every band |
 | `DELETE` | `/api/b/{slug}/queue` | key | drop pending, leave the current message playing |
-| `PATCH` | `/api/b/{slug}/config` | key | grid, `theme`, `footerRows`, motion, dwell, per-band `regions` |
+| `PATCH` | `/api/b/{slug}/config` | key | grid, `theme`, `themePack`, `footerRows`, motion, dwell, per-band `regions` |
 
 "read" is open on a public board and needs the key on a private one. Three
 further routes belong to the display itself and are not for API clients:
