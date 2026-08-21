@@ -21,9 +21,85 @@ import { jwt } from 'better-auth/plugins';
 import { verifyAccessTokenRequest, requestToResourceInput } from 'better-auth/oauth2';
 import { mcp } from '@better-auth/mcp';
 import { cimd } from '@better-auth/cimd';
-import { fetchClientMetadataResource } from '@better-auth/cimd/node';
+import { isPublicRoutableHost } from '@better-auth/core/utils/host';
+import { lookup } from 'node:dns/promises';
+import { request as httpsRequest } from 'node:https';
+import { isIP } from 'node:net';
+import { Readable } from 'node:stream';
 import { getDb } from './db/client.mjs';
 import * as schema from './db/schema.mjs';
+
+/**
+ * CIMD metadata fetch with resolve-once DNS validation and connection
+ * pinning - a corrected copy of @better-auth/cimd/node's
+ * fetchClientMetadataResource, which crashes on Node >= 20: its lookup hook
+ * always answers in the (err, address, family) shape, but Happy Eyeballs
+ * (net's autoSelectFamily default) calls the hook with {all: true} and
+ * expects an array, so every fetch died with "Invalid IP address:
+ * undefined" and no client (Claude included) could register via CIMD.
+ * Semantics preserved: every DNS answer must be public-routable, the pinned
+ * address carries the original hostname as Host/SNI, redirects are returned
+ * to the caller, never followed. Drop this when upstream fixes the hook.
+ */
+async function fetchClientMetadataResource(input: Request | string | URL, init?: RequestInit) {
+  const webRequest = new Request(input, init);
+  const url = new URL(webRequest.url);
+  if (url.protocol !== 'https:') throw new TypeError('CIMD transport requires an HTTPS URL');
+  if (webRequest.method !== 'GET' && webRequest.method !== 'HEAD') {
+    throw new TypeError('CIMD transport supports only GET and HEAD');
+  }
+  const addresses = await lookup(url.hostname, { all: true, verbatim: true });
+  if (addresses.length === 0) throw new TypeError('metadata hostname returned no DNS addresses');
+  for (const result of addresses) {
+    if (!isPublicRoutableHost(result.address)) {
+      throw new TypeError('metadata hostname must resolve only to public-routable addresses');
+    }
+  }
+  const pinned = addresses[0];
+  const headers = Object.fromEntries(webRequest.headers.entries());
+  headers.host = url.host;
+  const signal = init?.signal ?? webRequest.signal;
+  return new Promise<Response>((resolve, reject) => {
+    const req = httpsRequest(
+      url,
+      {
+        agent: false,
+        headers,
+        method: webRequest.method,
+        servername: isIP(url.hostname.replace(/^\[|\]$/g, '')) === 0 ? url.hostname : undefined,
+        signal: signal ?? undefined,
+        lookup: (_hostname, options, callback) => {
+          if (options?.all) {
+            (callback as unknown as (e: null, a: { address: string; family: number }[]) => void)(
+              null,
+              [{ address: pinned.address, family: pinned.family }],
+            );
+          } else {
+            callback(null, pinned.address, pinned.family);
+          }
+        },
+      },
+      (response) => {
+        const status = response.statusCode ?? 500;
+        const bodyless = webRequest.method === 'HEAD' || [204, 205, 304].includes(status);
+        const responseHeaders = new Headers();
+        for (const [name, value] of Object.entries(response.headers)) {
+          if (Array.isArray(value)) for (const item of value) responseHeaders.append(name, item);
+          else if (value !== undefined) responseHeaders.append(name, value);
+        }
+        resolve(
+          new Response(bodyless ? null : (Readable.toWeb(response) as ReadableStream), {
+            headers: responseHeaders,
+            status,
+            statusText: response.statusMessage,
+          }),
+        );
+      },
+    );
+    req.once('error', reject);
+    req.end();
+  });
+}
 
 /**
  * The public origin. The OAuth issuer, JWKS URL, and the RFC 8707 resource
@@ -76,6 +152,16 @@ function makeAuth(db: unknown) {
         // unavailable and has no UI for pasting a client id.
         allowDynamicClientRegistration: true,
         allowUnauthenticatedClientRegistration: true,
+        // Claude's CIMD document declares the RFC 7523 jwt-bearer grant, and
+        // registration rejects any declared grant outside this set. Listing
+        // it makes registration accept the document; the token endpoint has
+        // no handler for it, so an actual jwt-bearer exchange still gets a
+        // clean OAuth error (Claude only uses code + refresh here).
+        grantTypes: [
+          'authorization_code',
+          'refresh_token',
+          'urn:ietf:params:oauth:grant-type:jwt-bearer',
+        ],
       }),
       cimd({ fetchClientMetadataResource, metadataProfile: 'mcp-2026-07-28' }),
     ],
