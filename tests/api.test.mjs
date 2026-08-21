@@ -378,6 +378,22 @@ test('a message lands in the server queue and nudges displays', async () => {
   assert.equal(code, 202);
   assert.ok(body.id);
   assert.equal(body.loop, false);
+  // A person's count, not the ordering key: first in line, nothing ahead.
+  assert.equal(body.position, 1);
+  assert.equal(body.ahead, 0);
+  const second = (
+    await jsonOf(call(postMessage, ctx(board.slug), '/message', { method: 'POST', body: { text: 'TWO' }, key: board.apiKey }))
+  ).body;
+  assert.equal(second.position, 2);
+  assert.equal(second.ahead, 1);
+  const jumped = (
+    await jsonOf(
+      call(postMessage, ctx(board.slug), '/message', { method: 'POST', body: { text: 'NOW', priority: 'now' }, key: board.apiKey }),
+    )
+  ).body;
+  assert.equal(jumped.position, 1);
+  await call(deleteQueueItem, { ...ctx(board.slug), itemId: second.id }, `/queue/${second.id}`, { method: 'DELETE', key: board.apiKey });
+  await call(deleteQueueItem, { ...ctx(board.slug), itemId: jumped.id }, `/queue/${jumped.id}`, { method: 'DELETE', key: board.apiKey });
 
   const q = (await jsonOf(call(getQueue, ctx(board.slug), '/queue'))).body;
   assert.equal(q.items.length, 1);

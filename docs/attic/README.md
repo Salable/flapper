@@ -46,3 +46,12 @@ the fixed paused card.
 ### `timed.test.mjs`
 **Was:** the test suite for modes/attach/dormancy. Kept because it documents
 the exact semantics of the removed system better than prose.
+
+### `regions[id].holding` (status field)
+**Was:** a separate block on each band's status for the finished message
+whose last page still stood on the glass, reported only while `showing` was
+`null` — so the field an agent reaches for was empty exactly when the board
+was at rest and most readable. Folded into `showing` (with `held: true`)
+alongside a `phase` of `playing` / `holding` / `blank`, the server queue's
+words. Nothing outside `lib/board/track.mjs` read it.
+

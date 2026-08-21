@@ -20,7 +20,13 @@ test('messages play strictly in order', (t) => {
 
   board.settle();
   mock.timers.tick(1000);
-  assert.equal(controller.status().showing, null, 'queue should be drained');
+  // Drained: the last message stands on the glass, and `showing` still says so.
+  const drained = controller.status();
+  assert.equal(drained.phase, 'holding');
+  assert.equal(drained.showing.text, 'CHARLIE');
+  assert.equal(drained.showing.held, true);
+  assert.equal(drained.regions.main.phase, 'holding');
+  assert.equal(drained.queue.length, 0);
 });
 
 test('a multi-page message shows every page before the next message', (t) => {
@@ -146,6 +152,7 @@ test('clear stops everything including the current message', (t) => {
   controller.enqueue('TWO');
   assert.equal(controller.clear(), 2);
   assert.equal(controller.status().showing, null);
+  assert.equal(controller.status().phase, 'blank');
   assert.equal(controller.status().queue.length, 0);
 });
 
@@ -332,7 +339,8 @@ test('the two bands play independently', (t) => {
     board.settle('main');
     mock.timers.tick(1000);
   }
-  assert.equal(controller.status().regions.main.showing, null);
+  assert.equal(controller.status().regions.main.phase, 'holding');
+  assert.equal(controller.status().regions.main.showing.held, true);
   assert.equal(controller.status().regions.footer.showing.text, 'PLAYING');
 });
 
@@ -469,8 +477,9 @@ test('a drained band reports what it is still holding on the glass', (t) => {
   mock.timers.tick(1000); // its dwell expires and the queue drains
 
   const footer = controller.status().regions.footer;
-  assert.equal(footer.showing, null, 'nothing is playing');
-  assert.equal(footer.holding.text, 'HI', 'but the last page is still on the glass');
+  assert.equal(footer.phase, 'holding', 'nothing is playing');
+  assert.equal(footer.showing.text, 'HI', 'but the last page is still on the glass');
+  assert.equal(footer.showing.held, true);
   assert.deepEqual(controller.status().lines[1], 'HI        ');
 });
 
@@ -479,10 +488,11 @@ test('clearing a band stops it holding', (t) => {
   controller.enqueue('HI', { region: 'footer' });
   board.settle('footer');
   mock.timers.tick(1000);
-  assert.equal(controller.status().regions.footer.holding.text, 'HI');
+  assert.equal(controller.status().regions.footer.showing.text, 'HI');
 
   controller.clear('footer');
-  assert.equal(controller.status().regions.footer.holding, null);
+  assert.equal(controller.status().regions.footer.showing, null);
+  assert.equal(controller.status().regions.footer.phase, 'blank');
 });
 
 test('a geometry change does not blank a band holding its last page', (t) => {
@@ -620,7 +630,7 @@ test('flush leaves a repeating message cycling, and clear stops it', (t) => {
 
   controller.clear();
   assert.equal(controller.status().showing, null, 'clear is what stops it');
-  assert.equal(controller.status().regions.main.holding, null);
+  assert.equal(controller.status().regions.main.phase, 'blank');
 });
 
 test('a repeating message re-lays for a new grid after it has been round', (t) => {

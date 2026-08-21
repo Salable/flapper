@@ -235,7 +235,10 @@ animate (a browser tab in the background keeps its heartbeat but loses
 `requestAnimationFrame`, so the board halts mid-flip), and its `queue`
 block is server truth either way. `lines` is the rows the display was last
 told to show — during a transition (`animating: true`) the glass is still
-part-way there.
+part-way there. `showing` answers "what is on the glass?" in every state:
+the message being played, or, once the queue drains, the finished one whose
+last page still stands (`held: true`); `phase` is `playing`, `holding`, or
+`blank`.
 `preview` gives page counts and `estimatedMs` up front if you need them.
 
 ### Jumping the queue
@@ -308,7 +311,7 @@ further routes belong to the display itself and are not for API clients:
 
 | Code | Meaning | What to do |
 | --- | --- | --- |
-| `202` | validated and queued to the board's stream | check `/status` if delivery matters |
+| `202` | validated and queued; body carries `id`, `position` (1-based place in the queue) and `ahead` (how many play first) | check `/status` if delivery matters |
 | `400` | malformed JSON | fix the body |
 | `401` | missing or wrong API key | ask the user for the board's key (in its settings) |
 | `403` | private board, no valid credential | ask the user for the key |
