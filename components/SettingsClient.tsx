@@ -18,6 +18,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Button, LinkButton } from '@/components/ui/Button';
 import { Field, TextInput } from '@/components/ui/Field';
 import { Chip, CopyButton, KeyReveal } from '@/components/ui/bits';
+import { maskSecret } from '@/lib/api/mask.mjs';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 
 type Board = {
@@ -56,6 +57,11 @@ export function SettingsClient({ board: initial }: { board: Board }) {
   // as the bearer scopes a connection to this board alone.
   const mcpUrl = `${origin}/api/mcp`;
   const mcpAdd = `claude mcp add --transport http ${board.slug} ${mcpUrl} --header "authorization: Bearer ${board.apiKey}"`;
+  // The key is printed only behind Reveal. Everything that quotes it (the
+  // display URL, the curl, the connector command) renders masked and copies
+  // real, and Reveal unmasks them all together.
+  const [keyShown, setKeyShown] = useState(false);
+  const shown = (text: string) => (keyShown ? text : maskSecret(text, board.apiKey));
 
   async function patch(body: object) {
     setBusy(true);
@@ -226,7 +232,7 @@ export function SettingsClient({ board: initial }: { board: Board }) {
             label="Display URL for wall screens"
             hint="Carries the key so a kiosk can open it without logging in — anyone who sees this URL can drive the board."
           >
-            <code className="curl">{displayUrl}</code>
+            <code className="curl">{shown(displayUrl)}</code>
             <CopyButton value={displayUrl} label="Copy display URL" />
           </Field>
         )}
@@ -235,20 +241,20 @@ export function SettingsClient({ board: initial }: { board: Board }) {
       <section className="settings-block">
         <h2>Access</h2>
         <Field label="API key">
-          <KeyReveal value={board.apiKey} />
+          <KeyReveal value={board.apiKey} shown={keyShown} onToggle={setKeyShown} />
           <Button size="sm" onClick={regenerate} disabled={busy}>
             Regenerate
           </Button>
         </Field>
         <Field label="Send a message">
-          <code className="curl">{curl}</code>
+          <code className="curl">{shown(curl)}</code>
           <CopyButton value={curl} label="Copy curl" />
         </Field>
         <Field
           label="Connect Claude or ChatGPT to this board"
           hint="An MCP connection that can only drive this board. Claude Code takes the command as-is; in claude.ai or ChatGPT add the URL as a connector with the key as a bearer/authorization header."
         >
-          <code className="curl">{mcpAdd}</code>
+          <code className="curl">{shown(mcpAdd)}</code>
           <CopyButton value={mcpAdd} label="Copy Claude Code command" />
         </Field>
         <Field label="For agents">

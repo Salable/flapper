@@ -48,7 +48,7 @@ entrances: modals, tab panels, hero tiles. Stagger children with
 | `Modal` | anything that interrupts; arrives with a flap |
 | `useConfirm` | destructive/irreversible actions — **native `confirm()` is banned** |
 | `Card`, `Chip`, `Segmented`, `EmptyState` | layout & state vocabulary |
-| `CopyButton`, `KeyReveal` | credentials and copyable values |
+| `CopyButton`, `KeyReveal` | credentials and copyable values — a secret is shown only behind Reveal; any text that quotes it renders through `maskSecret` (lib/api/mask.mjs) and copies the real value |
 | `MiniBoard` | text as CSS split-flap tiles — the server-renderable stand-in and loading fallback for `Flapper` |
 
 Screen-level scaffolding: `.app-shell` + `AppBar` (brand left, context

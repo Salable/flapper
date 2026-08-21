@@ -83,13 +83,31 @@ export function CopyButton({ value, label = 'Copy' }: { value: string; label?: s
   );
 }
 
-export function KeyReveal({ value }: { value: string }) {
-  const [shown, setShown] = useState(false);
+/**
+ * A secret behind Reveal / Copy. Uncontrolled by default; pass `shown` +
+ * `onToggle` when other text on the page quotes the same secret and should
+ * unmask in step (settings' curl and connector lines do).
+ */
+export function KeyReveal({
+  value,
+  shown: controlled,
+  onToggle,
+}: {
+  value: string;
+  shown?: boolean;
+  onToggle?: (shown: boolean) => void;
+}) {
+  const [own, setOwn] = useState(false);
+  const shown = controlled ?? own;
+  const toggle = () => {
+    setOwn(!shown);
+    onToggle?.(!shown);
+  };
   return (
     <div className="ui-keyreveal">
       <code className="curl">{shown ? value : '•'.repeat(32)}</code>
       <div className="ui-keyreveal-actions">
-        <Button size="sm" onClick={() => setShown(!shown)}>
+        <Button size="sm" onClick={toggle}>
           {shown ? 'Hide' : 'Reveal'}
         </Button>
         <CopyButton value={value} label="Copy key" />
