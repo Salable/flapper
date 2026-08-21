@@ -7,7 +7,7 @@ import { secretsMatch } from '@/lib/broker/tokens.mjs';
 import { mintDisplayToken } from '@/lib/api/display-token.mjs';
 import { BoardPageClient } from '@/components/BoardPageClient';
 import { LinkButton } from '@/components/ui/Button';
-import { resolveTheme } from '@/lib/board/themes.mjs';
+import { resolveBoardTheme, themeRevOf } from '@/lib/board/board-theme.mjs';
 
 export const dynamic = 'force-dynamic';
 
@@ -49,6 +49,14 @@ export default async function BoardPage({ params, searchParams }: Props) {
   // The display credential: scopes this page to its two write-backs (advance,
   // state) without handing it the API key. Key rotation revokes it.
   const displayToken = await mintDisplayToken(board);
+  // Resolved here so the first paint is already the board's own look, and a
+  // stored override that no longer validates falls back on the server with
+  // a log line rather than on the wall.
+  const theme = resolveBoardTheme(board.config);
+  if (theme.warnings.length) {
+    console.warn(`flapper: board ${slug} theme overrides ignored - ${theme.warnings.join('; ')}`);
+  }
+  const initialTheme = { rev: await themeRevOf(board.config), pack: theme.pack };
 
   return (
     <BoardPageClient
@@ -56,7 +64,7 @@ export default async function BoardPage({ params, searchParams }: Props) {
       apiBase={`/api/b/${slug}`}
       boardKey={keyValid ? key! : null}
       displayToken={displayToken}
-      initialTheme={resolveTheme((board.config as { theme?: string } | null)?.theme).id}
+      initialTheme={initialTheme}
     />
   );
 }

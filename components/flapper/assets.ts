@@ -36,7 +36,51 @@ export function onAssetProgress(listener: (fraction: number) => void) {
   };
 }
 
-/** Load a pack's fonts and art; the skin paints its cards on first draw. */
+/** Fonts already registered with the document, by src; art already decoded, by URI. */
+const fontCache = new Map<string, Promise<void>>();
+const artCache = new Map<string, Promise<ImageBitmap>>();
+const ART_CACHE_MAX = 32;
+
+function loadFont(font: { family: string; src: string; weight?: string; style?: string }) {
+  const key = `${font.family}|${font.src}|${font.weight ?? 'normal'}|${font.style ?? 'normal'}`;
+  let pending = fontCache.get(key);
+  if (!pending) {
+    pending = (async () => {
+      const face = new FontFace(font.family, `url(${font.src})`, {
+        weight: font.weight ?? 'normal',
+        style: font.style ?? 'normal',
+      });
+      await face.load();
+      document.fonts.add(face);
+    })();
+    pending.catch(() => fontCache.delete(key));
+    fontCache.set(key, pending);
+  }
+  return pending;
+}
+
+function loadArt(key: string, src: string) {
+  let pending = artCache.get(src);
+  if (!pending) {
+    pending = (async () => {
+      const response = await fetch(src);
+      if (!response.ok) throw new Error(`art ${key}: HTTP ${response.status}`);
+      return createImageBitmap(await response.blob());
+    })();
+    pending.catch(() => artCache.delete(src));
+    // Bounded: an editor scrubbing through uploads must not pin them all.
+    if (artCache.size >= ART_CACHE_MAX) artCache.delete(artCache.keys().next().value as string);
+    artCache.set(src, pending);
+  }
+  return pending;
+}
+
+/**
+ * Load a pack's fonts and art and hand back a skin; the skin paints its
+ * cards on first draw. Fonts and art are cached across calls, so rebuilding
+ * a skin for a colour change (the editor does this on every tweak) costs
+ * the cards, not a decode.
+ */
 export async function loadProcedural(pack: any): Promise<Skin> {
   const fonts: { family: string; src: string; weight?: string; style?: string }[] = pack.fonts || [];
   const arts: [string, string][] = Object.entries(pack.art || {});
@@ -49,21 +93,13 @@ export async function loadProcedural(pack: any): Promise<Skin> {
   };
   const decoded = new Map<string, ImageBitmap>();
   await Promise.all([
-    ...fonts.map(async (font) => {
-      const face = new FontFace(font.family, `url(${font.src})`, {
-        weight: font.weight ?? 'normal',
-        style: font.style ?? 'normal',
-      });
-      await face.load();
-      document.fonts.add(face);
-      step();
-    }),
-    ...arts.map(async ([key, src]) => {
-      const response = await fetch(src);
-      if (!response.ok) throw new Error(`art ${key}: HTTP ${response.status}`);
-      decoded.set(key, await createImageBitmap(await response.blob()));
-      step();
-    }),
+    ...fonts.map((font) => loadFont(font).then(step)),
+    ...arts.map(([key, src]) =>
+      loadArt(key, src).then((bitmap) => {
+        decoded.set(key, bitmap);
+        step();
+      }),
+    ),
   ]);
   // The glyph face itself may be a web font the page declares; wait for it
   // so the first cards are not painted in the fallback.
@@ -76,16 +112,31 @@ export async function loadProcedural(pack: any): Promise<Skin> {
   return new ProceduralSkin(pack, { arts: decoded });
 }
 
-export function loadSkin(themeId: string = DEFAULT_THEME): Promise<Skin> {
-  const theme: any = resolveTheme(themeId);
-  const existing = cached.get(theme.id);
+function cachedSkin(key: string, load: () => Promise<Skin>): Promise<Skin> {
+  const existing = cached.get(key);
   if (existing) return existing;
-  const loading = loadProcedural(theme);
-  cached.set(theme.id, loading);
+  const loading = load();
+  cached.set(key, loading);
   // A failed load must not poison the tab: allow a retry on the next mount.
   loading.catch(() => {
-    cached.delete(theme.id);
+    cached.delete(key);
     report(0);
   });
   return loading;
+}
+
+/** A preset's skin, shared by every flapper on the page. */
+export function loadSkin(themeId: string = DEFAULT_THEME): Promise<Skin> {
+  const theme: any = resolveTheme(themeId);
+  return cachedSkin(`preset:${theme.id}`, () => loadProcedural(theme));
+}
+
+/**
+ * A board's own skin, keyed by the server's theme revision: the same rev
+ * is the same pack, so a display that sees a nudge with an unchanged rev
+ * never reloads, and the editor gets a fresh skin only when something
+ * actually differs.
+ */
+export function loadBoardSkin(rev: string, pack: any): Promise<Skin> {
+  return cachedSkin(`board:${rev}`, () => loadProcedural(pack));
 }

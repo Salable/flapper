@@ -13,7 +13,7 @@ export function BoardPageClient(props: {
   apiBase: string;
   boardKey: string | null;
   displayToken: string;
-  initialTheme: string;
+  initialTheme: { rev: string; pack: any };
 }) {
   return <BoardApp {...props} />;
 }
