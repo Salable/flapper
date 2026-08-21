@@ -17,8 +17,8 @@ displaced comes back where it left off.*
 
 Flapper is a **multi-user web app for Vercel**: sign in, create boards from a
 dashboard, open a board's URL on whatever should display it — a browser tab, a
-TV, the desktop kiosk shell — and drive it from its settings page or over a
-REST API from anywhere.
+TV, the desktop kiosk shell — and drive it from its settings page, from Claude
+or ChatGPT, or over a REST API from anywhere.
 
 - **Sign in** (email + password, [Better Auth](https://better-auth.com)) and
   manage boards from **/dashboard**: create, rename, delete
@@ -27,6 +27,11 @@ REST API from anywhere.
   `/api/b/{slug}/AGENTS.md` with the board's URLs baked in
 - **One API key per board** — shown and regenerable in settings; every write
   needs it
+- **An MCP server built in** — add `/api/mcp` as a connector in claude.ai,
+  Claude Desktop, Claude Code, or ChatGPT and sign in; the agent can list,
+  create, and drive your boards. A single board connects with its key alone.
+  Flapper is its own OAuth 2.1 server ([Better Auth](https://better-auth.com)
+  plugins) — no third-party identity service
 - **Public or private** — public boards can be watched by anyone with the URL;
   private boards need the key (`?key=` works for wall displays) or the
   owner's login, even to read
@@ -82,7 +87,7 @@ npm run db:generate  # after editing lib/db/schema.mjs: new SQL migration
 | `DATABASE_URL` | Neon Postgres (users, boards) | local PGlite at `./.pglite` |
 | `UPSTASH_REDIS_REST_URL/TOKEN` | realtime command/state channel | in-memory broker |
 | `BETTER_AUTH_SECRET` | session signing | dev-only fallback, warns |
-| `BETTER_AUTH_URL` | auth callbacks base URL | inferred per-request |
+| `BETTER_AUTH_URL` | auth callbacks base URL **and the OAuth issuer / MCP resource identifier** | inferred per-request for sessions; MCP OAuth silently breaks |
 
 ## Using a board
 
@@ -98,6 +103,14 @@ picker plus grid/motion config), and **General** (identity, privacy, the API
 key and copy-pasteable curl, pause & JSON export, delete). For a private
 board it also builds the `?key=` display URL a wall screen can open without
 logging in.
+
+Driving it from Claude or ChatGPT: add `https://YOUR-APP.vercel.app/api/mcp`
+as a connector (claude.ai / Claude Desktop → Settings → Connectors; ChatGPT →
+developer mode; Claude Code → `claude mcp add --transport http flapper
+https://YOUR-APP.vercel.app/api/mcp`), sign in when it asks, and tell it what
+to put on the wall. To scope a connection to a single board, pass that
+board's key as the bearer instead of signing in — the exact command is in
+Settings → General.
 
 Driving it over HTTP:
 

@@ -4,7 +4,7 @@ export const DOCS: { slug: string; file: string; title: string; blurb: string }[
     slug: 'getting-started',
     file: 'GETTING-STARTED.md',
     title: 'Getting started',
-    blurb: 'Create a board, put something on it, understand keys and privacy.',
+    blurb: 'Create a board, put something on it, connect Claude or ChatGPT, understand keys and privacy.',
   },
   {
     slug: 'queues',

@@ -77,9 +77,30 @@ the board's URL can *watch* a public board; making it **private** gates
 viewing behind the key (`?key=…` on the display URL, for kiosks) or your
 login. Regenerating the key instantly revokes the old one everywhere.
 
-## 5. For agents
+## 5. Connect Claude or ChatGPT
 
-Every board serves a machine-oriented guide at
+Flapper is an MCP server. The fastest way to put something on the glass is
+to hand the board to an AI and ask:
+
+1. Copy the MCP URL from the dashboard — it is
+   `https://flapper-tan.vercel.app/api/mcp` for this deployment, one URL for
+   every board.
+2. Add it as a connector: **claude.ai / Claude Desktop** → Settings →
+   Connectors → *Add custom connector*; **ChatGPT** → Settings → Connectors
+   (developer mode); **Claude Code** →
+   `claude mcp add --transport http flapper https://flapper-tan.vercel.app/api/mcp`.
+3. Sign in to Flapper when the browser opens, allow the connection, and it
+   can list your boards, create new ones, preview text against the
+   character set, and post to any board you own.
+
+To give an agent **one board only** — a kiosk script, a CI job, a friend —
+use that board's API key as the bearer token instead of signing in. The
+exact `claude mcp add … --header` command is in Settings → General, and
+it works for any MCP client that can send a header.
+
+## 6. For agents over plain HTTP
+
+Every board also serves a machine-oriented guide at
 `/api/b/YOUR-SLUG/AGENTS.md` — the full REST contract **for that board's
 type**, with its URLs baked into the examples. Point an agent at it and it
 knows how to drive the sign. And if you want a kind of board that doesn't
