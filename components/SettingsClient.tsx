@@ -19,6 +19,8 @@ import { Button, LinkButton } from '@/components/ui/Button';
 import { Field, TextInput } from '@/components/ui/Field';
 import { Chip, CopyButton, KeyReveal } from '@/components/ui/bits';
 import { BoardSidebar } from '@/components/BoardSidebar';
+import { TypeSettings } from '@/components/TypeSettings';
+import type { TypeMeta } from '@/components/CreateBoardModal';
 import { maskSecret } from '@/lib/api/mask.mjs';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 
@@ -32,6 +34,8 @@ type Board = {
   private: boolean;
   apiKey: string;
   config: Record<string, unknown>;
+  /** The type's createParams, serialized; `advanced` ones render under Type settings. */
+  typeParams: TypeMeta['createParams'];
   createdAt: number;
 };
 
@@ -267,6 +271,13 @@ export function SettingsClient({ board: initial }: { board: Board }) {
           </span>
         </Field>
       </section>
+
+      <TypeSettings
+        slug={board.slug}
+        params={board.typeParams}
+        config={board.config}
+        onSaved={(config) => setBoard((prev) => ({ ...prev, config: { ...prev.config, ...config } }))}
+      />
 
       <section className="settings-block">
         <h2>Pause &amp; export</h2>

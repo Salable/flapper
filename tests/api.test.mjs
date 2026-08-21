@@ -539,6 +539,20 @@ test('bands cannot be configured back in yet: footerRows and per-band settings 4
   assert.equal(zero.status, 200);
 });
 
+test('a patched type param is validated by its own schema and stored coerced', async () => {
+  const board = await makeBoard();
+  const patch = (body) =>
+    jsonOf(call(patchConfig, ctx(board.slug), '/config', { method: 'PATCH', body, key: board.apiKey }));
+  const bad = await patch({ queueCap: 'abc' });
+  assert.equal(bad.status, 422);
+  assert.match(bad.body.error, /queueCap/);
+  const tooBig = await patch({ queueCap: 500 });
+  assert.equal(tooBig.status, 422);
+  const good = await patch({ queueCap: '7' });
+  assert.equal(good.status, 200);
+  assert.equal(good.body.config.queueCap, 7, 'the number, not the string');
+});
+
 /* ---- flush & clear ---- */
 
 test('flush drops pending with a synchronous count; clear empties and blanks', async () => {

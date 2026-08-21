@@ -26,11 +26,19 @@ export type TypeMeta = {
     label: string;
     hint?: string;
     default?: unknown;
+    required?: boolean;
+    /** Not asked at creation; the default applies and Settings → General edits it. */
+    advanced?: boolean;
     min?: number;
     max?: number;
     options?: { value: string; label: string }[];
   }[];
 };
+
+/** Creation asks for the minimum: a name, and what the type genuinely needs. */
+export function creationParams(type: TypeMeta) {
+  return type.createParams.filter((param) => !param.advanced);
+}
 
 export function CreateBoardModal({
   open,
@@ -55,8 +63,15 @@ export function CreateBoardModal({
     setError('');
   }
 
+  const nameValue = String(values.name ?? '').trim();
+  const nameMissing = Boolean(picked?.createParams.some((param) => param.key === 'name')) && nameValue === '';
+
   async function create() {
     if (!picked) return;
+    if (nameMissing) {
+      setError('Give the board a name - it is how you will tell it apart on the dashboard.');
+      return;
+    }
     setBusy(true);
     setError('');
     try {
@@ -91,29 +106,48 @@ export function CreateBoardModal({
       }}
     >
       {picked === null ? (
-        <div className="type-grid">
-          {types.map((type, index) => (
-            <button
-              key={type.id}
-              className="type-card flap-in"
-              style={{ '--flap-i': index } as React.CSSProperties}
-              onClick={() => setPicked(type)}
+        <>
+          <div className="type-grid">
+            {types.map((type, index) => (
+              <button
+                key={type.id}
+                className="type-card flap-in"
+                style={{ '--flap-i': index } as React.CSSProperties}
+                onClick={() => setPicked(type)}
+              >
+                <span className="type-card-name">{type.name}</span>
+                <span className="type-card-tagline">{type.tagline}</span>
+                <span className="type-card-caps">
+                  {type.capabilities.map((capability) => (
+                    <Chip key={capability}>{capability}</Chip>
+                  ))}
+                </span>
+              </button>
+            ))}
+          </div>
+          {/* Escape and the backdrop close this too, but a visible way out
+              should not be something you have to know. */}
+          <div className="ui-modal-actions">
+            <Button
+              onClick={() => {
+                reset();
+                onClose();
+              }}
             >
-              <span className="type-card-name">{type.name}</span>
-              <span className="type-card-tagline">{type.tagline}</span>
-              <span className="type-card-caps">
-                {type.capabilities.map((capability) => (
-                  <Chip key={capability}>{capability}</Chip>
-                ))}
-              </span>
-            </button>
-          ))}
-        </div>
+              Cancel
+            </Button>
+          </div>
+        </>
       ) : (
         <>
           <p className="ui-hint">{picked.description}</p>
-          {picked.createParams.map((param) => (
-            <Field key={param.key} label={param.label} hint={param.hint} htmlFor={`cp-${param.key}`}>
+          {creationParams(picked).map((param) => (
+            <Field
+              key={param.key}
+              label={param.key === 'name' ? `${param.label} (required)` : param.label}
+              hint={param.hint}
+              htmlFor={`cp-${param.key}`}
+            >
               {param.kind === 'number' ? (
                 // Raw string while typing - the server coerces and validates,
                 // so a half-typed value never echoes back as NaN or 0.
@@ -147,6 +181,9 @@ export function CreateBoardModal({
                   id={`cp-${param.key}`}
                   value={String(values[param.key] ?? param.default ?? '')}
                   onChange={(e) => set(param.key, e.target.value)}
+                  {...(param.key === 'name'
+                    ? { placeholder: 'Lobby, Departures, Build status…', required: true, autoFocus: true }
+                    : {})}
                 />
               )}
             </Field>
@@ -166,7 +203,7 @@ export function CreateBoardModal({
           {error !== '' && <p className="error">{error}</p>}
           <div className="ui-modal-actions">
             <Button onClick={reset}>Back</Button>
-            <Button variant="primary" onClick={create} disabled={busy}>
+            <Button variant="primary" onClick={create} disabled={busy || nameMissing}>
               {busy ? 'Creating…' : 'Create board'}
             </Button>
           </div>
