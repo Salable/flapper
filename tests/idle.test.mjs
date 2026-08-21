@@ -43,3 +43,12 @@ test('withFlicker swaps exactly one character', () => {
   assert.equal(withFlicker('FLAPPER', action), 'FLXPPER');
   assert.equal(withFlicker('FLAPPER', { kind: 'rest' }), 'FLAPPER');
 });
+
+test('a Set charset (what Flipboard actually passes) behaves like the array', () => {
+  // charsetFromManifest returns a Set; the wordmark once threw on every
+  // ambient beat because idleAction assumed an array.
+  const asSet = new Set(CHARSET);
+  for (let tick = 0; tick <= 60; tick += 1) {
+    assert.deepEqual(idleAction('FLAPPER', asSet, tick), idleAction('FLAPPER', CHARSET, tick));
+  }
+});
