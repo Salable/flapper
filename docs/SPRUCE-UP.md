@@ -18,8 +18,11 @@ commits straight to main; move items down the lists as they move.
 - [ ] Not walked yet: the Display tab's layout picker as a first-timer; the
       desktop kiosk shell against a fresh account. (Dashboard and settings
       at phone width: walked 21 Aug - the AppBar now wraps.)
-- [ ] The prod "Connected" list should show Claude for Neal's account - not
-      verifiable from here without his login; one look at the dashboard.
+- [x] The prod "Connected" list: walked 21 Aug with Neal's login. It showed
+      nothing while Claude still had access (consent deleted, refresh token
+      alive - the pre-watermark disconnect). Connections now list live
+      tokens too (#3); disconnect → reconnect → disconnect verified end to
+      end against production.
 
 ## Fixing
 
