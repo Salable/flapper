@@ -44,7 +44,7 @@ export type TypeMeta = {
 };
 
 /** Creation asks for the minimum: a name, and what the type genuinely needs. */
-export function creationParams(type: TypeMeta) {
+function creationParams(type: TypeMeta) {
   return type.createParams.filter((param) => !param.advanced);
 }
 
