@@ -2,6 +2,11 @@
 
 *Research note, 2026-08-21. Prototype: [`lab/procedural-tile.html`](../lab/procedural-tile.html) — open it as a file, no server needed.*
 
+> **Status:** phase 1 implemented on this branch — `Skin` seam in the engine,
+> `SpriteSkin`/`ProceduralSkin`, `theme-pack.mjs`, `classic-p`/`canary-p`
+> registered, `/lab/skins` fidelity bench. Default theme is still the sprite
+> `classic` until the drawn one is signed off on a wall.
+
 ## Where we actually are
 
 The board is **already one `<canvas>`** (`lib/board/flipboard.js`). What is

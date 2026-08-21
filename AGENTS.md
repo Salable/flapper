@@ -64,7 +64,9 @@ tools/        asset build, icon build, build-time migration
 | `lib/board/layout.mjs` | text → pages: fold to the charset, wrap, align, paginate |
 | `lib/board/timing.mjs` | the motion model, shared so animation and API estimates can't drift |
 | `lib/board/regions.mjs` | row bands: partition the grid, map lines to tile targets |
-| `lib/board/flipboard.js` | the engine: tiles, frames, the animation loop |
+| `lib/board/flipboard.js` | the engine: tiles, progress, the animation loop; paints through a skin |
+| `lib/board/skins/` | `SpriteSkin` (pre-rendered strips) and `ProceduralSkin` (drawn from a theme pack) |
+| `lib/board/theme-pack.mjs` | the pack schema, its validator and defaults |
 | `lib/board/track.mjs` | one queue, dwell clock and watchdog **per band** |
 | `lib/board/controller.mjs` | routes messages to bands; owns geometry and status |
 | `lib/board/player.mjs` | the display's playback machines: live (play/report) and clock (evaluate/cut/sleep) |
@@ -130,32 +132,45 @@ applies.
 
 ## How the rendering works
 
-**The art is the spec.** Each transition — `A`→`B`, `9`→`.`, `)`→`blank` — is a
-separate piece of source art. `tools/build_assets.py` stacks each one's frames
-into a vertical WebP strip and writes `public/assets/manifest.json` describing
-the ring.
-
-At runtime a tile is **one integer**: which state it is resting on. That index
-is both the character and the strip that leaves it:
+At runtime a tile is **an integer and a fraction**: which state it is resting
+on (or leaving), and how far through the flap to the next state it is:
 
 ```
-at rest on state i    →  strips[i], frame 0
-flipping i → i+1      →  strips[i], frames 1..9
+{ state: 14, progress: 0 }      resting on N
+{ state: 14, progress: 0.4 }    40% of the way from N to O
 ```
 
-The whole board is one canvas, one `drawImage` per tile per frame. A 20×8 board
-is 160 draws. When every tile has landed the animation loop **stops completely**
-and the page uses no CPU until something changes.
+The engine (`flipboard.js`) owns that and nothing about how it looks. Painting
+is a **skin** (`lib/board/skins/`): `skin.drawTile(ctx, state, progress, x, y,
+size)`, one call per tile per frame. Two skins ship and the engine cannot tell
+them apart:
+
+- **`SpriteSkin`** — pre-rendered art. Each transition — `A`→`B`, `9`→`.`,
+  `)`→`blank` — is a separate designer clip; `tools/build_assets.py` stacks
+  each one's frames into a vertical WebP strip and writes a manifest
+  describing the ring. `strips[i]` frame 0 is state `i` at rest, frames 1..9
+  are the flap to `i+1`. The original Classic and Canary.
+- **`ProceduralSkin`** — no art. A **theme pack** (`lib/board/theme-pack.mjs`:
+  palette, type, hinge, motion, per-glyph overrides, optional images) is
+  painted into one offscreen card per state at the current tile size, and the
+  flap is drawn live: the falling half foreshortened by cos θ, darkened as it
+  turns, throwing a shadow on the card below. ~11 MB at 256 px against ~105 MB
+  of decoded strips. `classic-p` and `canary-p` are the sprite themes redrawn
+  this way; `/lab/skins` shows both side by side with the pack editable.
+
+The whole board is one canvas. When every tile has landed the animation loop
+**stops completely** and the page uses no CPU until something changes.
 
 Three details that took real work, and that you would otherwise rediscover the
 hard way:
 
-- **The landing seam.** Every source GIF was rendered independently, so one
-  file's "settled A" differs from the next file's by about a pixel. Chaining
-  them naively makes tiles *twitch* at the exact moment they come to rest. The
-  build fixes it by replacing each transition's final frame with frame 0 of the
-  next one, displacing the discrepancy onto a moving frame where nobody can see
-  it.
+- **The landing seam** (sprite skin). Every source GIF was rendered
+  independently, so one file's "settled A" differs from the next file's by
+  about a pixel. Chaining them naively makes tiles *twitch* at the exact moment
+  they come to rest. The build fixes it by replacing each transition's final
+  frame with frame 0 of the next one, displacing the discrepancy onto a moving
+  frame where nobody can see it. The procedural skin has no seam to fix: rest
+  and landing are the same card.
 - **Retargeting mid-flight never snaps.** A tile already moving finishes its
   current step, then carries on forward to the new target.
 - **Settling is per band, not per board.** Each band reports coming to rest
@@ -204,22 +219,41 @@ Mute and volume (M, ↑/↓) are the display's, kept in localStorage under
 
 ### Add a theme
 
-A theme is a second set of strips with the *same* ring, in different paint.
-The shipped ones are `classic` (`public/assets/`) and `canary`
-(`public/assets/canary/`, Norwich green, built from the designer's MP4 clips
-with `--fix-grey` because two of them were exported in the old grey). A
-board's theme is in its config (`PATCH /config {"theme":"canary"}`, or the
-Tiles select in Settings); the display decodes the new set in the background
-and `Flipboard.setArt()` swaps it under the tiles in place.
+A theme is the *same* ring in different paint. A board's theme is in its
+config (`PATCH /config {"theme":"canary-p"}`, or the Tiles select in
+Settings); the display loads the new skin in the background and
+`Flipboard.setSkin()` swaps it under the tiles in place. Every registered id
+reaches the validator, the Settings select, `/capabilities` and the MCP
+`update_config` schema from `lib/board/themes.mjs` alone.
+
+**Procedural (the normal way).** Add a pack to `THEMES` in `themes.mjs`:
+
+```js
+'acme': procedural({
+  id: 'acme', name: 'Acme',
+  card: { fill: '#f4efe6', edge: '#d8cfbf', radius: 0.12 },
+  glyph: { fill: '#1f2a44', font: '400 0.9em Georgia, serif' },
+  states: { '!': { glyph: { fill: '#d9381e' } }, '(': { art: 'logo' } },
+  art: { logo: '/assets/acme/logo.png' },
+}),
+```
+
+`validatePack` runs at module load, so a bad value fails `npm test`, not the
+wall. Every field and its range is in `PACK_DEFAULTS`/`RANGES` in
+`theme-pack.mjs`; unspecified fields are the Classic look. Iterate in
+`/lab/skins`: paste the pack, Apply, compare against a sprite reference at
+any tile size. A pack cannot change the ring yet — the charset is server
+state (`lib/api/headless-board.mjs` reads the manifest) and gets its own
+change.
+
+**Sprite (hand-animated art).** Build strips into `public/assets/<id>/` and
+register `{ kind: 'sprite', id, name, description, path }`. Canary was built
+from the designer's MP4 clips with `--fix-grey` because two of them were
+exported in the old grey:
 
 ```bash
 python3 tools/build_assets.py --src ./green-clips --out public/assets/canary --fix-grey
 ```
-
-To add one: build it into `public/assets/<id>/`, add an entry to
-`lib/board/themes.mjs`, and list the id in the MCP `update_config` schema
-(`lib/api/mcp.mjs`). The validator, Settings select and `/capabilities`
-read the registry.
 
 ### Change how it moves
 
