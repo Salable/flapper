@@ -83,7 +83,11 @@ deactivated.
   headed by a **Screens** panel (copy the URL, whether anything is watching).
 - **Display** — the visual **layout picker** (drag the board around a
   miniature screen, scale by the corner; stored as viewport percentages so
-  one layout fits a phone and a video wall) + the display config sliders.
+  one layout fits a phone and a video wall), the **theme editor** (start
+  from Classic or Canary; palette, type, hinge, motion; a colour or an
+  uploaded image for any one character; the pack as JSON under Advanced;
+  a live board to judge it on; saved as the difference from the preset),
+  and the display config sliders.
 - **General** — identity (name, slug), privacy + keyed display URL, access
   (key reveal/rotate, copy-curl, per-board AGENTS.md link), **pause &
   export** (pause sends displays to a standing card, keeps the queue; export

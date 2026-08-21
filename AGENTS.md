@@ -229,9 +229,10 @@ To ship a new preset, add a pack to `THEMES` in `themes.mjs`:
 
 `validatePack` runs at module load, so a bad value fails `npm test`, not the
 wall. Every field and its range is in `PACK_DEFAULTS`/`RANGES` in
-`theme-pack.mjs`; unspecified fields are the Classic look. Iterate in
-`/lab/skins` (signed in): paste the pack, Apply, compare against a preset at
-any tile size. A pack cannot change the ring — that is `RING`, above.
+`theme-pack.mjs`; unspecified fields are the Classic look. Iterate in a
+board's Settings → Display → Theme, which draws the pack live and has the
+whole thing as JSON under "Advanced"; copy it back here when it is right. A
+pack cannot change the ring — that is `RING`, above.
 
 Boards that were set to `classic-p` or `canary-p` while the drawn themes ran
 alongside the old art still resolve (to `classic`/`canary`); the ids are not
@@ -242,7 +243,8 @@ a sparse set of overrides on top of its `theme` (`lib/board/board-theme.mjs`
 - merge, limits, `sparsify`, the revision). The server stores only what
 differs from the preset, `/queue` carries just the revision, and the display
 fetches `/theme` when it moves. `docs/BOARD-API.md` "A board's own look" is
-the contract; the Settings editor is the UI for it.
+the contract; Settings → Display → Theme (`components/ThemeSettings.tsx`,
+decisions in `lib/board/theme-editor.mjs`) is the UI for it.
 
 ### Change how it moves
 
