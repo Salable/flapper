@@ -1013,6 +1013,13 @@ a.button.primary {
   box-shadow: 0 0 6px rgba(125, 196, 122, 0.6);
 }
 
+/* Connected but not drawing: a background tab. Amber, and still - a frozen
+   board must not look like a playing one. */
+.live-dot.is-frozen {
+  background: #e0a83a;
+  box-shadow: 0 0 6px rgba(224, 168, 58, 0.6);
+}
+
 /* ---- /docs ---- */
 
 .dash.docs {

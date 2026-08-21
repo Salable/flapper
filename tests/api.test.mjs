@@ -677,8 +677,22 @@ test('state posts are display writes: credentialed, spoof-proof, stale-dropped',
   );
   const { body } = await jsonOf(call(status, ctx(board.slug), '/status'));
   assert.equal(body.stale, false);
+  assert.equal(body.frozen, false);
   assert.deepEqual(body.lines, ['HELLO']);
-  assert.equal((await jsonOf(call(health, ctx(board.slug), '/health'))).body.boardReady, true);
+  const healthy = (await jsonOf(call(health, ctx(board.slug), '/health'))).body;
+  assert.equal(healthy.boardReady, true);
+  assert.equal(healthy.frozen, false);
+
+  // A hidden tab keeps heartbeating but cannot animate: connected, and frozen.
+  await call(postState, ctx(board.slug), '/state', {
+    method: 'POST',
+    body: { state: { ...snapshot, animating: true, display: { visibility: 'hidden', lastFrameAgeMs: 45_000 } } },
+    key: displayToken,
+  });
+  const hidden = (await jsonOf(call(status, ctx(board.slug), '/status'))).body;
+  assert.equal(hidden.boardReady, true);
+  assert.equal(hidden.frozen, true);
+  assert.equal(hidden.display.visibility, 'hidden');
 
   // A stale mirror replaying an old item is acknowledged but ignored.
   const stale = await jsonOf(

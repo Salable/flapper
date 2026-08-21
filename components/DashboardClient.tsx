@@ -18,6 +18,8 @@ type BoardRow = {
   private: boolean;
   createdAt: number;
   connected: boolean;
+  /** Connected, but its tab is hidden or its renderer has stopped drawing. */
+  frozen: boolean;
   showing: string | null;
 };
 
@@ -137,8 +139,14 @@ export function DashboardClient({
                   <a className="board-card-open" href={`/b/${board.slug}/settings`}>
                     <span className="board-card-name">
                       <i
-                        className={`live-dot${board.connected ? ' is-live' : ''}`}
-                        title={board.connected ? 'A display is connected' : 'No display connected'}
+                        className={`live-dot${board.frozen ? ' is-frozen' : board.connected ? ' is-live' : ''}`}
+                        title={
+                          board.frozen
+                            ? 'A display is connected but its tab is in the background - it is not animating'
+                            : board.connected
+                              ? 'A display is connected'
+                              : 'No display connected'
+                        }
                       />
                       {board.name || board.slug}
                     </span>
@@ -149,11 +157,13 @@ export function DashboardClient({
                       {board.status !== 'active' && <Chip tone="danger">paused</Chip>}
                     </span>
                     <span className="board-card-meta muted">
-                      {board.connected
-                        ? board.showing
-                          ? `showing ${board.showing}`
-                          : 'connected · blank'
-                        : 'no display connected'}
+                      {board.frozen
+                        ? 'frozen · display tab is in the background'
+                        : board.connected
+                          ? board.showing
+                            ? `showing ${board.showing}`
+                            : 'connected · blank'
+                          : 'no display connected'}
                     </span>
                   </a>
                   <div className="board-card-actions">

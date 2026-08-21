@@ -230,7 +230,12 @@ message without a schedule on a clock board plays once, immediately.
 display plays it strictly in order and reports each completion. You can stack
 messages while no display is connected — they play when one opens. A `202`
 means **validated and queued**; `/status`'s `boardReady`/`stale` say whether
-a display is showing it, and its `queue` block is server truth either way.
+a display is connected, `frozen` says whether that display can actually
+animate (a browser tab in the background keeps its heartbeat but loses
+`requestAnimationFrame`, so the board halts mid-flip), and its `queue`
+block is server truth either way. `lines` is the rows the display was last
+told to show — during a transition (`animating: true`) the glass is still
+part-way there.
 `preview` gives page counts and `estimatedMs` up front if you need them.
 
 ### Jumping the queue
@@ -281,7 +286,7 @@ Use `POST {apiBase}/clear` to stop everything, or edit the item.
 | `GET` | `/api/b/{slug}/AGENTS.md` | read | this document, with live URLs |
 | `GET` | `/api/b/{slug}/health` | read | liveness, whether a display is connected |
 | `GET` | `/api/b/{slug}/capabilities` | read | charset, grid, accepted values, limits |
-| `GET` | `/api/b/{slug}/status` | read | last reported state, plus `stale`/`updatedAt` |
+| `GET` | `/api/b/{slug}/status` | read | last reported state, plus `stale`/`frozen`/`updatedAt` |
 | `GET` | `/api/b/{slug}/events` | read | SSE stream of board state |
 | `POST` | `/api/b/{slug}/message` | key | queue `text` or `rows` (+`loop`) → `202` |
 | `GET` | `/api/b/{slug}/queue` | read | the queue: items, current, config |

@@ -5,11 +5,10 @@ import { getDb } from '@/lib/db/client.mjs';
 import { listByOwner } from '@/lib/db/boards.mjs';
 import { getBroker } from '@/lib/broker/index.mjs';
 import { BOARD_TYPES } from '@/lib/board-types/index.mjs';
+import { displayHealth } from '@/lib/api/liveness.mjs';
 import { DashboardClient } from '@/components/DashboardClient';
 
 export const dynamic = 'force-dynamic';
-
-const STALE_MS = 10_000;
 
 export default async function DashboardPage() {
   const session = await sessionFromHeaders(await headers());
@@ -23,7 +22,8 @@ export default async function DashboardPage() {
   const rows = await Promise.all(
     boards.map(async (board: any) => {
       const state = await broker.getState(board.id);
-      const connected = Boolean(state && Date.now() - state.updatedAt <= STALE_MS);
+      // The same rule /status applies, so the card and the API never disagree.
+      const { boardReady: connected, frozen } = displayHealth(state);
       const line =
         state?.snapshot?.lines?.find((entry: string) => entry.trim() !== '')?.trim() ?? null;
       return {
@@ -35,6 +35,7 @@ export default async function DashboardPage() {
         private: board.private,
         createdAt: board.createdAt.getTime(),
         connected,
+        frozen,
         showing: connected ? line : null,
       };
     }),

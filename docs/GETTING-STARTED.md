@@ -70,6 +70,24 @@ The queue lives on the server, not the display. That means:
   screens** board makes that a promise, on the clock, for as many screens
   as you like.
 
+## 3½. Keep the display in the foreground
+
+A board is a browser tab drawing on a canvas, and **a browser tab in the
+background does not animate.** Every browser suspends
+`requestAnimationFrame` for hidden tabs — the flip halts mid-turn with
+half-flipped tiles, while the tab's timers keep running and the board
+still reports as connected. So for a wall:
+
+- give the display its own window, full-screen, and leave it in front — a
+  screensaver, an OS window switch, or another tab on top all count as
+  "background" in most browsers;
+- or run the **desktop kiosk shell** (`cd desktop && npm start`), which
+  keeps one board in front on purpose;
+- and watch for **frozen** on the dashboard card (amber dot) or
+  `frozen: true` from `GET /status` — it means a display is connected but
+  cannot draw. Bringing the tab to the front is the fix; it resumes where
+  it stopped.
+
 ## 4. Keys and privacy
 
 The **API key** (Settings → General) authorizes every write. Anyone with
