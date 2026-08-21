@@ -10,7 +10,7 @@
 import { useState } from 'react';
 import { DEFAULTS } from '@/lib/board/flipboard.js';
 import { CONTROLLER_DEFAULTS } from '@/lib/board/controller.mjs';
-import { DEFAULT_THEME, THEMES } from '@/lib/board/themes.mjs';
+import { DEFAULT_THEME, THEMES, resolveTheme } from '@/lib/board/themes.mjs';
 
 type Config = Record<string, unknown>;
 
@@ -77,7 +77,7 @@ export function DisplayConfig({ slug, initial }: { slug: string; initial: Config
     </div>
   );
 
-  const select = (id: string, labelText: string, key: string, options: [string, string][]) => (
+  const select = (id: string, labelText: string, key: string, options: [string, string][], help?: string) => (
     <div className="field">
       <label htmlFor={id}>{labelText}</label>
       <select id={id} value={String(config[key])} onChange={(event) => patch(key, event.target.value)}>
@@ -87,6 +87,7 @@ export function DisplayConfig({ slug, initial }: { slug: string; initial: Config
           </option>
         ))}
       </select>
+      {help && <span className="muted">{help}</span>}
     </div>
   );
 
@@ -100,6 +101,7 @@ export function DisplayConfig({ slug, initial }: { slug: string; initial: Config
           'Tiles',
           'theme',
           Object.values(THEMES).map((theme) => [theme.id, theme.name] as [string, string]),
+          resolveTheme(String(config.theme)).description,
         )}
         {range('cfg-cols', 'Columns', 'cols', 1, 80, 1, String)}
         {range('cfg-rows', 'Rows', 'rows', 1, 40, 1, String)}

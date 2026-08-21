@@ -28,7 +28,8 @@
     "db:generate": "drizzle-kit generate",
     "start": "next start",
     "build:assets": "python3 tools/build_assets.py",
-    "test": "node --test \"tests/*.test.mjs\""
+    "test": "node --test \"tests/*.test.mjs\"",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@better-auth/cimd": "1.7.1",

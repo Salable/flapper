@@ -1,6 +1,7 @@
 import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { Controller } from '../lib/board/controller.mjs';
+import { THEME_IDS } from '../lib/board/themes.mjs';
 import { stubBoard, setup } from './stub-board.mjs';
 
 test('messages play strictly in order', (t) => {
@@ -198,6 +199,8 @@ test('capabilities describe the real charset and accepted values', (t) => {
   assert.equal(caps.states, 42);
   assert.deepEqual(caps.wrap, ['word', 'char', 'none']);
   assert.deepEqual(caps.priority, ['normal', 'next', 'now']);
+  // The theme list an agent reads is the registry, verbatim - nothing in between to drift.
+  assert.deepEqual(caps.themes, [...THEME_IDS]);
 });
 
 test('priority next jumps the queue without disturbing what is playing', (t) => {

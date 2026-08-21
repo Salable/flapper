@@ -60,7 +60,7 @@ async function loadSprite(theme: { path: string }): Promise<Skin> {
 
 /** Load a pack's fonts and art; the skin paints its cards on first draw. */
 export async function loadProcedural(pack: any): Promise<Skin> {
-  const fonts: { family: string; src: string }[] = pack.fonts || [];
+  const fonts: { family: string; src: string; weight?: string; style?: string }[] = pack.fonts || [];
   const arts: [string, string][] = Object.entries(pack.art || {});
   const total = fonts.length + arts.length + 1;
   let done = 0;
@@ -72,7 +72,10 @@ export async function loadProcedural(pack: any): Promise<Skin> {
   const decoded = new Map<string, ImageBitmap>();
   await Promise.all([
     ...fonts.map(async (font) => {
-      const face = new FontFace(font.family, `url(${font.src})`);
+      const face = new FontFace(font.family, `url(${font.src})`, {
+        weight: font.weight ?? 'normal',
+        style: font.style ?? 'normal',
+      });
       await face.load();
       document.fonts.add(face);
       step();

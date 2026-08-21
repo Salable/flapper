@@ -93,7 +93,7 @@ export function BoardApp({
       } catch (error: any) {
         if (cancelled) return;
         console.error(`flapper: tile art failed to load — ${error.message}`);
-        setFailure(`Could not load tile art: ${error.message}.`);
+        setFailure(`Could not load the board's theme: ${error.message}.`);
         setPhase('failed');
         return;
       }
@@ -124,7 +124,7 @@ export function BoardApp({
             if (!cancelled && theme === next) board.setSkin(nextSkin);
           })
           .catch((error: any) => {
-            console.warn(`flapper: tile art for theme ${next} failed to load - ${error.message}`);
+            console.warn(`flapper: theme ${JSON.stringify(next)} failed to load, keeping ${JSON.stringify(theme)} - ${error.message}`);
           });
       };
       const controller = new Controller(board, {});
@@ -339,7 +339,7 @@ export function BoardApp({
         </div>
         {phase === 'loading' && (
           <div id="loading" className="overlay">
-            <div className="loading-label">Loading tiles</div>
+            <div className="loading-label">Loading board</div>
             <div className="loading-bar">
               <div id="loading-fill" style={{ width: `${progress * 100}%` }} />
             </div>

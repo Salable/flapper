@@ -159,10 +159,13 @@ mid-message. Be considerate: if a user asked you to display something, do not
 silently reshape their board to make your text fit. Fit the text to the board,
 or ask.
 
-The same call sets the tile art: `{"theme":"canary"}` repaints every display
-of the board in Norwich green; `"classic"` is the charcoal original.
-`/capabilities` lists the themes a deployment ships under `themes`. Do not
-change a board's theme unless asked to.
+The same call sets the theme: `{"theme":"canary"}` repaints every display of
+the board in Norwich green; `"classic"` is the charcoal original. Ids ending
+in `-p` (`classic-p`, `canary-p`) are the same looks drawn live by the display
+rather than played from pre-rendered art - identical on the wall, lighter to
+load. Always take the list from `/capabilities` (`themes`); a deployment may
+ship more, and an unknown id is a 422. Do not change a board's theme unless
+asked to.
 
 ### Bands are paused
 

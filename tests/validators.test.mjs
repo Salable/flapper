@@ -9,6 +9,7 @@ import {
   rowsOption,
   validateConfigPatch,
 } from '../lib/api/validators.mjs';
+import { THEME_IDS } from '../lib/board/themes.mjs';
 
 function refused(fn, pattern) {
   try {
@@ -91,7 +92,7 @@ test('footerRows must be a non-negative integer', () => {
 });
 
 test('theme must be one this build ships', () => {
-  refused(() => validateConfigPatch({ theme: 'tartan' }), /theme must be one of classic, canary, classic-p, canary-p/);
+  refused(() => validateConfigPatch({ theme: 'tartan' }), new RegExp(`theme must be one of ${THEME_IDS.join(', ')}`));
   refused(() => validateConfigPatch({ theme: null }), /theme must be one of/);
   assert.deepEqual(validateConfigPatch({ theme: 'canary' }), { theme: 'canary' });
   assert.deepEqual(validateConfigPatch({ theme: 'classic' }), { theme: 'classic' });

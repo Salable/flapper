@@ -1,6 +1,6 @@
 # Replacing pre-rendered tile art with a procedural renderer
 
-*Research note, 2026-08-21. Prototype: [`lab/procedural-tile.html`](../lab/procedural-tile.html) — open it as a file, no server needed.*
+*Research note, 2026-08-21. Prototype: [`docs/lab/procedural-tile.html`](lab/procedural-tile.html) — open it as a file, no server needed.*
 
 > **Status:** phase 1 implemented on this branch — `Skin` seam in the engine,
 > `SpriteSkin`/`ProceduralSkin`, `theme-pack.mjs`, `classic-p`/`canary-p`
@@ -150,7 +150,7 @@ already 80% of a theme editor (edit JSON, apply, watch it flip).
 
 ## Prototype findings
 
-`lab/procedural-tile.html` (single file, ~150 lines) runs the engine's tick
+`docs/lab/procedural-tile.html` (single file, ~150 lines) runs the engine's tick
 logic verbatim, renders Classic/Canary look-alikes, a "Brand" pack (light
 cards, Georgia, red `!`, green `0`, logo glyph for `(` `)`), and a tilt
 variant, switching live from edited JSON. Confirmed in a browser: the settled

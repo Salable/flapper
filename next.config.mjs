@@ -10,7 +10,15 @@ const nextConfig = {
       {
         // The tile strips are content-addressed by the manifest; a rebuilt
         // charset ships new strip files, so the strips themselves never change.
-        source: '/assets/strip-:name.webp',
+        // `:path*` so a theme folder (/assets/canary/...) is covered too.
+        source: '/assets/:path*.webp',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+        ],
+      },
+      {
+        // The drawn themes' glyph font. Versioned by filename if it ever changes.
+        source: '/fonts/:path*',
         headers: [
           { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
         ],

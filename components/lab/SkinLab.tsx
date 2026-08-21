@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Flipboard } from '@/lib/board/flipboard.js';
-import { THEMES as REGISTRY, THEME_IDS } from '@/lib/board/themes.mjs';
+import { THEMES as REGISTRY, THEME_IDS, DEFAULT_THEME } from '@/lib/board/themes.mjs';
 
 const THEMES: Record<string, any> = REGISTRY;
 import { validatePack } from '@/lib/board/theme-pack.mjs';
@@ -62,9 +62,11 @@ function Bench({ skin, text, rows, cols, tilePx, label }: { skin: Skin | null; t
 }
 
 export function SkinLab() {
-  const [leftId, setLeftId] = useState('classic');
+  const [leftId, setLeftId] = useState(DEFAULT_THEME);
   const [left, setLeft] = useState<Skin | null>(null);
-  const [json, setJson] = useState(() => JSON.stringify(stripKind(THEMES['classic-p']), null, 2));
+  const [json, setJson] = useState(() =>
+    JSON.stringify(stripKind(THEMES[THEME_IDS.find((id) => THEMES[id].kind === 'procedural') || DEFAULT_THEME]), null, 2),
+  );
   const [right, setRight] = useState<Skin | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
   const [text, setText] = useState(EVERY_GLYPH);
@@ -134,16 +136,20 @@ export function SkinLab() {
         </label>
         <button className="button" type="button" onClick={() => setText(pending)}>Flip</button>
         <button className="button" type="button" onClick={() => { setText(''); }}>Clear</button>
-        <button
-          className="button"
-          type="button"
-          onClick={() => {
-            const id = THEME_IDS.find((t) => THEMES[t].kind === 'procedural' && t !== 'classic-p') || 'classic-p';
-            setJson(JSON.stringify(stripKind(THEMES[id]), null, 2));
-          }}
-        >
-          Load canary-p
-        </button>
+        <label className="field">
+          <span className="field-label">Load pack</span>
+          <select
+            value=""
+            onChange={(e) => {
+              if (e.target.value) setJson(JSON.stringify(stripKind(THEMES[e.target.value]), null, 2));
+            }}
+          >
+            <option value="">Choose…</option>
+            {THEME_IDS.filter((id) => THEMES[id].kind === 'procedural').map((id) => (
+              <option key={id} value={id}>{THEMES[id].name}</option>
+            ))}
+          </select>
+        </label>
       </div>
       <textarea value={pending} onChange={(e) => setPending(e.target.value)} rows={4} style={{ fontFamily: 'var(--next-font-mono)', width: '100%' }} />
       <div style={{ display: 'grid', gap: 16, gridTemplateColumns: '1fr' }}>
