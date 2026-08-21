@@ -26,8 +26,12 @@ import {
   deleteQueueItem,
   reorderQueue,
   advanceQueue,
+  getBoardKey,
 } from '../lib/api/handlers.mjs';
 import { mintDisplayToken } from '../lib/api/display-token.mjs';
+import { BOARD_TYPES } from '../lib/board-types/index.mjs';
+import * as schema from '../lib/db/schema.mjs';
+import { eq } from 'drizzle-orm';
 
 /**
  * The whole API surface, driven as plain (Request) -> Response calls against a
@@ -88,16 +92,26 @@ async function makeBoard({ ownerId = 'owner', slug = 'test-board', ...rest } = {
     }),
   );
   assert.equal(result.status, 201, JSON.stringify(result.body));
-  return result.body;
+  // The create response carries no key (it would land in agent transcripts);
+  // the helper fetches it the way a caller must - as its own explicit ask.
+  const key = await jsonOf(call(getBoardKey, ctx(result.body.slug, ownerId), '/key'));
+  assert.equal(key.status, 200);
+  return { ...result.body, apiKey: key.body.apiKey };
 }
 
 /* ---- lifecycle ---- */
 
-test('creating a board needs a session and returns key + urls', async () => {
+test('creating a board needs a session and returns urls but never the key', async () => {
   const denied = await jsonOf(
     call(createBoard, ctx(), '/api/boards', { method: 'POST', body: {} }),
   );
   assert.equal(denied.status, 401);
+
+  const raw = await jsonOf(
+    call(createBoard, ctx(undefined, 'owner'), '/api/boards', { method: 'POST', body: { slug: 'keyless' } }),
+  );
+  assert.equal(raw.status, 201);
+  assert.equal(raw.body.apiKey, undefined);
 
   const board = await makeBoard({ name: 'Lobby' });
   assert.match(board.boardId, /^[0-9a-z]{16}$/);
@@ -251,14 +265,7 @@ test('boards are created as a type; unknown types are named 422s', async () => {
 });
 
 test('a live board rolls its queue at the cap instead of refusing', async () => {
-  const board = (
-    await jsonOf(
-      call(createBoard, ctx(undefined, 'owner'), '/api/boards', {
-        method: 'POST',
-        body: { slug: 'ticker-board', type: 'live', queueCap: 3 },
-      }),
-    )
-  ).body;
+  const board = await makeBoard({ slug: 'ticker-board', type: 'live', queueCap: 3 });
   const send = (text) =>
     call(postMessage, ctx(board.slug), '/message', {
       method: 'POST',
@@ -374,6 +381,22 @@ test('a message lands in the server queue and nudges displays', async () => {
   assert.equal(code, 202);
   assert.ok(body.id);
   assert.equal(body.loop, false);
+  // A person's count, not the ordering key: first in line, nothing ahead.
+  assert.equal(body.position, 1);
+  assert.equal(body.ahead, 0);
+  const second = (
+    await jsonOf(call(postMessage, ctx(board.slug), '/message', { method: 'POST', body: { text: 'TWO' }, key: board.apiKey }))
+  ).body;
+  assert.equal(second.position, 2);
+  assert.equal(second.ahead, 1);
+  const jumped = (
+    await jsonOf(
+      call(postMessage, ctx(board.slug), '/message', { method: 'POST', body: { text: 'NOW', priority: 'now' }, key: board.apiKey }),
+    )
+  ).body;
+  assert.equal(jumped.position, 1);
+  await call(deleteQueueItem, { ...ctx(board.slug), itemId: second.id }, `/queue/${second.id}`, { method: 'DELETE', key: board.apiKey });
+  await call(deleteQueueItem, { ...ctx(board.slug), itemId: jumped.id }, `/queue/${jumped.id}`, { method: 'DELETE', key: board.apiKey });
 
   const q = (await jsonOf(call(getQueue, ctx(board.slug), '/queue'))).body;
   assert.equal(q.items.length, 1);
@@ -517,6 +540,49 @@ test('bands cannot be configured back in yet: footerRows and per-band settings 4
     key: board.apiKey,
   });
   assert.equal(zero.status, 200);
+});
+
+test('a type that names a tier is refused with a 402 below it - on the shared create path', async () => {
+  // The registry is a Map; a locked entry for the test's duration exercises
+  // the mechanism without any shipped type being premium.
+  const locked = { ...BOARD_TYPES.get('live'), id: 'premium-live', name: 'Premium live', tier: 'pro' };
+  BOARD_TYPES.set(locked.id, locked);
+  try {
+    const denied = await jsonOf(
+      call(createBoard, ctx(undefined, 'owner'), '/api/boards', {
+        method: 'POST',
+        body: { slug: 'locked-board', type: 'premium-live' },
+      }),
+    );
+    assert.equal(denied.status, 402);
+    assert.match(denied.body.error, /pro tier/);
+    assert.match(denied.body.error, /standard/);
+    // Raise the account and the same request succeeds.
+    await db.update(schema.user).set({ tier: 'pro' }).where(eq(schema.user.id, 'owner'));
+    const allowed = await jsonOf(
+      call(createBoard, ctx(undefined, 'owner'), '/api/boards', {
+        method: 'POST',
+        body: { slug: 'locked-board', type: 'premium-live' },
+      }),
+    );
+    assert.equal(allowed.status, 201);
+  } finally {
+    BOARD_TYPES.delete(locked.id);
+  }
+});
+
+test('a patched type param is validated by its own schema and stored coerced', async () => {
+  const board = await makeBoard();
+  const patch = (body) =>
+    jsonOf(call(patchConfig, ctx(board.slug), '/config', { method: 'PATCH', body, key: board.apiKey }));
+  const bad = await patch({ queueCap: 'abc' });
+  assert.equal(bad.status, 422);
+  assert.match(bad.body.error, /queueCap/);
+  const tooBig = await patch({ queueCap: 500 });
+  assert.equal(tooBig.status, 422);
+  const good = await patch({ queueCap: '7' });
+  assert.equal(good.status, 200);
+  assert.equal(good.body.config.queueCap, 7, 'the number, not the string');
 });
 
 /* ---- flush & clear ---- */
@@ -673,8 +739,22 @@ test('state posts are display writes: credentialed, spoof-proof, stale-dropped',
   );
   const { body } = await jsonOf(call(status, ctx(board.slug), '/status'));
   assert.equal(body.stale, false);
+  assert.equal(body.frozen, false);
   assert.deepEqual(body.lines, ['HELLO']);
-  assert.equal((await jsonOf(call(health, ctx(board.slug), '/health'))).body.boardReady, true);
+  const healthy = (await jsonOf(call(health, ctx(board.slug), '/health'))).body;
+  assert.equal(healthy.boardReady, true);
+  assert.equal(healthy.frozen, false);
+
+  // A hidden tab keeps heartbeating but cannot animate: connected, and frozen.
+  await call(postState, ctx(board.slug), '/state', {
+    method: 'POST',
+    body: { state: { ...snapshot, animating: true, display: { visibility: 'hidden', lastFrameAgeMs: 45_000 } } },
+    key: displayToken,
+  });
+  const hidden = (await jsonOf(call(status, ctx(board.slug), '/status'))).body;
+  assert.equal(hidden.boardReady, true);
+  assert.equal(hidden.frozen, true);
+  assert.equal(hidden.display.visibility, 'hidden');
 
   // A stale mirror replaying an old item is acknowledged but ignored.
   const stale = await jsonOf(

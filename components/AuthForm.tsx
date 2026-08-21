@@ -1,11 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { authClient, signIn, signUp } from '@/lib/auth-client';
 
 export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
-  const router = useRouter();
   const params = useSearchParams();
   const next = params.get('next') || '/dashboard';
   // The login<->signup cross-links carry the whole query: an in-flight OAuth
@@ -47,8 +46,21 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
       setBusy(false);
       return;
     }
-    router.push(next);
-    router.refresh();
+    // When an OAuth authorization is in flight, the provider's after-sign-in
+    // hook answers with `{ redirect: true, url }` instead of a session, and
+    // better-auth's redirect fetch plugin has already set window.location to
+    // it. Pushing `next` on top would race that full-page navigation (and
+    // flash the dashboard), so the form stays busy and lets the browser leave.
+    const data = result.data as { redirect?: boolean; url?: string } | null;
+    if (data?.redirect && data.url) {
+      window.location.assign(data.url);
+      return;
+    }
+    // A full navigation, not router.push: the client router cache may hold a
+    // /dashboard payload from before this sign-in - another account's, or
+    // boards since deleted - and push paints it first, refresh second. A
+    // session change deserves a clean slate.
+    window.location.assign(next);
   }
 
   return (

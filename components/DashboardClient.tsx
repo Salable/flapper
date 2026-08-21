@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { signOut } from '@/lib/auth-client';
 import { AppBar } from '@/components/AppBar';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { Button, LinkButton } from '@/components/ui/Button';
 import { Chip, CopyButton, EmptyState } from '@/components/ui/bits';
 import { CreateBoardModal, type TypeMeta } from '@/components/CreateBoardModal';
+import { UserMenu } from '@/components/UserMenu';
+import { ConnectedApps, useConnections } from '@/components/ConnectedApps';
 
 type BoardRow = {
   id: string;
@@ -18,58 +19,53 @@ type BoardRow = {
   private: boolean;
   createdAt: number;
   connected: boolean;
+  /** Connected, but its tab is hidden or its renderer has stopped drawing. */
+  frozen: boolean;
   showing: string | null;
 };
 
 export function DashboardClient({
   userName,
   boards,
+  loadError = false,
   types,
 }: {
   userName: string;
   boards: BoardRow[];
+  /** The server could not list boards; `boards` is empty by default, not by fact. */
+  loadError?: boolean;
   types: TypeMeta[];
 }) {
   const router = useRouter();
   const { confirm, dialog } = useConfirm();
   const [creating, setCreating] = useState(false);
+
+  // Restored from the back/forward cache, this page is a photograph of the
+  // account as it was; ask the server again rather than trust it.
+  useEffect(() => {
+    const onShow = (event: PageTransitionEvent) => {
+      if (event.persisted) router.refresh();
+    };
+    window.addEventListener('pageshow', onShow);
+    return () => window.removeEventListener('pageshow', onShow);
+  }, [router]);
+
+  // An empty list means different things to someone who has never had a
+  // board and someone whose boards vanished under them (deleted elsewhere -
+  // by an agent, say). Remember whether this page has ever shown boards.
+  const [hadBoards, setHadBoards] = useState(false);
+  useEffect(() => {
+    if (boards.length > 0) setHadBoards(true);
+  }, [boards.length]);
   // Resolved after mount: the server does not know the public origin.
   const [origin, setOrigin] = useState('');
   useEffect(() => setOrigin(window.location.origin), []);
   const [error, setError] = useState('');
 
-  // The OAuth clients this account has let in. Loaded client-side so the
-  // dashboard's server render stays a plain board list.
-  type Connection = { clientId: string; name: string; uri: string | null; grantedAt: number | null };
-  const [connections, setConnections] = useState<Connection[] | null>(null);
-  useEffect(() => {
-    fetch('/api/account/connections')
-      .then((response) => (response.ok ? response.json() : { connections: [] }))
-      .then((body) => setConnections(body.connections ?? []))
-      .catch(() => setConnections([]));
-  }, []);
+  // The OAuth clients this account has let in; managed on /account.
+  const [connections] = useConnections();
 
   const typeName = (id: string) => types.find((type) => type.id === id)?.name ?? id;
-
-  async function disconnectApp(connection: Connection) {
-    const ok = await confirm({
-      title: `Disconnect ${connection.name}?`,
-      body: 'It loses access to your boards. Anything it already holds stops working within the hour; it can reconnect by signing in again.',
-      confirmLabel: 'Disconnect',
-      danger: true,
-    });
-    if (!ok) return;
-    setError('');
-    const response = await fetch(`/api/account/connections/${encodeURIComponent(connection.clientId)}`, {
-      method: 'DELETE',
-    });
-    if (!response.ok) {
-      const body = await response.json().catch(() => ({}));
-      setError(body.error || `Disconnect failed: HTTP ${response.status}`);
-      return;
-    }
-    setConnections((prev) => (prev ?? []).filter((entry) => entry.clientId !== connection.clientId));
-  }
 
   async function remove(board: BoardRow) {
     const ok = await confirm({
@@ -93,33 +89,33 @@ export function DashboardClient({
     <div className="app-shell">
       {dialog}
       <CreateBoardModal open={creating} types={types} onClose={() => setCreating(false)} />
-      <AppBar
-        right={
-          <>
-            <span className="muted">{userName}</span>
-            <LinkButton href="/docs">Docs</LinkButton>
-            <Button
-              onClick={async () => {
-                await signOut();
-                router.push('/');
-                router.refresh();
-              }}
-            >
-              Sign out
-            </Button>
-          </>
-        }
-      />
-
+      <AppBar right={<UserMenu userName={userName} current="dashboard" />} />
       <main className="dash">
-        <div className="dash-create">
+        {/* The page's heading and its one primary action share a row. */}
+        <header className="dash-head">
+          <h1 className="dash-title">
+            Boards{boards.length > 0 && <span className="dash-count">{boards.length}</span>}
+          </h1>
           <Button variant="primary" onClick={() => setCreating(true)}>
             New board
           </Button>
-        </div>
+        </header>
         {error !== '' && <p className="error">{error}</p>}
 
-        {boards.length === 0 ? (
+        {loadError ? (
+          <EmptyState title="We couldn't load your boards.">
+            Nothing has been changed — this page just could not reach them.{' '}
+            <Button size="sm" onClick={() => router.refresh()}>
+              Try again
+            </Button>
+          </EmptyState>
+        ) : boards.length === 0 && hadBoards ? (
+          <EmptyState title="Your boards were removed.">
+            Every board on this account has been deleted since this page last loaded — by you
+            in another tab, or by an agent connected to your account. Create a new one, or check
+            the connected apps below.
+          </EmptyState>
+        ) : boards.length === 0 ? (
           <EmptyState title="No boards yet.">
             A board is a split-flap display with its own URL and its own API — put it on a wall,
             drive it from anywhere. Create one; it takes a second. Or connect Claude below and
@@ -127,9 +123,6 @@ export function DashboardClient({
           </EmptyState>
         ) : (
           <>
-            <h2 className="dash-title">
-              Boards <span className="muted">{boards.length}</span>
-            </h2>
             <div className="board-grid">
               {boards.map((board) => (
                 <article className="board-card" key={board.id}>
@@ -137,8 +130,14 @@ export function DashboardClient({
                   <a className="board-card-open" href={`/b/${board.slug}/settings`}>
                     <span className="board-card-name">
                       <i
-                        className={`live-dot${board.connected ? ' is-live' : ''}`}
-                        title={board.connected ? 'A display is connected' : 'No display connected'}
+                        className={`live-dot${board.frozen ? ' is-frozen' : board.connected ? ' is-live' : ''}`}
+                        title={
+                          board.frozen
+                            ? 'A display is connected but its tab is in the background - it is not animating'
+                            : board.connected
+                              ? 'A display is connected'
+                              : 'No display connected'
+                        }
                       />
                       {board.name || board.slug}
                     </span>
@@ -149,11 +148,13 @@ export function DashboardClient({
                       {board.status !== 'active' && <Chip tone="danger">paused</Chip>}
                     </span>
                     <span className="board-card-meta muted">
-                      {board.connected
-                        ? board.showing
-                          ? `showing ${board.showing}`
-                          : 'connected · blank'
-                        : 'no display connected'}
+                      {board.frozen
+                        ? 'frozen · display tab is in the background'
+                        : board.connected
+                          ? board.showing
+                            ? `showing ${board.showing}`
+                            : 'connected · blank'
+                          : 'no display connected'}
                     </span>
                   </a>
                   <div className="board-card-actions">
@@ -170,44 +171,56 @@ export function DashboardClient({
           </>
         )}
 
-        <section className="settings-block dash-connect">
-          <h2>Connect Claude or ChatGPT</h2>
-          <p className="ui-hint">
-            Add this URL as a connector in claude.ai, Claude Desktop, ChatGPT (developer mode), or
-            Claude Code, and sign in when it asks. It can then list, create, and drive every board
-            on your account — no keys to paste. A single board can also be connected with its own
-            key, from that board’s settings.
-          </p>
-          {origin !== '' && (
-            <>
-              <code className="curl">{origin}/api/mcp</code>
-              <CopyButton value={`${origin}/api/mcp`} label="Copy MCP URL" />
-            </>
-          )}
-          {connections && connections.length > 0 && (
-            <div className="dash-connections">
-              <h3>Connected</h3>
-              <ul>
-                {connections.map((connection) => (
-                  <li key={connection.clientId}>
-                    <span>
-                      <strong>{connection.name}</strong>
-                      {connection.uri && <span className="muted"> · {connection.uri}</span>}
-                      {connection.grantedAt && (
-                        <span className="muted">
-                          {' '}
-                          · since {new Date(connection.grantedAt).toLocaleDateString()}
-                        </span>
-                      )}
-                    </span>
-                    <Button size="sm" variant="ghost" onClick={() => disconnectApp(connection)}>
-                      Disconnect
-                    </Button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+        {/* Below the boards: how to drive them. Three equal columns - the
+            assistant (stateful: the URL to connect, or who is connected),
+            the REST contract, and the docs. */}
+        <section className="dash-more" aria-label="Ways to drive your boards">
+          <article className="dash-col">
+            <h2>Connect an assistant</h2>
+            {connections && connections.length > 0 ? (
+              <>
+                <p className="ui-hint">Connected to your account - they can list, create, and drive every board.</p>
+                <ConnectedApps connections={connections} compact />
+                <LinkButton size="sm" href="/account">
+                  Manage connections
+                </LinkButton>
+              </>
+            ) : (
+              <>
+                <p className="ui-hint">
+                  Add this URL as a connector in Claude or ChatGPT and sign in when it asks. It can
+                  then list, create, and drive every board on your account - no keys to paste.
+                </p>
+                {origin !== '' && (
+                  <>
+                    <code className="curl">{origin}/api/mcp</code>
+                    <CopyButton value={`${origin}/api/mcp`} label="Copy MCP URL" />
+                  </>
+                )}
+              </>
+            )}
+          </article>
+          <article className="dash-col">
+            <h2>Drive it over REST</h2>
+            <p className="ui-hint">
+              Every board has its own HTTP API - post a message with one curl, read what the glass
+              shows, edit the queue. Each board also serves its own agent guide with its URLs baked
+              in.
+            </p>
+            <LinkButton size="sm" href="/docs/board-api">
+              Board API reference
+            </LinkButton>
+          </article>
+          <article className="dash-col">
+            <h2>Learn more</h2>
+            <p className="ui-hint">
+              Board types and what a queue means, keys and privacy, keeping a wall display in the
+              foreground, and the design system behind the glass.
+            </p>
+            <LinkButton size="sm" href="/docs">
+              Documentation
+            </LinkButton>
+          </article>
         </section>
       </main>
     </div>

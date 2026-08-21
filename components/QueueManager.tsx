@@ -111,6 +111,9 @@ export function QueueManager({ slug }: { slug: string }) {
   const items = snapshot?.items ?? [];
   const playingId = snapshot?.currentState === 'playing' ? snapshot.currentItemId : null;
   const holdingId = snapshot?.currentState === 'holding' ? snapshot.currentItemId : null;
+  // What each destructive button would actually do; disabled when nothing.
+  const pendingCount = items.filter((entry) => entry.id !== playingId).length;
+  const nothingOnBoard = items.length === 0 && !holdingId && !playingId;
 
   return (
     <>
@@ -245,11 +248,17 @@ export function QueueManager({ slug }: { slug: string }) {
         <div className="actions">
           <button
             onClick={() => act(() => post('/queue', 'DELETE'))}
-            title="Drop everything waiting; whatever is playing finishes"
+            disabled={pendingCount === 0}
+            title={
+              pendingCount === 0
+                ? 'Nothing is waiting'
+                : 'Drop everything waiting; whatever is playing finishes'
+            }
           >
             Flush pending
           </button>
           <button
+            disabled={nothingOnBoard}
             onClick={async () => {
               if (
                 await confirm({
@@ -261,7 +270,7 @@ export function QueueManager({ slug }: { slug: string }) {
                 act(() => post('/clear', 'POST', {}));
               }
             }}
-            title="Stop everything and blank the glass"
+            title={nothingOnBoard ? 'The board is already blank' : 'Stop everything and blank the glass'}
           >
             Clear board
           </button>

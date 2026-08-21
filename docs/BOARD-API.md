@@ -60,7 +60,10 @@ semantics carried inside tool errors. Two ways to connect:
   and authorize when the browser opens; no key needed (clients self-register
   via DCR/CIMD). Connected this way you act as your account: every board tool
   takes a `slug` argument, and the account tools `list_boards`,
-  `create_board`, and `get_board_key` come alive.
+  `create_board`, and `get_board_key` come alive. `create_board` answers
+  with the slug and URLs only — a board's key is never emitted as a side
+  effect; `get_board_key` is the explicit ask, for when a display or script
+  genuinely needs it.
 - **Board API key** — present a board's key as the bearer token; every tool
   drives that board and `slug` must be omitted. The headless/automation mode:
   Claude Code takes `--header "authorization: Bearer <key>"`, ChatGPT offers
@@ -227,7 +230,15 @@ message without a schedule on a clock board plays once, immediately.
 display plays it strictly in order and reports each completion. You can stack
 messages while no display is connected — they play when one opens. A `202`
 means **validated and queued**; `/status`'s `boardReady`/`stale` say whether
-a display is showing it, and its `queue` block is server truth either way.
+a display is connected, `frozen` says whether that display can actually
+animate (a browser tab in the background keeps its heartbeat but loses
+`requestAnimationFrame`, so the board halts mid-flip), and its `queue`
+block is server truth either way. `lines` is the rows the display was last
+told to show — during a transition (`animating: true`) the glass is still
+part-way there. `showing` answers "what is on the glass?" in every state:
+the message being played, or, once the queue drains, the finished one whose
+last page still stands (`held: true`); `phase` is `playing`, `holding`, or
+`blank`.
 `preview` gives page counts and `estimatedMs` up front if you need them.
 
 ### Jumping the queue
@@ -278,7 +289,7 @@ Use `POST {apiBase}/clear` to stop everything, or edit the item.
 | `GET` | `/api/b/{slug}/AGENTS.md` | read | this document, with live URLs |
 | `GET` | `/api/b/{slug}/health` | read | liveness, whether a display is connected |
 | `GET` | `/api/b/{slug}/capabilities` | read | charset, grid, accepted values, limits |
-| `GET` | `/api/b/{slug}/status` | read | last reported state, plus `stale`/`updatedAt` |
+| `GET` | `/api/b/{slug}/status` | read | last reported state, plus `stale`/`frozen`/`updatedAt` |
 | `GET` | `/api/b/{slug}/events` | read | SSE stream of board state |
 | `POST` | `/api/b/{slug}/message` | key | queue `text` or `rows` (+`loop`) → `202` |
 | `GET` | `/api/b/{slug}/queue` | read | the queue: items, current, config |
@@ -300,7 +311,7 @@ further routes belong to the display itself and are not for API clients:
 
 | Code | Meaning | What to do |
 | --- | --- | --- |
-| `202` | validated and queued to the board's stream | check `/status` if delivery matters |
+| `202` | validated and queued; body carries `id`, `position` (1-based place in the queue) and `ahead` (how many play first) | check `/status` if delivery matters |
 | `400` | malformed JSON | fix the body |
 | `401` | missing or wrong API key | ask the user for the board's key (in its settings) |
 | `403` | private board, no valid credential | ask the user for the key |

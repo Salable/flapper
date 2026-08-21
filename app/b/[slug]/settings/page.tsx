@@ -45,6 +45,7 @@ export default async function SettingsPage({ params }: { params: Promise<{ slug:
         private: board.private,
         apiKey: board.apiKey,
         config: (board.config ?? {}) as Record<string, unknown>,
+        typeParams: (getBoardType(board.type)?.createParams ?? []) as any,
         createdAt: board.createdAt.getTime(),
       }}
     />

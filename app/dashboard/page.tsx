@@ -5,11 +5,10 @@ import { getDb } from '@/lib/db/client.mjs';
 import { listByOwner } from '@/lib/db/boards.mjs';
 import { getBroker } from '@/lib/broker/index.mjs';
 import { BOARD_TYPES } from '@/lib/board-types/index.mjs';
+import { displayHealth } from '@/lib/api/liveness.mjs';
 import { DashboardClient } from '@/components/DashboardClient';
 
 export const dynamic = 'force-dynamic';
-
-const STALE_MS = 10_000;
 
 export default async function DashboardPage() {
   const session = await sessionFromHeaders(await headers());
@@ -17,13 +16,24 @@ export default async function DashboardPage() {
 
   const db = await getDb();
   const broker = getBroker();
-  const boards = await listByOwner(db, session.user.id);
+  // A failed load is its own state on the page ("we couldn't load your
+  // boards", with a retry), never an empty list dressed as onboarding.
+  let boards: any[] = [];
+  let loadError = false;
+  try {
+    boards = await listByOwner(db, session.user.id);
+  } catch (error) {
+    console.error('dashboard: listing boards failed', error);
+    loadError = true;
+  }
 
   // The live signal per card: is a display connected, and what is on the glass.
   const rows = await Promise.all(
     boards.map(async (board: any) => {
-      const state = await broker.getState(board.id);
-      const connected = Boolean(state && Date.now() - state.updatedAt <= STALE_MS);
+      // A broker hiccup costs a card its live dot, not the page its boards.
+      const state = await broker.getState(board.id).catch(() => null);
+      // The same rule /status applies, so the card and the API never disagree.
+      const { boardReady: connected, frozen } = displayHealth(state);
       const line =
         state?.snapshot?.lines?.find((entry: string) => entry.trim() !== '')?.trim() ?? null;
       return {
@@ -35,6 +45,7 @@ export default async function DashboardPage() {
         private: board.private,
         createdAt: board.createdAt.getTime(),
         connected,
+        frozen,
         showing: connected ? line : null,
       };
     }),
@@ -46,6 +57,9 @@ export default async function DashboardPage() {
     tagline: type.tagline,
     description: type.description,
     capabilities: type.capabilities,
+    sample: type.sample,
+    recommended: type.recommended,
+    tier: type.tier,
     createParams: type.createParams,
   }));
 
@@ -53,6 +67,7 @@ export default async function DashboardPage() {
     <DashboardClient
       userName={session.user.name || session.user.email}
       boards={rows}
+      loadError={loadError}
       types={types}
     />
   );
