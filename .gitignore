@@ -5,10 +5,9 @@ dist/
 # Raw screen recordings. The optimised GIF in docs/ is what ships.
 *.mov
 
-# Source tile art: 76 MB of per-transition GIFs, one per state change.
-# The generated sprite strips in assets/ are what the app actually loads, and
-# those are committed, so a fresh clone runs with no build step. Point
-# tools/build_assets.py --src at your own art to regenerate them.
+# The designer's source tile art: 76 MB of per-transition GIFs. The app no
+# longer loads anything built from them (tiles are drawn from theme packs);
+# tools/build_icon.py still reads them for the desktop app icon.
 A-Z 0-9 /
 
 # Personal Claude Code permissions; .claude/settings.json is the shared one.

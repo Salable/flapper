@@ -62,9 +62,8 @@ Open http://localhost:3000, create an account, and provision a board — with
 database (`./.pglite`, gitignored) and an in-memory realtime broker: perfect
 for development, single-process only.
 
-The generated tile art is committed, so there's no build step before your
-first run. You only need `npm run build:assets` (Python 3 + Pillow) when you
-change the art — see [Making it your own](AGENTS.md#making-it-your-own).
+There is no asset build: the tiles are drawn live from a theme pack, so a
+new look is a JSON edit — see [Making it your own](AGENTS.md#making-it-your-own).
 
 ```bash
 npm test             # ~230 tests, a few seconds, no browser needed
@@ -145,9 +144,10 @@ it to the wall. `npm run pack` builds a universal macOS .app.
 
 ## How it works
 
-The engine is framework-free and unchanged since Flapper 1: one canvas, one
-integer per tile, strips of per-transition frame art, and an animation loop
-that stops completely when every tile has landed. Around it:
+The engine is framework-free: one canvas, one integer and a fraction per
+tile, a skin that paints a theme pack's cards and draws the flap between
+them, and an animation loop that stops completely when every tile has
+landed. Around it:
 
 - `lib/board/` — the engine and its pure logic (layout, timing, regions,
   queues), all unit-tested under `node --test`
@@ -166,5 +166,4 @@ that stops completely when every tile has landed. Around it:
 
 ## License
 
-[MIT](LICENSE). The tile art in `public/assets/` is generated from source GIFs
-not included in the repo; the committed strips are part of the worked example.
+[MIT](LICENSE). The tile glyph font is Arimo (Apache 2.0, `public/fonts/arimo`).

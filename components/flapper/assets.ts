@@ -3,18 +3,16 @@
 /**
  * The one loader for skins. Every flapper on a page - the wordmark in the
  * app bar, a hero, the display itself - shares a single load of a theme,
- * cached for the life of the tab. Nothing ever closes the bitmaps behind a
- * sprite skin: they are shared property, and a component unmounting must
- * not pull the tiles out from under another.
+ * cached for the life of the tab. The bitmaps behind a skin's art are
+ * shared property: a component unmounting must not close them out from
+ * under another.
  *
  * One cache entry per theme (lib/board/themes.mjs): a display that switches
- * to Canary decodes the green set once and keeps both. A procedural theme
- * loads its declared fonts and art, then builds cards lazily at whatever
- * tile size it is drawn at.
+ * to Canary loads it once and keeps both. A theme loads its declared fonts
+ * and art, then builds cards lazily at whatever tile size it is drawn at.
  */
 
 import { DEFAULT_THEME, resolveTheme } from '@/lib/board/themes.mjs';
-import { SpriteSkin } from '@/lib/board/skins/sprite.mjs';
 import { ProceduralSkin } from '@/lib/board/skins/procedural.mjs';
 import type { Skin } from '@/lib/board/skins/skin.mjs';
 
@@ -36,26 +34,6 @@ export function onAssetProgress(listener: (fraction: number) => void) {
   return () => {
     progressListeners.delete(listener);
   };
-}
-
-async function loadSprite(theme: { path: string }): Promise<Skin> {
-  const base = theme.path;
-  const response = await fetch(`${base}/manifest.json`);
-  if (!response.ok) throw new Error(`${base}/manifest.json: HTTP ${response.status}`);
-  const manifest = await response.json();
-  const strips: ImageBitmap[] = new Array(manifest.cycle.length);
-  let done = 0;
-  report(0);
-  await Promise.all(
-    manifest.cycle.map(async (state: { strip: string }, i: number) => {
-      const strip = await fetch(`${base}/${state.strip}`);
-      if (!strip.ok) throw new Error(`${state.strip}: HTTP ${strip.status}`);
-      strips[i] = await createImageBitmap(await strip.blob());
-      done += 1;
-      report(done / manifest.cycle.length);
-    }),
-  );
-  return new SpriteSkin(manifest, strips);
 }
 
 /** Load a pack's fonts and art; the skin paints its cards on first draw. */
@@ -102,7 +80,7 @@ export function loadSkin(themeId: string = DEFAULT_THEME): Promise<Skin> {
   const theme: any = resolveTheme(themeId);
   const existing = cached.get(theme.id);
   if (existing) return existing;
-  const loading = theme.kind === 'procedural' ? loadProcedural(theme) : loadSprite(theme);
+  const loading = loadProcedural(theme);
   cached.set(theme.id, loading);
   // A failed load must not poison the tab: allow a retry on the next mount.
   loading.catch(() => {

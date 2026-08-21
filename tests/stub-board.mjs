@@ -1,9 +1,9 @@
 import { mock } from 'node:test';
-import { readFileSync } from 'node:fs';
 import { Controller } from '../lib/board/controller.mjs';
 import { layout, layoutRows, charsetFromManifest } from '../lib/board/layout.mjs';
 import { footerLayout, composeLines } from '../lib/board/regions.mjs';
 import { MOTION_DEFAULTS } from '../lib/board/timing.mjs';
+import { RING, NOMINAL_TILE_SIZE } from '../lib/board/ring.mjs';
 
 /**
  * Shared test board. Lives outside a *.test.mjs file so `node --test` does not
@@ -11,7 +11,7 @@ import { MOTION_DEFAULTS } from '../lib/board/timing.mjs';
  * asserting against hand-written status fixtures.
  */
 
-const manifest = JSON.parse(readFileSync(new URL('../public/assets/manifest.json', import.meta.url)));
+const manifest = { cycle: RING, tileSize: NOMINAL_TILE_SIZE };
 const charset = charsetFromManifest(manifest);
 
 /**

@@ -80,7 +80,7 @@ export function DisplayConfig({ slug, initial }: { slug: string; initial: Config
   const select = (id: string, labelText: string, key: string, options: [string, string][], help?: string) => (
     <div className="field">
       <label htmlFor={id}>{labelText}</label>
-      <select id={id} value={String(config[key])} onChange={(event) => patch(key, event.target.value)}>
+      <select id={id} value={key === 'theme' ? resolveTheme(String(config[key])).id : String(config[key])} onChange={(event) => patch(key, event.target.value)}>
         {options.map(([value, name]) => (
           <option key={value} value={value}>
             {name}

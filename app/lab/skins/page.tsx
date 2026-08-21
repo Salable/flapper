@@ -8,8 +8,8 @@ export const metadata = { title: 'Skin lab — Flapper', robots: { index: false,
 export const dynamic = 'force-dynamic';
 
 /**
- * The fidelity bench: the same message on a sprite board and a procedural
- * board, one above the other, with the pack JSON editable live. "It looks
+ * The fidelity bench: the same message on a preset and on the pack being
+ * edited, one above the other, with the pack JSON editable live. "It looks
  * right" is the acceptance test for a renderer (CLAUDE.md), and this is
  * where it is judged. Also the seed of the theme builder.
  *

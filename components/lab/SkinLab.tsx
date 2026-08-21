@@ -65,7 +65,7 @@ export function SkinLab() {
   const [leftId, setLeftId] = useState(DEFAULT_THEME);
   const [left, setLeft] = useState<Skin | null>(null);
   const [json, setJson] = useState(() =>
-    JSON.stringify(stripKind(THEMES[THEME_IDS.find((id) => THEMES[id].kind === 'procedural') || DEFAULT_THEME]), null, 2),
+    JSON.stringify(THEMES[DEFAULT_THEME], null, 2),
   );
   const [right, setRight] = useState<Skin | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
@@ -141,11 +141,11 @@ export function SkinLab() {
           <select
             value=""
             onChange={(e) => {
-              if (e.target.value) setJson(JSON.stringify(stripKind(THEMES[e.target.value]), null, 2));
+              if (e.target.value) setJson(JSON.stringify(THEMES[e.target.value], null, 2));
             }}
           >
             <option value="">Choose…</option>
-            {THEME_IDS.filter((id) => THEMES[id].kind === 'procedural').map((id) => (
+            {THEME_IDS.map((id) => (
               <option key={id} value={id}>{THEMES[id].name}</option>
             ))}
           </select>
@@ -153,8 +153,8 @@ export function SkinLab() {
       </div>
       <textarea value={pending} onChange={(e) => setPending(e.target.value)} rows={4} style={{ fontFamily: 'var(--next-font-mono)', width: '100%' }} />
       <div style={{ display: 'grid', gap: 16, gridTemplateColumns: '1fr' }}>
-        <Bench skin={left} text={text} rows={rows} cols={cols} tilePx={tilePx} label={`${THEMES[leftId].name} — ${THEMES[leftId].kind}`} />
-        <Bench skin={right} text={text} rows={rows} cols={cols} tilePx={tilePx} label="Pack below — procedural" />
+        <Bench skin={left} text={text} rows={rows} cols={cols} tilePx={tilePx} label={`${THEMES[leftId].name} — preset`} />
+        <Bench skin={right} text={text} rows={rows} cols={cols} tilePx={tilePx} label="Pack below — edited" />
       </div>
       <div style={{ display: 'grid', gap: 8 }}>
         <textarea value={json} onChange={(e) => setJson(e.target.value)} rows={22} spellCheck={false} style={{ fontFamily: 'var(--next-font-mono)', width: '100%' }} />
@@ -169,9 +169,4 @@ export function SkinLab() {
       </div>
     </div>
   );
-}
-
-function stripKind(theme: any) {
-  const { kind, ...pack } = theme;
-  return pack;
 }

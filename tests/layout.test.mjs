@@ -1,6 +1,5 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import {
   layout,
   layoutRows,
@@ -8,8 +7,9 @@ import {
   charsetFromManifest,
   DEFAULT_SUBSTITUTIONS,
 } from '../lib/board/layout.mjs';
+import { RING } from '../lib/board/ring.mjs';
 
-const manifest = JSON.parse(readFileSync(new URL('../public/assets/manifest.json', import.meta.url)));
+const manifest = { cycle: RING };
 const charset = charsetFromManifest(manifest);
 
 /** Lay out and strip padding, so assertions read like the visible text. */
