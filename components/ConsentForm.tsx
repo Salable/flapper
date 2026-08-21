@@ -13,8 +13,8 @@ import { authClient } from '@/lib/auth-client';
 export function ConsentForm() {
   const params = useSearchParams();
   const clientId = params.get('client_id') ?? '';
-  const scopes = (params.get('scope') ?? '').split(' ').filter(Boolean);
   const [clientName, setClientName] = useState('');
+  const [clientUri, setClientUri] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -23,8 +23,10 @@ export function ConsentForm() {
     authClient
       .$fetch('/oauth2/public-client', { query: { client_id: clientId } })
       .then((result) => {
-        const data = (result as { data?: { name?: string } | null }).data;
-        setClientName(data?.name || '');
+        // OAuth metadata is snake_case on the wire: client_name, client_uri.
+        const data = (result as { data?: { client_name?: string; client_uri?: string } | null }).data;
+        setClientName(data?.client_name || '');
+        setClientUri(data?.client_uri || '');
       })
       .catch(() => {
         /* the id itself still renders */
@@ -55,8 +57,9 @@ export function ConsentForm() {
   return (
     <div className="auth-form">
       <p>
-        <strong>{clientName || clientId}</strong> wants to connect to your Flapper account
-        {scopes.length > 0 ? <> with access to: {scopes.join(', ')}</> : null}.
+        <strong>{clientName || clientId}</strong>
+        {clientUri ? <span className="muted"> ({clientUri})</span> : null} wants to connect to
+        your Flapper account.
       </p>
       <p className="muted">
         It will be able to see and drive your boards. Messages it sends appear on your displays.
