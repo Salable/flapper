@@ -147,3 +147,19 @@ test('disconnect cuts off JWT access tokens the provider never stored', async ()
   await recordRevocation(db, { userId: 'owner', clientId, at: new Date(accessEndsAt + 10_000) });
   assert.equal(await verify(claims(after)), undefined);
 });
+
+test('a client with no consent but a live refresh token is still listed - and disconnectable', async () => {
+  const clientId = 'https://claude.ai/oauth/mcp';
+  await seedGrant();
+  // The pre-watermark disconnect: consent gone, tokens left alive.
+  await db.delete(oauthConsent).where(eq(oauthConsent.clientId, clientId));
+
+  const listed = await (await listConnections(request('/api/account/connections'), { db, getSession: asUser('owner') })).json();
+  assert.equal(listed.connections.length, 1, 'still has a way in, so still shown');
+  assert.equal(listed.connections[0].name, 'Claude');
+
+  await disconnect(request('/x', 'DELETE'), { db, getSession: asUser('owner'), clientId });
+  const after = await (await listConnections(request('/api/account/connections'), { db, getSession: asUser('owner') })).json();
+  assert.equal(after.connections.length, 0);
+});
+
