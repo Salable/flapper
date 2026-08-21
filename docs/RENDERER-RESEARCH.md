@@ -2,10 +2,11 @@
 
 *Research note, 2026-08-21. Prototype: [`docs/lab/procedural-tile.html`](lab/procedural-tile.html) — open it as a file, no server needed.*
 
-> **Status:** phase 1 implemented on this branch — `Skin` seam in the engine,
-> `SpriteSkin`/`ProceduralSkin`, `theme-pack.mjs`, `classic-p`/`canary-p`
-> registered, `/lab/skins` fidelity bench. Default theme is still the sprite
-> `classic` until the drawn one is signed off on a wall.
+> **Outcome:** done. The `Skin` seam landed in PR #4 with the drawn themes
+> alongside the strips; after the wall trial the strips, `SpriteSkin`,
+> `tools/build_assets.py` and `public/assets/` were removed and `classic` and
+> `canary` became the theme packs. The numbers below were measured from the
+> original art and live on in `PACK_DEFAULTS`.
 
 ## Where we actually are
 

@@ -24,7 +24,7 @@ other design decision in the engine falls out of that constraint.
 npm install && npm run dev
 ```
 
-That's it — the generated tile art is committed, and with no environment the
+That's it — the tiles are drawn, not downloaded, and with no environment the
 app runs on a local PGlite database and an in-memory realtime broker. Create
 an account at http://localhost:3000, provision a board from the dashboard, and
 drive it with the key from its settings page:
@@ -56,7 +56,7 @@ app/          Next.js: pages, and route.ts one-liners over lib/api
 components/   React chrome around the imperative engine
 hooks/        the display tab's cloud connection
 desktop/      the Electron kiosk shell (three files, no build)
-tools/        asset build, icon build, build-time migration
+tools/        audio build, icon build, build-time migration
 ```
 
 | Module | Does |
@@ -65,7 +65,8 @@ tools/        asset build, icon build, build-time migration
 | `lib/board/timing.mjs` | the motion model, shared so animation and API estimates can't drift |
 | `lib/board/regions.mjs` | row bands: partition the grid, map lines to tile targets |
 | `lib/board/flipboard.js` | the engine: tiles, progress, the animation loop; paints through a skin |
-| `lib/board/skins/` | `SpriteSkin` (pre-rendered strips) and `ProceduralSkin` (drawn from a theme pack) |
+| `lib/board/ring.mjs` | the ring: the states a tile can rest on, in order |
+| `lib/board/skins/` | `ProceduralSkin`: paints a theme pack's cards and draws the flap |
 | `lib/board/theme-pack.mjs` | the pack schema, its validator and defaults |
 | `lib/board/track.mjs` | one queue, dwell clock and watchdog **per band** |
 | `lib/board/controller.mjs` | routes messages to bands; owns geometry and status |
@@ -142,21 +143,17 @@ on (or leaving), and how far through the flap to the next state it is:
 
 The engine (`flipboard.js`) owns that and nothing about how it looks. Painting
 is a **skin** (`lib/board/skins/`): `skin.drawTile(ctx, state, progress, x, y,
-size)`, one call per tile per frame. Two skins ship and the engine cannot tell
-them apart:
+size)`, one call per tile per frame. The one that ships is `ProceduralSkin`:
+there is no art. A **theme pack** (`lib/board/theme-pack.mjs`: palette, type,
+hinge, motion, per-glyph overrides, optional images) is painted into one
+offscreen card per state at the current tile size, and the flap is drawn
+live — the falling half foreshortened by cos θ, darkened as it turns, throwing
+a shadow on the card below. 42 cards at 256 px is ~11 MB.
 
-- **`SpriteSkin`** — pre-rendered art. Each transition — `A`→`B`, `9`→`.`,
-  `)`→`blank` — is a separate designer clip; `tools/build_assets.py` stacks
-  each one's frames into a vertical WebP strip and writes a manifest
-  describing the ring. `strips[i]` frame 0 is state `i` at rest, frames 1..9
-  are the flap to `i+1`. The original Classic and Canary.
-- **`ProceduralSkin`** — no art. A **theme pack** (`lib/board/theme-pack.mjs`:
-  palette, type, hinge, motion, per-glyph overrides, optional images) is
-  painted into one offscreen card per state at the current tile size, and the
-  flap is drawn live: the falling half foreshortened by cos θ, darkened as it
-  turns, throwing a shadow on the card below. ~11 MB at 256 px against ~105 MB
-  of decoded strips. `classic-p` and `canary-p` are the sprite themes redrawn
-  this way; `/lab/skins` shows both side by side with the pack editable.
+The board used to play designer-rendered clips (one per transition, baked into
+WebP strips); `docs/RENDERER-RESEARCH.md` is the note that replaced them, and
+the Classic pack's numbers were measured from that art. If you ever want
+hand-animated tiles back, the skin seam is where they go.
 
 The whole board is one canvas. When every tile has landed the animation loop
 **stops completely** and the page uses no CPU until something changes.
@@ -164,13 +161,10 @@ The whole board is one canvas. When every tile has landed the animation loop
 Three details that took real work, and that you would otherwise rediscover the
 hard way:
 
-- **The landing seam** (sprite skin). Every source GIF was rendered
-  independently, so one file's "settled A" differs from the next file's by
-  about a pixel. Chaining them naively makes tiles *twitch* at the exact moment
-  they come to rest. The build fixes it by replacing each transition's final
-  frame with frame 0 of the next one, displacing the discrepancy onto a moving
-  frame where nobody can see it. The procedural skin has no seam to fix: rest
-  and landing are the same card.
+- **Rest and landing are the same card.** A flap ends by drawing the
+  destination card's bottom half exactly where the resting card's bottom half
+  will be, so a tile never twitches as it settles. Keep it that way: the
+  landing frame of any skin must be pixel-identical to the next resting frame.
 - **Retargeting mid-flight never snaps.** A tile already moving finishes its
   current step, then carries on forward to the new target.
 - **Settling is per band, not per board.** Each band reports coming to rest
@@ -183,20 +177,15 @@ hard way:
 
 ### Change the characters
 
-**Nothing about the character set is hardcoded.** The build walks the
-filenames, derives the ring, and asserts that it closes and covers every
-transition. Supply art named `FROM-TO.gif` for a closed cycle and everything
-downstream follows — layout, the API's advertised charset, the substitution
-table, the estimates.
+The ring is one list: `RING` in `lib/board/ring.mjs`. Everything downstream
+derives from it — the cards a theme paints, layout, the API's advertised
+charset, the substitution table, the estimates. Add lowercase, use a
+different alphabet, cut it down to digits and a colon for a clock: edit the
+list, keep `blank` first, and run the tests (`tests/theme-pack.test.mjs` pins
+the current ring; update the snapshot deliberately).
 
-```bash
-python3 tools/build_assets.py --src ./my-art --size 128
-```
-
-Add lowercase, use a different alphabet, cut it down to digits and a colon for
-a clock — the app does not need to know. Use `--size` to match how big your
-tiles actually render; every frame stays decoded in memory in the display tab
-(~105 MB at 256, ~28 MB at 128).
+It is the API contract every board advertises, so a change is a change for
+every agent that has read a board's `/capabilities` — treat it like one.
 
 ### The sound
 
@@ -220,16 +209,16 @@ Mute and volume (M, ↑/↓) are the display's, kept in localStorage under
 ### Add a theme
 
 A theme is the *same* ring in different paint. A board's theme is in its
-config (`PATCH /config {"theme":"canary-p"}`, or the Tiles select in
+config (`PATCH /config {"theme":"canary"}`, or the Tiles select in
 Settings); the display loads the new skin in the background and
 `Flipboard.setSkin()` swaps it under the tiles in place. Every registered id
 reaches the validator, the Settings select, `/capabilities` and the MCP
 `update_config` schema from `lib/board/themes.mjs` alone.
 
-**Procedural (the normal way).** Add a pack to `THEMES` in `themes.mjs`:
+To ship a new preset, add a pack to `THEMES` in `themes.mjs`:
 
 ```js
-'acme': procedural({
+'acme': preset({
   id: 'acme', name: 'Acme',
   card: { fill: '#f4efe6', edge: '#d8cfbf', radius: 0.12 },
   glyph: { fill: '#1f2a44', font: '400 0.9em Georgia, serif' },
@@ -241,19 +230,12 @@ reaches the validator, the Settings select, `/capabilities` and the MCP
 `validatePack` runs at module load, so a bad value fails `npm test`, not the
 wall. Every field and its range is in `PACK_DEFAULTS`/`RANGES` in
 `theme-pack.mjs`; unspecified fields are the Classic look. Iterate in
-`/lab/skins`: paste the pack, Apply, compare against a sprite reference at
-any tile size. A pack cannot change the ring yet — the charset is server
-state (`lib/api/headless-board.mjs` reads the manifest) and gets its own
-change.
+`/lab/skins` (signed in): paste the pack, Apply, compare against a preset at
+any tile size. A pack cannot change the ring — that is `RING`, above.
 
-**Sprite (hand-animated art).** Build strips into `public/assets/<id>/` and
-register `{ kind: 'sprite', id, name, description, path }`. Canary was built
-from the designer's MP4 clips with `--fix-grey` because two of them were
-exported in the old grey:
-
-```bash
-python3 tools/build_assets.py --src ./green-clips --out public/assets/canary --fix-grey
-```
+Boards that were set to `classic-p` or `canary-p` while the drawn themes ran
+alongside the old art still resolve (to `classic`/`canary`); the ids are not
+accepted on write.
 
 ### Change how it moves
 

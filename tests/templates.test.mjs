@@ -1,12 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { TEMPLATE_FAMILIES, TEMPLATES, getTemplate } from '../lib/board-types/templates.mjs';
 import { BOARD_TYPES } from '../lib/board-types/index.mjs';
 import { applyParams } from '../lib/board-types/contract.mjs';
 import { validateConfigPatch, textOptions, LIMITS } from '../lib/api/validators.mjs';
 import { validateSchedule } from '../lib/board/schedule.mjs';
 import { charsetFromManifest } from '../lib/board/layout.mjs';
+import { RING } from '../lib/board/ring.mjs';
 
 /**
  * Templates are content, and content rots: a type renamed, a schedule kind
@@ -15,7 +15,7 @@ import { charsetFromManifest } from '../lib/board/layout.mjs';
  * card on /new can never lead to a 422.
  */
 
-const manifest = JSON.parse(readFileSync(new URL('../public/assets/manifest.json', import.meta.url)));
+const manifest = { cycle: RING };
 const charset = new Set(charsetFromManifest(manifest));
 
 test('every template names a registered type and a unique id', () => {

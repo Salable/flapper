@@ -94,6 +94,8 @@ test('footerRows must be a non-negative integer', () => {
 test('theme must be one this build ships', () => {
   refused(() => validateConfigPatch({ theme: 'tartan' }), new RegExp(`theme must be one of ${THEME_IDS.join(', ')}`));
   refused(() => validateConfigPatch({ theme: null }), /theme must be one of/);
+  // The drawn twins' ids are aliases for reading old config, not values to write.
+  refused(() => validateConfigPatch({ theme: 'classic-p' }), /theme must be one of/);
   assert.deepEqual(validateConfigPatch({ theme: 'canary' }), { theme: 'canary' });
   assert.deepEqual(validateConfigPatch({ theme: 'classic' }), { theme: 'classic' });
 });

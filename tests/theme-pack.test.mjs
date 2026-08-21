@@ -1,18 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { validatePack, resolveStateStyle, fontForSize, DEFAULT_CYCLE, PACK_DEFAULTS } from '../lib/board/theme-pack.mjs';
-import { THEMES, THEME_IDS } from '../lib/board/themes.mjs';
+import { THEMES, THEME_IDS, DEFAULT_THEME, resolveTheme, isTheme } from '../lib/board/themes.mjs';
+import { RING, ringChars } from '../lib/board/ring.mjs';
 import { paintCard, ProceduralSkin } from '../lib/board/skins/procedural.mjs';
-import { SpriteSkin } from '../lib/board/skins/sprite.mjs';
 
-const manifest = JSON.parse(readFileSync(new URL('../public/assets/manifest.json', import.meta.url)));
-
-test('the default ring is the sprite manifest ring, state for state', () => {
-  assert.deepEqual(
-    DEFAULT_CYCLE.map((s) => [s.name, s.char]),
-    manifest.cycle.map((s) => [s.name, s.char]),
-  );
+test('the ring is the 42 states every board advertises, blank first, closed and unique', () => {
+  assert.equal(ringChars().join(''), ' ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.,!()');
+  assert.equal(new Set(ringChars()).size, RING.length);
+  assert.equal(RING.filter((s) => s.name === 'blank').length, 1);
+  assert.equal(RING[0].name, 'blank');
+  assert.equal(DEFAULT_CYCLE, RING, 'a pack paints exactly the ring');
+  assert.ok(Object.isFrozen(RING) && Object.isFrozen(RING[0]));
 });
 
 test('an empty pack is the Classic look', () => {
@@ -70,17 +69,22 @@ test('fonts scale with the tile', () => {
   assert.equal(fontForSize('0.5em Georgia', 26), '13px Georgia');
 });
 
-test('every shipped theme is a sprite folder or a valid pack', () => {
+test('the shipped themes are Classic and Canary, both valid packs', () => {
+  assert.deepEqual([...THEME_IDS], ['classic', 'canary']);
   for (const id of THEME_IDS) {
-    const theme = THEMES[id];
-    assert.equal(theme.id, id);
-    if (theme.kind === 'sprite') assert.match(theme.path, /^\/assets/);
-    else {
-      assert.equal(theme.kind, 'procedural');
-      assert.ok(validatePack(theme).ok);
-    }
+    assert.equal(THEMES[id].id, id);
+    assert.ok(validatePack(THEMES[id]).ok);
+    assert.ok(Object.isFrozen(THEMES[id]));
   }
-  assert.ok(THEME_IDS.includes('classic-p'));
+  assert.equal(DEFAULT_THEME, 'classic');
+});
+
+test('the ids the drawn twins wore still resolve, but are not themes', () => {
+  assert.equal(resolveTheme('classic-p').id, 'classic');
+  assert.equal(resolveTheme('canary-p').id, 'canary');
+  assert.equal(isTheme('canary-p'), false);
+  assert.equal(resolveTheme('tartan').id, DEFAULT_THEME);
+  assert.equal(resolveTheme(undefined).id, DEFAULT_THEME);
 });
 
 /** A 2D context that remembers what was asked of it. */
@@ -161,17 +165,4 @@ test('ProceduralSkin at rest draws both halves of the current card; in flight, t
   draws = log.filter((c) => c[0] === 'drawImage');
   assert.equal(draws[0][1], skin.cards[0], 'the ring wraps');
   assert.equal(draws[2][1], skin.cards[0], 'late in the flap the falling face is the next bottom');
-});
-
-test('SpriteSkin maps progress onto strip frames the way the build laid them out', () => {
-  const strips = manifest.cycle.map((_, i) => ({ i }));
-  const skin = new SpriteSkin(manifest, strips);
-  assert.equal(skin.frameFor(0), 0);
-  assert.equal(skin.frameFor(0.0001), 1);
-  assert.equal(skin.frameFor(0.999999), manifest.framesPerStrip - 1);
-  const log = [];
-  skin.drawTile(stubContext(log), 3, 0.5, 7, 8, 50);
-  const [, img, sx, sy, sw, sh, dx, dy, dw, dh] = log[0];
-  assert.equal(img, strips[3]);
-  assert.deepEqual([sx, sy, sw, sh, dx, dy, dw, dh], [0, skin.frameFor(0.5) * 256, 256, 256, 7, 8, 50, 50]);
 });

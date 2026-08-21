@@ -13,7 +13,6 @@ npm test                           # ~230 tests, a few seconds, no browser
 node --test tests/layout.test.mjs  # a single file
 npm run build                      # migrates (when DATABASE_URL) then next build
 npm run db:generate                # after editing lib/db/schema.mjs
-python3 tools/build_assets.py      # only when the tile art changes (see AGENTS.md "Add a theme")
 python3 tools/build_audio.py --src x.mp3   # only when the flap recording changes
 cd desktop && npm start            # the Electron kiosk shell
 ```
@@ -90,9 +89,9 @@ connected.
   imports `lib/board-types/` in the browser, so a definition may import only
   pure `lib/` modules — never `lib/db/`, never react. The contract harness
   greps for this.
-- **Tile-art bitmaps are shared property** (`components/flapper/assets.ts`):
-  one decode per tab, used by the wordmark and the display alike. Never call
-  `.close()` on them.
+- **A theme's skin is shared property** (`components/flapper/assets.ts`):
+  loaded once per tab, used by the wordmark and the display alike. Never
+  call `.close()` on the bitmaps behind its art.
 - **Callback-prop identity is never behavioral** in `components/ui/` —
   callers pass inline closures; an effect keyed on one re-runs every parent
   render (the Modal once re-focused itself on every keystroke). Rules:

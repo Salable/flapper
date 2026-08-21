@@ -70,9 +70,9 @@ art and motion as a display) in an embeddable box:
 ```
 
 - **Skins are shared**: `components/flapper/assets.ts` loads a theme's skin
-  once per tab — decoded strips for a sprite theme, fonts and art for a
-  procedural one; every flapper (the display included) uses the same
-  instance, and nothing ever closes its bitmaps.
+  once per tab — its fonts, its art, its painted cards; every flapper (the
+  display included) uses the same instance, and nothing ever closes its
+  bitmaps.
 - **It server-renders as `MiniBoard`** in the same footprint, then the
   canvas takes over — the swap is a settle, not a jump.
 - **It animates itself**: text flips in from blank on mount, and the
@@ -139,7 +139,7 @@ once turned it bone-on-bone.
 
 The token layer is the seam for a board's own look: a skin overrides tokens,
 components don't change. The first one is in: the Canary theme
-(`lib/board/themes.mjs`) is a second set of tile art for the display, and
+(`lib/board/themes.mjs`) is a second theme pack for the display, and
 `.poster.is-canary` on /new re-colours a `MiniBoard` by overriding
 `--tile-hi/--tile-mid/--tile-lo` and `--ink`. Keep components token-pure so
 the next skin is as cheap.
