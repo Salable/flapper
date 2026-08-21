@@ -136,11 +136,15 @@ export function DashboardClient({
       />
 
       <main className="dash">
-        <div className="dash-create">
+        {/* The page's heading and its one primary action share a row. */}
+        <header className="dash-head">
+          <h1 className="dash-title">
+            Boards{boards.length > 0 && <span className="dash-count">{boards.length}</span>}
+          </h1>
           <Button variant="primary" onClick={() => setCreating(true)}>
             New board
           </Button>
-        </div>
+        </header>
         {error !== '' && <p className="error">{error}</p>}
 
         {loadError ? (
@@ -164,9 +168,6 @@ export function DashboardClient({
           </EmptyState>
         ) : (
           <>
-            <h2 className="dash-title">
-              Boards <span className="muted">{boards.length}</span>
-            </h2>
             <div className="board-grid">
               {boards.map((board) => (
                 <article className="board-card" key={board.id}>
@@ -215,44 +216,72 @@ export function DashboardClient({
           </>
         )}
 
-        <section className="settings-block dash-connect">
-          <h2>Connect Claude or ChatGPT</h2>
-          <p className="ui-hint">
-            Add this URL as a connector in claude.ai, Claude Desktop, ChatGPT (developer mode), or
-            Claude Code, and sign in when it asks. It can then list, create, and drive every board
-            on your account — no keys to paste. A single board can also be connected with its own
-            key, from that board’s settings.
-          </p>
-          {origin !== '' && (
-            <>
-              <code className="curl">{origin}/api/mcp</code>
-              <CopyButton value={`${origin}/api/mcp`} label="Copy MCP URL" />
-            </>
-          )}
-          {connections && connections.length > 0 && (
-            <div className="dash-connections">
-              <h3>Connected</h3>
-              <ul>
-                {connections.map((connection) => (
-                  <li key={connection.clientId}>
-                    <span>
-                      <strong>{connection.name}</strong>
-                      {connection.uri && <span className="muted"> · {connection.uri}</span>}
-                      {connection.grantedAt && (
-                        <span className="muted">
-                          {' '}
-                          · since {new Date(connection.grantedAt).toLocaleDateString()}
-                        </span>
-                      )}
-                    </span>
-                    <Button size="sm" variant="ghost" onClick={() => disconnectApp(connection)}>
-                      Disconnect
-                    </Button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+        {/* Below the boards: how to drive them. Three equal columns - the
+            assistant (stateful: the URL to connect, or who is connected),
+            the REST contract, and the docs. */}
+        <section className="dash-more" aria-label="Ways to drive your boards">
+          <article className="dash-col">
+            <h2>Connect an assistant</h2>
+            {connections && connections.length > 0 ? (
+              <>
+                <p className="ui-hint">Connected to your account - they can list, create, and drive every board.</p>
+                <ul className="dash-connections">
+                  {connections.map((connection) => (
+                    <li key={connection.clientId}>
+                      <span>
+                        <strong>{connection.name}</strong>
+                        {connection.grantedAt && (
+                          <span className="muted"> · since {new Date(connection.grantedAt).toLocaleDateString()}</span>
+                        )}
+                      </span>
+                      <Button size="sm" variant="ghost" onClick={() => disconnectApp(connection)}>
+                        Disconnect
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+                {origin !== '' && (
+                  <p className="ui-hint">
+                    To connect another, add <code>{origin}/api/mcp</code> as a connector and sign in.
+                  </p>
+                )}
+              </>
+            ) : (
+              <>
+                <p className="ui-hint">
+                  Add this URL as a connector in Claude or ChatGPT and sign in when it asks. It can
+                  then list, create, and drive every board on your account - no keys to paste.
+                </p>
+                {origin !== '' && (
+                  <>
+                    <code className="curl">{origin}/api/mcp</code>
+                    <CopyButton value={`${origin}/api/mcp`} label="Copy MCP URL" />
+                  </>
+                )}
+              </>
+            )}
+          </article>
+          <article className="dash-col">
+            <h2>Drive it over REST</h2>
+            <p className="ui-hint">
+              Every board has its own HTTP API - post a message with one curl, read what the glass
+              shows, edit the queue. Each board also serves its own agent guide with its URLs baked
+              in.
+            </p>
+            <LinkButton size="sm" href="/docs/board-api">
+              Board API reference
+            </LinkButton>
+          </article>
+          <article className="dash-col">
+            <h2>Learn more</h2>
+            <p className="ui-hint">
+              Board types and what a queue means, keys and privacy, keeping a wall display in the
+              foreground, and the design system behind the glass.
+            </p>
+            <LinkButton size="sm" href="/docs">
+              Documentation
+            </LinkButton>
+          </article>
         </section>
       </main>
     </div>
