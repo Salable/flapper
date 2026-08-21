@@ -259,6 +259,80 @@ a.ui-btn-danger {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  min-width: 0;
+}
+
+/* Vertical: a left-hand column (before / tablist / after) beside the panel. */
+.ui-tabs-vertical {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: var(--space-6);
+  align-items: start;
+}
+
+.ui-tabs-side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  position: sticky;
+  top: var(--space-5);
+}
+
+.ui-tabs-vertical .ui-tablist {
+  flex-direction: column;
+  border-bottom: none;
+  border-left: 1px solid var(--edge);
+  gap: 0;
+}
+
+.ui-tabs-vertical .ui-tab {
+  text-align: left;
+  border-bottom: none;
+  border-left: 2px solid transparent;
+  margin: 0 0 0 -1px;
+  padding: 10px 14px;
+}
+
+.ui-tabs-vertical .ui-tab.is-on {
+  border-left-color: var(--amber);
+}
+
+.ui-tabs-vertical .ui-tabpanel {
+  padding-top: 0;
+}
+
+@media (max-width: 760px) {
+  .ui-tabs-vertical {
+    grid-template-columns: 1fr;
+  }
+  /* The column dissolves into the page: identity, menu, panel, then the
+     `after` slot last - standing links should not push the work down. */
+  .ui-tabs-side {
+    display: contents;
+  }
+  .ui-tabs-vertical .ui-tabpanel {
+    order: 1;
+  }
+  .ui-tabs-vertical .ui-tabs-side > :last-child:not(.ui-tablist) {
+    order: 2;
+  }
+  /* Narrow: the menu reads across again, under the identity block. */
+  .ui-tabs-vertical .ui-tablist {
+    flex-direction: row;
+    border-left: none;
+    border-bottom: 1px solid var(--edge);
+    gap: var(--space-1);
+    overflow-x: auto;
+  }
+  .ui-tabs-vertical .ui-tab {
+    border-left: none;
+    border-bottom: 2px solid transparent;
+    margin: 0 0 -1px;
+  }
+  .ui-tabs-vertical .ui-tab.is-on {
+    border-left-color: transparent;
+    border-bottom-color: var(--amber);
+  }
 }
 
 /* ---- cards, chips, segmented, empty ---- */

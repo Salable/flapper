@@ -18,6 +18,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Button, LinkButton } from '@/components/ui/Button';
 import { Field, TextInput } from '@/components/ui/Field';
 import { Chip, CopyButton, KeyReveal } from '@/components/ui/bits';
+import { BoardSidebar } from '@/components/BoardSidebar';
 import { maskSecret } from '@/lib/api/mask.mjs';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 
@@ -305,8 +306,8 @@ export function SettingsClient({ board: initial }: { board: Board }) {
       <AppBar
         right={
           <>
-            <span className="muted">/b/{board.slug}</span>
-            <Chip>{board.typeName}</Chip>
+            {/* Identity lives in the sidebar; paused is live status, and a
+                paused board plays nothing, so it stays in view up here too. */}
             {board.status !== 'active' && <Chip tone="danger">paused</Chip>}
             <LinkButton href={boardUrl}>Open display</LinkButton>
             <LinkButton href="/dashboard">Dashboard</LinkButton>
@@ -317,6 +318,26 @@ export function SettingsClient({ board: initial }: { board: Board }) {
         {error !== '' && <p className="error">{error}</p>}
         {notice !== '' && <p className="muted">{notice}</p>}
         <Tabs
+          orientation="vertical"
+          before={
+            <BoardSidebar
+              name={board.name}
+              slug={board.slug}
+              typeName={board.typeName}
+              status={board.status}
+              isPrivate={board.private}
+              createdAt={board.createdAt}
+              boardUrl={origin === '' ? '' : boardUrl}
+            />
+          }
+          after={
+            <nav className="board-side-links" aria-label="Always for this board">
+              <h2>Always</h2>
+              <a href={`${apiBase}/AGENTS.md`}>This board’s agent guide</a>
+              <a href="/docs/board-api">REST API reference</a>
+              <a href="/docs">Documentation</a>
+            </nav>
+          }
           tabs={[
             { id: 'queue', label: 'Queue', content: queueTab },
             {

@@ -44,7 +44,8 @@ entrances: modals, tab panels, hero tiles. Stagger children with
 | --- | --- |
 | `Button` / `LinkButton` | every action; variants `default/primary/ghost/danger` map to intent |
 | `Field` + `TextInput/Select/TextArea/RangeSlider/Checkbox` | every form control |
-| `Tabs` | sectioned screens (Settings) |
+| `Tabs` | sectioned screens (Settings). `orientation="vertical"` is a left-hand menu with `before`/`after` slots in the same column; arrow keys on the tablist's axis move focus and selection together, Home/End jump |
+| `BoardSidebar` (components/) | a board's identity beside any per-board screen — name, slug + URL, type/status, created, open display. The shell every future per-board screen should sit in |
 | `Modal` | anything that interrupts; arrives with a flap |
 | `useConfirm` | destructive/irreversible actions — **native `confirm()` is banned** |
 | `Card`, `Chip`, `Segmented`, `EmptyState` | layout & state vocabulary |
