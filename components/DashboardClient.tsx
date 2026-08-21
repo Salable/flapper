@@ -1,12 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { signOut } from '@/lib/auth-client';
 import { AppBar } from '@/components/AppBar';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { Button, LinkButton } from '@/components/ui/Button';
-import { Chip, EmptyState } from '@/components/ui/bits';
+import { Chip, CopyButton, EmptyState } from '@/components/ui/bits';
 import { CreateBoardModal, type TypeMeta } from '@/components/CreateBoardModal';
 
 type BoardRow = {
@@ -33,6 +33,9 @@ export function DashboardClient({
   const router = useRouter();
   const { confirm, dialog } = useConfirm();
   const [creating, setCreating] = useState(false);
+  // Resolved after mount: the server does not know the public origin.
+  const [origin, setOrigin] = useState('');
+  useEffect(() => setOrigin(window.location.origin), []);
   const [error, setError] = useState('');
 
   const typeName = (id: string) => types.find((type) => type.id === id)?.name ?? id;
@@ -63,6 +66,7 @@ export function DashboardClient({
         right={
           <>
             <span className="muted">{userName}</span>
+            <LinkButton href="/docs">Docs</LinkButton>
             <Button
               onClick={async () => {
                 await signOut();
@@ -87,7 +91,8 @@ export function DashboardClient({
         {boards.length === 0 ? (
           <EmptyState title="No boards yet.">
             A board is a split-flap display with its own URL and its own API — put it on a wall,
-            drive it from anywhere. Create one; it takes a second.
+            drive it from anywhere. Create one; it takes a second. Or connect Claude below and
+            ask it to.
           </EmptyState>
         ) : (
           <>
@@ -133,6 +138,22 @@ export function DashboardClient({
             </div>
           </>
         )}
+
+        <section className="settings-block dash-connect">
+          <h2>Connect Claude or ChatGPT</h2>
+          <p className="ui-hint">
+            Add this URL as a connector in claude.ai, Claude Desktop, ChatGPT (developer mode), or
+            Claude Code, and sign in when it asks. It can then list, create, and drive every board
+            on your account — no keys to paste. A single board can also be connected with its own
+            key, from that board’s settings.
+          </p>
+          {origin !== '' && (
+            <>
+              <code className="curl">{origin}/api/mcp</code>
+              <CopyButton value={`${origin}/api/mcp`} label="Copy MCP URL" />
+            </>
+          )}
+        </section>
       </main>
     </div>
   );

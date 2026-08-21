@@ -52,6 +52,10 @@ export function SettingsClient({ board: initial }: { board: Board }) {
   const displayUrl = board.private ? `${boardUrl}?key=${board.apiKey}` : boardUrl;
   const apiBase = `${origin}/api/b/${board.slug}`;
   const curl = `curl -X POST ${apiBase}/message -H 'authorization: Bearer ${board.apiKey}' -H 'content-type: application/json' -d '{"text":"HELLO"}'`;
+  // The MCP endpoint is one URL for the whole deployment; this board's key
+  // as the bearer scopes a connection to this board alone.
+  const mcpUrl = `${origin}/api/mcp`;
+  const mcpAdd = `claude mcp add --transport http ${board.slug} ${mcpUrl} --header "authorization: Bearer ${board.apiKey}"`;
 
   async function patch(body: object) {
     setBusy(true);
@@ -240,10 +244,19 @@ export function SettingsClient({ board: initial }: { board: Board }) {
           <code className="curl">{curl}</code>
           <CopyButton value={curl} label="Copy curl" />
         </Field>
+        <Field
+          label="Connect Claude or ChatGPT to this board"
+          hint="An MCP connection that can only drive this board. Claude Code takes the command as-is; in claude.ai or ChatGPT add the URL as a connector with the key as a bearer/authorization header."
+        >
+          <code className="curl">{mcpAdd}</code>
+          <CopyButton value={mcpAdd} label="Copy Claude Code command" />
+        </Field>
         <Field label="For agents">
           <span className="ui-hint">
-            Point an agent at <a href={`${apiBase}/AGENTS.md`}>{apiBase}/AGENTS.md</a> — the full
-            contract for driving this board, with its URLs baked in.
+            To connect once for <em>all</em> your boards, add <code>{mcpUrl}</code> as a connector
+            and sign in when asked — no key needed (see the dashboard). For plain HTTP, point an
+            agent at <a href={`${apiBase}/AGENTS.md`}>{apiBase}/AGENTS.md</a> — the full contract
+            for driving this board, with its URLs baked in.
           </span>
         </Field>
       </section>

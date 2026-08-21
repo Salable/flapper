@@ -1241,3 +1241,8 @@ a.button.primary {
   height: 100%;
   display: block;
 }
+
+/* Dashboard: the account-level agent connection, below the boards. */
+.dash-connect {
+  margin-top: 2.5rem;
+}
