@@ -18,8 +18,9 @@ and its API base is `{base}/api/b/{slug}`.
 
 ## 1. Boards, slugs, and keys
 
-Boards are created by signed-in users from `{base}/dashboard` — there is no
-anonymous or API-only way to create one. Each board has:
+Boards are created by signed-in users from `{base}/dashboard`, or by an agent
+connected over MCP with the user's account (`create_board`) — never
+anonymously. Each board has:
 
 - a **slug** — its URL name (`/b/lobby-board`), chosen and *editable* by the
   owner. **Renaming a board moves its API base**; a `404` on a known board
@@ -37,7 +38,7 @@ curl -s --max-time 5 {apiBase}/health
 ```
 
 ```json
-{ "ok": true, "version": "3.0.0", "boardReady": true, "uptimeMs": 12345 }
+{ "ok": true, "version": "4.0.0", "boardReady": true, "uptimeMs": 12345 }
 ```
 
 **`boardReady` means a display is connected right now** — some browser tab or
@@ -329,10 +330,10 @@ Things not to do:
   `priority` does that without discarding anything.
 - Do not reach for `priority: "now"` because your message feels important.
   `next` is the right default when something should not wait.
-- Do not write to a band you were not asked to write to, and name the band you
-  mean on `clear` — with no `region` it wipes every band.
-- Do not set `repeat` unless the user wants something to cycle. It cannot be
-  switched off afterwards — the only way out is clearing the band.
+- Do not send a `region` — bands are paused and anything but `main` is a
+  `422`; `clear` blanks the whole board.
+- Do not set `loop` unless the user wants something to cycle; switch it off
+  with `PATCH /queue/items/{id}` `{"loop": false}` or remove the item.
 - Do not reshape the grid to fit your text without saying so.
 - Do not send secrets, credentials, or personal data to a board. It is a
   display on a wall; treat everything you send as public.

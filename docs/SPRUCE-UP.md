@@ -19,6 +19,12 @@ commits straight to main; move items down the lists as they move.
 
 ## Fixed
 
+- [x] Agent guide (live template + repo copy) contradicted itself on bands
+      ("name the band you mean on clear" vs "region is a 422") and still
+      spoke of `repeat` with "no way to switch it off". Now: don't send
+      region; `loop` is switched off by editing the item. Repo doc no longer
+      claims there is no API way to create a board.
+
 - [x] Login/signup reached from an app's OAuth redirect looked like a random
       login. Now a banner names the app ("Claude wants to connect to your
       Flapper boards. Sign in to continue."), via the provider's pre-login
