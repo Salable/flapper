@@ -92,6 +92,15 @@ fallback, never a dark gap. Keys: **F** fullscreen, **Esc** panic-blank
 (held until the queue's content changes). Paused/unknown-type boards show
 "BOARD PAUSED. SEE SETTINGS".
 
+### 6½. Account — `/account` (signed in)
+
+Who you are and what is connected to you: profile (name, email, member
+since) and **Connected apps** — the OAuth clients that have signed in as
+you, each with Disconnect (access ends on the client's next request, via
+the revocation watermark in `lib/api/revocations.mjs`). Reached from your
+name in the AppBar (`UserMenu`). Billing and tier land here when they
+exist; the dashboard's connect column only glances at this list.
+
 ### 7. Docs — `/docs`, `/docs/{slug}`
 
 Getting started · Queues & board types · Authoring board types · Design

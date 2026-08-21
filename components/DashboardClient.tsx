@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { signOut } from '@/lib/auth-client';
 import { AppBar } from '@/components/AppBar';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { Button, LinkButton } from '@/components/ui/Button';
 import { Chip, CopyButton, EmptyState } from '@/components/ui/bits';
 import { CreateBoardModal, type TypeMeta } from '@/components/CreateBoardModal';
+import { UserMenu } from '@/components/UserMenu';
+import { ConnectedApps, useConnections } from '@/components/ConnectedApps';
 
 type BoardRow = {
   id: string;
@@ -61,38 +62,10 @@ export function DashboardClient({
   useEffect(() => setOrigin(window.location.origin), []);
   const [error, setError] = useState('');
 
-  // The OAuth clients this account has let in. Loaded client-side so the
-  // dashboard's server render stays a plain board list.
-  type Connection = { clientId: string; name: string; uri: string | null; grantedAt: number | null };
-  const [connections, setConnections] = useState<Connection[] | null>(null);
-  useEffect(() => {
-    fetch('/api/account/connections')
-      .then((response) => (response.ok ? response.json() : { connections: [] }))
-      .then((body) => setConnections(body.connections ?? []))
-      .catch(() => setConnections([]));
-  }, []);
+  // The OAuth clients this account has let in; managed on /account.
+  const [connections] = useConnections();
 
   const typeName = (id: string) => types.find((type) => type.id === id)?.name ?? id;
-
-  async function disconnectApp(connection: Connection) {
-    const ok = await confirm({
-      title: `Disconnect ${connection.name}?`,
-      body: 'It loses access to your boards immediately - anything it already holds stops working on its next request. It can reconnect by signing in again.',
-      confirmLabel: 'Disconnect',
-      danger: true,
-    });
-    if (!ok) return;
-    setError('');
-    const response = await fetch(`/api/account/connections/${encodeURIComponent(connection.clientId)}`, {
-      method: 'DELETE',
-    });
-    if (!response.ok) {
-      const body = await response.json().catch(() => ({}));
-      setError(body.error || `Disconnect failed: HTTP ${response.status}`);
-      return;
-    }
-    setConnections((prev) => (prev ?? []).filter((entry) => entry.clientId !== connection.clientId));
-  }
 
   async function remove(board: BoardRow) {
     const ok = await confirm({
@@ -116,25 +89,7 @@ export function DashboardClient({
     <div className="app-shell">
       {dialog}
       <CreateBoardModal open={creating} types={types} onClose={() => setCreating(false)} />
-      <AppBar
-        right={
-          <>
-            <span className="muted">{userName}</span>
-            <LinkButton href="/docs">Docs</LinkButton>
-            <Button
-              onClick={async () => {
-                await signOut();
-                // Full navigation: nothing of this account's dashboard may
-                // linger in the router cache for the next person to sign in.
-                window.location.assign('/');
-              }}
-            >
-              Sign out
-            </Button>
-          </>
-        }
-      />
-
+      <AppBar right={<UserMenu userName={userName} current="dashboard" />} />
       <main className="dash">
         {/* The page's heading and its one primary action share a row. */}
         <header className="dash-head">
@@ -225,26 +180,10 @@ export function DashboardClient({
             {connections && connections.length > 0 ? (
               <>
                 <p className="ui-hint">Connected to your account - they can list, create, and drive every board.</p>
-                <ul className="dash-connections">
-                  {connections.map((connection) => (
-                    <li key={connection.clientId}>
-                      <span>
-                        <strong>{connection.name}</strong>
-                        {connection.grantedAt && (
-                          <span className="muted"> · since {new Date(connection.grantedAt).toLocaleDateString()}</span>
-                        )}
-                      </span>
-                      <Button size="sm" variant="ghost" onClick={() => disconnectApp(connection)}>
-                        Disconnect
-                      </Button>
-                    </li>
-                  ))}
-                </ul>
-                {origin !== '' && (
-                  <p className="ui-hint">
-                    To connect another, add <code>{origin}/api/mcp</code> as a connector and sign in.
-                  </p>
-                )}
+                <ConnectedApps connections={connections} compact />
+                <LinkButton size="sm" href="/account">
+                  Manage connections
+                </LinkButton>
               </>
             ) : (
               <>

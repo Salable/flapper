@@ -775,6 +775,24 @@ a.button.primary {
   min-width: 0;
 }
 
+/* The person's name: a way into their account, styled as the quiet link it is. */
+.app-bar-user {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--muted);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+
+.app-bar-user:hover {
+  color: var(--ink);
+  border-bottom-color: var(--edge-strong);
+}
+
 .app-bar-right .muted {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -793,7 +811,8 @@ a.button.primary {
     flex-wrap: wrap;
     gap: 8px;
   }
-  .app-bar-right > .muted {
+  .app-bar-right > .muted,
+  .app-bar-user {
     display: none;
   }
 }
