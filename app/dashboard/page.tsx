@@ -16,12 +16,22 @@ export default async function DashboardPage() {
 
   const db = await getDb();
   const broker = getBroker();
-  const boards = await listByOwner(db, session.user.id);
+  // A failed load is its own state on the page ("we couldn't load your
+  // boards", with a retry), never an empty list dressed as onboarding.
+  let boards: any[] = [];
+  let loadError = false;
+  try {
+    boards = await listByOwner(db, session.user.id);
+  } catch (error) {
+    console.error('dashboard: listing boards failed', error);
+    loadError = true;
+  }
 
   // The live signal per card: is a display connected, and what is on the glass.
   const rows = await Promise.all(
     boards.map(async (board: any) => {
-      const state = await broker.getState(board.id);
+      // A broker hiccup costs a card its live dot, not the page its boards.
+      const state = await broker.getState(board.id).catch(() => null);
       // The same rule /status applies, so the card and the API never disagree.
       const { boardReady: connected, frozen } = displayHealth(state);
       const line =
@@ -54,6 +64,7 @@ export default async function DashboardPage() {
     <DashboardClient
       userName={session.user.name || session.user.email}
       boards={rows}
+      loadError={loadError}
       types={types}
     />
   );

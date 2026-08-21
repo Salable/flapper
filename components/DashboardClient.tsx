@@ -26,15 +26,36 @@ type BoardRow = {
 export function DashboardClient({
   userName,
   boards,
+  loadError = false,
   types,
 }: {
   userName: string;
   boards: BoardRow[];
+  /** The server could not list boards; `boards` is empty by default, not by fact. */
+  loadError?: boolean;
   types: TypeMeta[];
 }) {
   const router = useRouter();
   const { confirm, dialog } = useConfirm();
   const [creating, setCreating] = useState(false);
+
+  // Restored from the back/forward cache, this page is a photograph of the
+  // account as it was; ask the server again rather than trust it.
+  useEffect(() => {
+    const onShow = (event: PageTransitionEvent) => {
+      if (event.persisted) router.refresh();
+    };
+    window.addEventListener('pageshow', onShow);
+    return () => window.removeEventListener('pageshow', onShow);
+  }, [router]);
+
+  // An empty list means different things to someone who has never had a
+  // board and someone whose boards vanished under them (deleted elsewhere -
+  // by an agent, say). Remember whether this page has ever shown boards.
+  const [hadBoards, setHadBoards] = useState(false);
+  useEffect(() => {
+    if (boards.length > 0) setHadBoards(true);
+  }, [boards.length]);
   // Resolved after mount: the server does not know the public origin.
   const [origin, setOrigin] = useState('');
   useEffect(() => setOrigin(window.location.origin), []);
@@ -103,8 +124,9 @@ export function DashboardClient({
             <Button
               onClick={async () => {
                 await signOut();
-                router.push('/');
-                router.refresh();
+                // Full navigation: nothing of this account's dashboard may
+                // linger in the router cache for the next person to sign in.
+                window.location.assign('/');
               }}
             >
               Sign out
@@ -121,7 +143,20 @@ export function DashboardClient({
         </div>
         {error !== '' && <p className="error">{error}</p>}
 
-        {boards.length === 0 ? (
+        {loadError ? (
+          <EmptyState title="We couldn't load your boards.">
+            Nothing has been changed — this page just could not reach them.{' '}
+            <Button size="sm" onClick={() => router.refresh()}>
+              Try again
+            </Button>
+          </EmptyState>
+        ) : boards.length === 0 && hadBoards ? (
+          <EmptyState title="Your boards were removed.">
+            Every board on this account has been deleted since this page last loaded — by you
+            in another tab, or by an agent connected to your account. Create a new one, or check
+            the connected apps below.
+          </EmptyState>
+        ) : boards.length === 0 ? (
           <EmptyState title="No boards yet.">
             A board is a split-flap display with its own URL and its own API — put it on a wall,
             drive it from anywhere. Create one; it takes a second. Or connect Claude below and
