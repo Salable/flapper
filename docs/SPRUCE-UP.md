@@ -15,6 +15,17 @@ commits straight to main; move items down the lists as they move.
       from. Not exploitable here; clears when drizzle-kit drops the loader.
       Not forcing an override that could break migrations. **Noted, won't fix.**
 
+- [ ] Not walked yet: the dashboard connect card and consent/login banners
+      at phone width; the Display tab's layout picker as a first-timer; the
+      desktop kiosk shell against a fresh account.
+- [ ] After sign-in from an OAuth redirect, AuthForm still calls
+      router.push(next) - the provider's continuation wins today (verified
+      end to end) but it is a race worth making explicit.
+- [ ] Consent "Deny" lands the person on the app's error redirect with no
+      Flapper-side message; fine for Claude, abrupt for a test client.
+- [ ] The prod "Connected" list should show Claude for Neal's account - not
+      verifiable from here without his login; one look at the dashboard.
+
 ## Fixing
 
 ## Fixed
