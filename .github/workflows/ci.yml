@@ -24,6 +24,9 @@ jobs:
 
       - run: npm test
 
+      # The React side has no tests; strict TypeScript is its only net.
+      - run: npm run typecheck
+
       # Dead code is a build failure: unused files, exports, and deps must be
       # clean (attic/ is deliberately ignored - see docs/attic/README.md).
       - run: npx knip

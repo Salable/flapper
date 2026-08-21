@@ -19,7 +19,7 @@ import { Flipboard } from '@/lib/board/flipboard.js';
 import { Controller } from '@/lib/board/controller.mjs';
 import { Player } from '@/lib/board/player.mjs';
 import { useStatePublisher } from '@/hooks/useStatePublisher';
-import { loadFlapperAssets, onAssetProgress } from '@/components/flapper/assets';
+import { loadSkin, onAssetProgress } from '@/components/flapper/assets';
 import { resolveTheme } from '@/lib/board/themes.mjs';
 import {
   FlapSound,
@@ -87,20 +87,19 @@ export function BoardApp({
     });
 
     (async () => {
-      let manifest;
-      let strips: ImageBitmap[];
+      let skin;
       try {
-        ({ manifest, strips } = await loadFlapperAssets(initialTheme));
+        skin = await loadSkin(initialTheme);
       } catch (error: any) {
         if (cancelled) return;
         console.error(`flapper: tile art failed to load — ${error.message}`);
-        setFailure(`Could not load tile art: ${error.message}.`);
+        setFailure(`Could not load the board's theme: ${error.message}.`);
         setPhase('failed');
         return;
       }
       if (cancelled) return;
 
-      const board = new Flipboard(canvas, manifest, strips, {});
+      const board = new Flipboard(canvas, skin, {});
 
       // The clacks. Loaded alongside the art; silent until the browser has
       // had a gesture (see the keydown/pointerdown handlers below).
@@ -120,12 +119,12 @@ export function BoardApp({
         const next = resolveTheme(wanted).id;
         if (next === theme) return;
         theme = next;
-        loadFlapperAssets(next)
-          .then((art) => {
-            if (!cancelled && theme === next) board.setArt(art.manifest, art.strips);
+        loadSkin(next)
+          .then((nextSkin) => {
+            if (!cancelled && theme === next) board.setSkin(nextSkin);
           })
           .catch((error: any) => {
-            console.warn(`flapper: tile art for theme ${next} failed to load - ${error.message}`);
+            console.warn(`flapper: theme ${JSON.stringify(next)} failed to load, keeping ${JSON.stringify(theme)} - ${error.message}`);
           });
       };
       const controller = new Controller(board, {});
@@ -340,7 +339,7 @@ export function BoardApp({
         </div>
         {phase === 'loading' && (
           <div id="loading" className="overlay">
-            <div className="loading-label">Loading tiles</div>
+            <div className="loading-label">Loading board</div>
             <div className="loading-bar">
               <div id="loading-fill" style={{ width: `${progress * 100}%` }} />
             </div>

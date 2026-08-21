@@ -16,7 +16,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Flipboard } from '@/lib/board/flipboard.js';
 import { idleAction, withFlicker } from '@/lib/board/idle.mjs';
-import { loadFlapperAssets } from '@/components/flapper/assets';
+import { loadSkin } from '@/components/flapper/assets';
 import { MiniBoard } from '@/components/ui/MiniBoard';
 
 const GAP_RATIO = 0.08;
@@ -57,15 +57,15 @@ export function Flapper({
     const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     (async () => {
-      let assets;
+      let skin;
       try {
-        assets = await loadFlapperAssets();
+        skin = await loadSkin();
       } catch {
         return; // the MiniBoard fallback simply stays
       }
       if (cancelled) return;
 
-      board = new Flipboard(canvas, assets.manifest, assets.strips, {
+      board = new Flipboard(canvas, skin, {
         cols,
         rows: 1,
         padding: 0,

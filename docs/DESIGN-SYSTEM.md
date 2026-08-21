@@ -69,9 +69,10 @@ art and motion as a display) in an embeddable box:
 <Flapper text="ON AIR" tilePx={30} ambient={false} />  // a still sign
 ```
 
-- **Assets are shared**: `components/flapper/assets.ts` fetches and decodes
-  the manifest + strips once per tab; every flapper (the display included)
-  uses the same bitmaps, and nothing ever closes them.
+- **Skins are shared**: `components/flapper/assets.ts` loads a theme's skin
+  once per tab — decoded strips for a sprite theme, fonts and art for a
+  procedural one; every flapper (the display included) uses the same
+  instance, and nothing ever closes its bitmaps.
 - **It server-renders as `MiniBoard`** in the same footprint, then the
   canvas takes over — the swap is a settle, not a jump.
 - **It animates itself**: text flips in from blank on mount, and the

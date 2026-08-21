@@ -1,0 +1,177 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { validatePack, resolveStateStyle, fontForSize, DEFAULT_CYCLE, PACK_DEFAULTS } from '../lib/board/theme-pack.mjs';
+import { THEMES, THEME_IDS } from '../lib/board/themes.mjs';
+import { paintCard, ProceduralSkin } from '../lib/board/skins/procedural.mjs';
+import { SpriteSkin } from '../lib/board/skins/sprite.mjs';
+
+const manifest = JSON.parse(readFileSync(new URL('../public/assets/manifest.json', import.meta.url)));
+
+test('the default ring is the sprite manifest ring, state for state', () => {
+  assert.deepEqual(
+    DEFAULT_CYCLE.map((s) => [s.name, s.char]),
+    manifest.cycle.map((s) => [s.name, s.char]),
+  );
+});
+
+test('an empty pack is the Classic look', () => {
+  const result = validatePack({ id: 'x' });
+  assert.ok(result.ok, result.errors);
+  assert.deepEqual(result.pack.card, PACK_DEFAULTS.card);
+  assert.deepEqual(result.pack.glyph, PACK_DEFAULTS.glyph);
+  assert.deepEqual(result.pack.states, {});
+});
+
+test('every problem is reported, not just the first', () => {
+  const result = validatePack({
+    id: 'bad id!',
+    card: { fill: 'notacolour', radius: 2 },
+    glyph: { font: 'Arial 12px' },
+    ring: ' AB',
+    states: { '#': {}, A: { art: 'missing' }, B: { glyph: { fill: 'nope' } } },
+  });
+  assert.equal(result.ok, false);
+  const text = result.errors.join('\n');
+  for (const expected of ['id must', 'card.fill', 'card.radius', 'glyph.font', 'ring cannot', 'states["#"] is not in the ring', 'unknown art "missing"', 'states["B"].glyph.fill']) {
+    assert.ok(text.includes(expected), `missing: ${expected}\n${text}`);
+  }
+});
+
+test('non-object packs and sections are refused', () => {
+  assert.equal(validatePack(null).ok, false);
+  assert.equal(validatePack([]).ok, false);
+  assert.match(validatePack({ card: [] }).errors.join(), /card must be an object/);
+  assert.match(validatePack({ states: [] }).errors.join(), /states must be an object/);
+});
+
+test('per-state overrides merge one level deep over the pack', () => {
+  const { pack } = validatePack({
+    id: 'p',
+    glyph: { fill: '#fff' },
+    art: { logo: 'data:image/png;base64,AAAA' },
+    states: { '!': { glyph: { fill: '#f00' } }, '(': { art: 'logo' } },
+  });
+  assert.equal(resolveStateStyle(pack, '!').glyph.fill, '#f00');
+  assert.equal(resolveStateStyle(pack, '!').glyph.font, PACK_DEFAULTS.glyph.font, 'untouched fields keep the pack value');
+  assert.equal(resolveStateStyle(pack, 'A').glyph.fill, '#fff');
+  assert.equal(resolveStateStyle(pack, '(').art, 'logo');
+  assert.equal(resolveStateStyle(pack, 'A').art, null);
+});
+
+test('art must look like an image reference', () => {
+  assert.equal(validatePack({ art: { a: 'javascript:alert(1)' } }).ok, false);
+  assert.equal(validatePack({ art: { a: 'https://x/y.png' } }).ok, true);
+  assert.equal(validatePack({ art: { a: '/assets/x.png' } }).ok, true);
+});
+
+test('fonts scale with the tile', () => {
+  assert.equal(fontForSize('700 0.86em Helvetica', 100), '700 86px Helvetica');
+  assert.equal(fontForSize('0.5em Georgia', 26), '13px Georgia');
+});
+
+test('every shipped theme is a sprite folder or a valid pack', () => {
+  for (const id of THEME_IDS) {
+    const theme = THEMES[id];
+    assert.equal(theme.id, id);
+    if (theme.kind === 'sprite') assert.match(theme.path, /^\/assets/);
+    else {
+      assert.equal(theme.kind, 'procedural');
+      assert.ok(validatePack(theme).ok);
+    }
+  }
+  assert.ok(THEME_IDS.includes('classic-p'));
+});
+
+/** A 2D context that remembers what was asked of it. */
+function stubContext(log) {
+  const ctx = { canvas: {} };
+  for (const method of [
+    'clearRect', 'fillRect', 'fill', 'beginPath', 'roundRect', 'rect', 'drawImage',
+    'fillText', 'strokeText', 'save', 'restore', 'translate', 'scale',
+  ]) {
+    ctx[method] = (...args) => log.push([method, ...args]);
+  }
+  ctx.createLinearGradient = () => ({ addColorStop() {} });
+  return ctx;
+}
+
+test('paintCard draws the card then the glyph, and nothing for blank', () => {
+  const { pack } = validatePack({ id: 'p', glyph: { stroke: '#fff' } });
+  let log = [];
+  paintCard(stubContext(log), 100, 'A', resolveStateStyle(pack, 'A'));
+  const calls = log.map((c) => c[0]);
+  assert.deepEqual(calls.filter((c) => c === 'fill').length, 3, 'edge, face, sheen');
+  assert.ok(calls.indexOf('strokeText') < calls.indexOf('fillText'), 'stroke under fill');
+  assert.deepEqual(log.find((c) => c[0] === 'fillText').slice(1, 2), ['A']);
+
+  log = [];
+  paintCard(stubContext(log), 100, ' ', resolveStateStyle(pack, ' '));
+  assert.ok(!log.some((c) => c[0] === 'fillText' || c[0] === 'strokeText'));
+});
+
+test('paintCard draws art instead of the glyph', () => {
+  const { pack } = validatePack({ id: 'p', art: { logo: '/x.png' }, states: { '(': { art: 'logo' } } });
+  const log = [];
+  paintCard(stubContext(log), 100, '(', resolveStateStyle(pack, '('), { width: 50, height: 25 });
+  const draw = log.find((c) => c[0] === 'drawImage');
+  assert.ok(draw);
+  assert.deepEqual(draw.slice(4), [72, 36], 'scaled to the 72% box, aspect kept');
+  assert.ok(!log.some((c) => c[0] === 'fillText'));
+});
+
+function fakeSkinCanvas(log) {
+  return (size) => ({ width: size, height: size, getContext: () => stubContext(log) });
+}
+
+test('ProceduralSkin builds one card per state, once per size', () => {
+  const { pack } = validatePack({ id: 'p' });
+  const log = [];
+  const skin = new ProceduralSkin(pack, { createCanvas: fakeSkinCanvas(log) });
+  assert.equal(skin.cycle.length, 42);
+  skin.prepare(64);
+  assert.equal(skin.cards.length, 42);
+  const built = log.length;
+  skin.prepare(64);
+  assert.equal(log.length, built, 'same size: no rebuild');
+  skin.prepare(32);
+  assert.ok(log.length > built, 'new size: rebuilt');
+});
+
+test('ProceduralSkin at rest draws both halves of the current card; in flight, the next top and a flap', () => {
+  const { pack } = validatePack({ id: 'p' });
+  const skin = new ProceduralSkin(pack, { createCanvas: fakeSkinCanvas([]) });
+  skin.prepare(100);
+  let log = [];
+  skin.drawTile(stubContext(log), 1, 0, 10, 20, 100);
+  let draws = log.filter((c) => c[0] === 'drawImage');
+  assert.equal(draws.length, 2);
+  assert.equal(draws[0][1], skin.cards[1], 'top half is the current card at rest');
+  assert.equal(draws[1][1], skin.cards[1]);
+
+  log = [];
+  skin.drawTile(stubContext(log), 1, 0.25, 10, 20, 100);
+  draws = log.filter((c) => c[0] === 'drawImage');
+  assert.equal(draws.length, 3);
+  assert.equal(draws[0][1], skin.cards[2], 'top half shows the next card once the flap has left');
+  assert.equal(draws[2][1], skin.cards[1], 'early in the flap the falling face is the current top');
+
+  log = [];
+  skin.drawTile(stubContext(log), 41, 0.75, 10, 20, 100);
+  draws = log.filter((c) => c[0] === 'drawImage');
+  assert.equal(draws[0][1], skin.cards[0], 'the ring wraps');
+  assert.equal(draws[2][1], skin.cards[0], 'late in the flap the falling face is the next bottom');
+});
+
+test('SpriteSkin maps progress onto strip frames the way the build laid them out', () => {
+  const strips = manifest.cycle.map((_, i) => ({ i }));
+  const skin = new SpriteSkin(manifest, strips);
+  assert.equal(skin.frameFor(0), 0);
+  assert.equal(skin.frameFor(0.0001), 1);
+  assert.equal(skin.frameFor(0.999999), manifest.framesPerStrip - 1);
+  const log = [];
+  skin.drawTile(stubContext(log), 3, 0.5, 7, 8, 50);
+  const [, img, sx, sy, sw, sh, dx, dy, dw, dh] = log[0];
+  assert.equal(img, strips[3]);
+  assert.deepEqual([sx, sy, sw, sh, dx, dy, dw, dh], [0, skin.frameFor(0.5) * 256, 256, 256, 7, 8, 50, 50]);
+});
