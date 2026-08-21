@@ -3,7 +3,15 @@ import assert from 'node:assert/strict';
 import { MemoryBroker } from '../lib/broker/memory.mjs';
 import { makeTestDb, resetTestDb, makeTestUser } from '../lib/db/testing.mjs';
 import { createBoard } from '../lib/api/handlers.mjs';
-import { MCP_TOOLS, callTool, verifyBoardKey, registerBoardTools } from '../lib/api/mcp.mjs';
+import {
+  MCP_TOOLS,
+  callTool,
+  verifyBoardKey,
+  verifyMcpBearer,
+  resolveToolAuth,
+  authContext,
+  registerBoardTools,
+} from '../lib/api/mcp.mjs';
 
 /**
  * The MCP tool layer, driven without mcp-handler or a transport: tools are
@@ -297,7 +305,7 @@ test('a registered tool callback runs end to end from authInfo', async () => {
           token: board.apiKey,
           clientId: `board:${board.slug}`,
           scopes: ['board'],
-          extra: { slug: board.slug, origin: BASE },
+          extra: { mode: 'board', slug: board.slug, origin: BASE },
         },
       },
     },
@@ -305,4 +313,227 @@ test('a registered tool callback runs end to end from authInfo', async () => {
   assert.equal(Boolean(result.isError), false, result.content[0].text);
   const queue = await run('list_queue', {}, board);
   assert.equal(queue.body.items[0].payload.text, 'VIA MCP');
+});
+
+/* ---- phase 2: user (OAuth) mode ---- */
+
+const JWT_SHAPED = 'eyJh.eyJz.sig'; // shape only; the injected verifier decides validity
+
+function userAuthInfo(userId = 'owner') {
+  return {
+    token: JWT_SHAPED,
+    clientId: `user:${userId}`,
+    scopes: ['user'],
+    extra: { mode: 'user', userId, origin: BASE },
+  };
+}
+
+/** Run a tool the way the registration callback would, in user mode. */
+async function runAsUser(name, args, userId = 'owner') {
+  const tool = toolByName(name);
+  const { slug: slugArg, ...rest } = args ?? {};
+  const auth = resolveToolAuth(userAuthInfo(userId), slugArg, tool);
+  if (auth.isError) {
+    return { isError: true, body: auth.content[0].text };
+  }
+  const result = await callTool(tool, rest, authContext(ctx(), auth), auth);
+  const text = result.content[0].text;
+  let parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    parsed = text;
+  }
+  return { isError: Boolean(result.isError), body: parsed };
+}
+
+test('verifyMcpBearer dispatches by token shape', async () => {
+  const board = await makeBoard();
+  const request = new Request(`${BASE}/api/mcp`, { method: 'POST' });
+
+  // Key-shaped goes to the board path without touching the JWT verifier.
+  const viaKey = await verifyMcpBearer(db, request, board.apiKey, {
+    verifyUserToken: async () => {
+      throw new Error('must not be called for a key-shaped bearer');
+    },
+  });
+  assert.equal(viaKey.extra.mode, 'board');
+  assert.equal(viaKey.extra.slug, board.slug);
+
+  // JWT-shaped goes to the injected verifier and never the key lookup.
+  const viaJwt = await verifyMcpBearer(db, request, JWT_SHAPED, {
+    verifyUserToken: async () => ({ sub: 'owner', exp: 1234567890, scope: 'a b' }),
+  });
+  assert.equal(viaJwt.extra.mode, 'user');
+  assert.equal(viaJwt.extra.userId, 'owner');
+  assert.equal(viaJwt.expiresAt, 1234567890);
+  assert.deepEqual(viaJwt.scopes, ['a', 'b']);
+
+  // A throwing verifier is a quiet undefined (401 challenge), not a crash.
+  assert.equal(
+    await verifyMcpBearer(db, request, JWT_SHAPED, {
+      verifyUserToken: async () => {
+        throw new Error('bad signature');
+      },
+    }),
+    undefined,
+  );
+  // A deleted user's still-valid JWT is refused rather than FK-500ing later.
+  assert.equal(
+    await verifyMcpBearer(db, request, JWT_SHAPED, {
+      verifyUserToken: async () => ({ sub: 'no-such-user', exp: 99 }),
+    }),
+    undefined,
+  );
+  // No injected verifier at all: JWTs are simply not accepted.
+  assert.equal(await verifyMcpBearer(db, request, JWT_SHAPED, {}), undefined);
+});
+
+test('resolveToolAuth covers both modes and their slug rules', async () => {
+  const board = await makeBoard();
+  const boardInfo = {
+    token: board.apiKey,
+    extra: { mode: 'board', slug: board.slug, origin: BASE },
+  };
+  const tool = toolByName('get_status');
+
+  const bound = resolveToolAuth(boardInfo, undefined, tool);
+  assert.equal(bound.mode, 'board');
+  assert.equal(bound.slug, board.slug);
+  assert.equal(resolveToolAuth(boardInfo, board.slug, tool).mode, 'board');
+  assert.equal(resolveToolAuth(boardInfo, 'another-board', tool).isError, true);
+  assert.equal(resolveToolAuth(boardInfo, undefined, toolByName('list_boards')).isError, true);
+
+  const userInfo = userAuthInfo();
+  assert.equal(resolveToolAuth(userInfo, undefined, tool).isError, true);
+  const named = resolveToolAuth(userInfo, board.slug, tool);
+  assert.equal(named.mode, 'user');
+  assert.equal(named.userId, 'owner');
+  assert.equal(resolveToolAuth(userInfo, undefined, toolByName('list_boards')).mode, 'user');
+
+  assert.equal(resolveToolAuth(undefined, undefined, tool).isError, true);
+});
+
+test('user mode drives owned boards through the session stub, no key sent', async () => {
+  const board = await makeBoard();
+
+  const posted = await runAsUser('post_message', { slug: board.slug, text: 'AS USER' });
+  assert.equal(posted.isError, false, JSON.stringify(posted.body));
+
+  const queue = await runAsUser('list_queue', { slug: board.slug });
+  assert.equal(queue.body.items[0].payload.text, 'AS USER');
+
+  const status = await runAsUser('get_status', { slug: board.slug });
+  assert.equal(status.body.queue.length, 1);
+});
+
+test('user mode is refused on boards the user does not own', async () => {
+  await makeTestUser(db, { id: 'stranger' });
+  const board = await makeBoard();
+
+  const denied = await runAsUser('post_message', { slug: board.slug, text: 'NOPE' }, 'stranger');
+  assert.equal(denied.isError, true);
+  assert.equal(denied.body.status, 401);
+
+  // Public board reads are open to any mode.
+  const status = await runAsUser('get_status', { slug: board.slug }, 'stranger');
+  assert.equal(status.isError, false);
+});
+
+test('private boards read for their owner, not for other users', async () => {
+  await makeTestUser(db, { id: 'stranger' });
+  const board = await makeBoard();
+  const patched = await runAsUser('update_config', { slug: board.slug, align: 'left' });
+  assert.equal(patched.isError, false, JSON.stringify(patched.body)); // slug stripped, no 422
+
+  // Make it private via the REST handler directly.
+  const { boardPatch } = await import('../lib/api/handlers.mjs');
+  const response = await boardPatch(
+    new Request(`${BASE}/api/b/${board.slug}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ private: true }),
+      headers: { 'content-type': 'application/json' },
+    }),
+    { ...ctx(), slug: board.slug, getSession: async () => ({ user: { id: 'owner' } }) },
+  );
+  assert.equal(response.status, 200);
+
+  const owner = await runAsUser('get_status', { slug: board.slug });
+  assert.equal(owner.isError, false);
+  const stranger = await runAsUser('get_status', { slug: board.slug }, 'stranger');
+  assert.equal(stranger.isError, true);
+  assert.equal(stranger.body.status, 403);
+});
+
+test('account tools: list, create, key - user mode only', async () => {
+  const board = await makeBoard();
+
+  const listed = await runAsUser('list_boards', {});
+  assert.equal(listed.isError, false);
+  assert.equal(listed.body.boards.length, 1);
+  assert.equal(listed.body.boards[0].slug, board.slug);
+  assert.equal(listed.body.boards[0].apiKey, undefined); // keys never in the list
+
+  const created = await runAsUser('create_board', { slug: 'made-by-mcp', name: 'Via MCP' });
+  assert.equal(created.isError, false, JSON.stringify(created.body));
+  assert.match(created.body.apiKey, /^[0-9a-f]{64}$/);
+
+  const key = await runAsUser('get_board_key', { slug: board.slug });
+  assert.equal(key.isError, false);
+  assert.equal(key.body.apiKey, board.apiKey);
+
+  // Board-key connections are pointed at OAuth instead.
+  const viaKey = await run('list_boards', {}, board);
+  // run() bypasses resolveToolAuth, so check through the registered callback:
+  const registered = new Map();
+  registerBoardTools(
+    { registerTool: (name, config, cb) => registered.set(name, cb) },
+    async () => ctx(),
+  );
+  const refused = await registered.get('list_boards')(
+    {},
+    { http: { authInfo: { token: board.apiKey, extra: { mode: 'board', slug: board.slug, origin: BASE } } } },
+  );
+  assert.equal(refused.isError, true);
+  assert.match(refused.content[0].text, /OAuth/);
+  void viaKey;
+});
+
+test('registered schemas gained the slug argument except account tools', () => {
+  const registered = new Map();
+  registerBoardTools(
+    { registerTool: (name, config, cb) => registered.set(name, { config, cb }) },
+    async () => ctx(),
+  );
+  const statusShape = registered.get('get_status').config.inputSchema.shape;
+  assert.ok(statusShape.slug, 'board tools take slug');
+  const listShape = registered.get('list_boards').config.inputSchema.shape;
+  assert.equal(listShape.slug, undefined, 'account tools take no slug');
+});
+
+test('listBoards and getBoardKey handlers gate like the rest of the surface', async () => {
+  const { listBoards, getBoardKey } = await import('../lib/api/handlers.mjs');
+  const board = await makeBoard();
+  await makeTestUser(db, { id: 'stranger' });
+
+  const anonList = await listBoards(new Request(`${BASE}/api/boards`), {
+    ...ctx(),
+    getSession: anonymous,
+  });
+  assert.equal(anonList.status, 401);
+
+  const strangerKey = await getBoardKey(new Request(`${BASE}/api/b/${board.slug}/key`), {
+    ...ctx(),
+    slug: board.slug,
+    getSession: async () => ({ user: { id: 'stranger' } }),
+  });
+  assert.equal(strangerKey.status, 403);
+
+  const ownerKey = await getBoardKey(new Request(`${BASE}/api/b/${board.slug}/key`), {
+    ...ctx(),
+    slug: board.slug,
+    getSession: async () => ({ user: { id: 'owner' } }),
+  });
+  assert.equal(ownerKey.status, 200);
+  assert.equal((await ownerKey.json()).apiKey, board.apiKey);
 });

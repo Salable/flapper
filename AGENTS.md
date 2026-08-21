@@ -102,11 +102,23 @@ management — rename, slug, privacy, rotation, deletion — is owner-session
 only, from the dashboard and `/b/{slug}/settings`.
 
 The same surface is exposed over MCP at `POST /api/mcp` — one endpoint for
-the deployment (Streamable HTTP, stateless); the bearer token is a board's
-API key, and the key names the board. `lib/api/mcp.mjs` holds the tool
-definitions and the key verifier, both Next-free; each tool constructs a
-`Request` and calls the REST handler — the tests' own trick — so the two
-interfaces cannot drift. Only the route file imports `mcp-handler`.
+the deployment (Streamable HTTP, stateless), two bearer modes told apart by
+shape: a board's API key (the key names the board) or an OAuth access token
+this deployment issued (the token names the user; board tools then take a
+`slug` argument, and list_boards/create_board/get_board_key come alive).
+`lib/api/mcp.mjs` holds the tool definitions and the composite verifier,
+Next-free and Better-Auth-free — the JWT half is injected from `lib/auth.ts`.
+Each tool constructs a `Request` and calls the REST handler (in user mode
+with `getSession` stubbed to the token's user, so the owner gates do the
+authorizing) — the tests' own trick — so the two interfaces cannot drift.
+Only the route file imports `mcp-handler`.
+
+Better Auth is also the OAuth 2.1 authorization server (`jwt()` + `mcp()` +
+`cimd()` plugins in `lib/auth.ts`): endpoints under `/api/auth/oauth2/*`,
+discovery documents from `app/.well-known/`, the consent screen at
+`/consent`, and clients self-register (DCR + CIMD). `BETTER_AUTH_URL` must be
+the canonical public origin in production — issuer, JWKS, and the RFC 8707
+resource identifier all derive from it and must byte-match.
 
 Two things follow from the fire-and-forget shape: a `202` never proves a
 display is connected (`/status`'s `stale` field is the truth), and `preview` /

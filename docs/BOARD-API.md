@@ -49,25 +49,27 @@ show it.
 ### MCP
 
 The deployment also speaks the Model Context Protocol at `{base}/api/mcp` —
-one endpoint for every board (Streamable HTTP, stateless). The bearer token is
-a board API key, and **the key names the board**: whichever board's key you
-connect with is the board every tool drives. The tools mirror the REST
-endpoints — same validation, same access gates, same status semantics carried
-inside tool errors. Connect with:
+one endpoint for every board (Streamable HTTP, stateless). The tools mirror
+the REST endpoints — same validation, same access gates, same status
+semantics carried inside tool errors. Two ways to connect:
 
-- **Claude Code**: `claude mcp add --transport http <name> {base}/api/mcp
-  --header "authorization: Bearer <key>"`
-- **claude.ai / Claude Desktop**: Settings → Connectors → *Add custom
-  connector* → `{base}/api/mcp`, with the key as an `authorization` request
-  header (`Bearer <key>`).
-- **ChatGPT**: developer mode → add connector → `{base}/api/mcp`, auth =
-  bearer token.
+- **Sign in (OAuth)** — add `{base}/api/mcp` as a connector in claude.ai /
+  Claude Desktop, Claude Code (`claude mcp add --transport http <name>
+  {base}/api/mcp`, then authenticate from `/mcp`), or ChatGPT developer mode,
+  and authorize when the browser opens; no key needed (clients self-register
+  via DCR/CIMD). Connected this way you act as your account: every board tool
+  takes a `slug` argument, and the account tools `list_boards`,
+  `create_board`, and `get_board_key` come alive.
+- **Board API key** — present a board's key as the bearer token; every tool
+  drives that board and `slug` must be omitted. The headless/automation mode:
+  Claude Code takes `--header "authorization: Bearer <key>"`, ChatGPT offers
+  bearer auth, claude.ai custom connectors take request headers.
 
-The MCP surface is the API-key surface: board management and the display's own
-calls are not tools. The tool set: `get_board_info`, `get_docs`, `get_health`,
-`get_capabilities`, `get_status`, `preview`, `post_message`, `list_queue`,
-`update_queue_item`, `delete_queue_item`, `reorder_queue`, `flush_queue`,
-`clear_board`, `update_config`, `export_queue`.
+Board tools: `get_board_info`, `get_docs`, `get_health`, `get_capabilities`,
+`get_status`, `preview`, `post_message`, `list_queue`, `update_queue_item`,
+`delete_queue_item`, `reorder_queue`, `flush_queue`, `clear_board`,
+`update_config`, `export_queue`. Board management beyond the account tools
+(rename, privacy, deletion, key rotation) stays on the settings page.
 
 ## 2. Access — reads are open, writes need the key
 

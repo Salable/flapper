@@ -22,8 +22,13 @@ If a user asked you to drive a board, ask them for the board URL (or its slug)
 and its API key — the key lives on the board's settings page, which only the
 board's owner can open. Do not guess slugs or keys.
 
-Boards are created by signed-in users from ${base}/dashboard; there is no
-anonymous or API-only way to create one.
+If your client speaks MCP, prefer the MCP endpoint at \`${base}/api/mcp\`:
+sign in via OAuth (add it as a connector and authorize) to act as the user's
+account — list their boards, create boards, and drive any of them — or
+present a board's API key as the bearer token to drive that one board.
+
+Boards are created by signed-in users from ${base}/dashboard, or over MCP
+with \`create_board\` on an OAuth connection.
 `;
   return new Response(body, {
     headers: { 'content-type': 'text/markdown; charset=utf-8', 'cache-control': 'no-store' },

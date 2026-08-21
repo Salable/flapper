@@ -64,7 +64,14 @@ connected.
 - The hand-written Better Auth tables in `lib/db/schema.mjs` must track the
   version in package.json — 1.7 added `account.issuer` (compound unique with
   `accountId`) and session revocation columns. On upgrade, re-run
-  `npx @better-auth/cli generate` and diff.
+  `npx @better-auth/cli generate` and diff. The OAuth tables (`jwks`,
+  `oauth_client`, …) belong to the pinned `@better-auth/oauth-provider`/`mcp`
+  packages — on upgrading those, dump `plugin.schema` from the installed
+  plugins and diff (the CLI generator chokes on our memory-adapter init).
+- The MCP OAuth resource/issuer strings derive from `BETTER_AUTH_URL`
+  (`lib/auth.ts`: `mcpResource()`, `oauthIssuer()`) and must stay
+  byte-identical across config, discovery documents, and the verifier. Set
+  `BETTER_AUTH_URL` on Vercel or OAuth (not key auth) silently breaks.
 - Route files must keep their top-level imports Next-free — `tests/api.test.mjs`
   imports the handlers under plain `node --test`. Only `lib/api/next-ctx.ts`
   touches `lib/auth.ts`.
