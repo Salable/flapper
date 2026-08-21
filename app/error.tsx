@@ -1,5 +1,7 @@
 'use client';
 
+import { Button, LinkButton } from '@/components/ui/Button';
+
 export default function Error({ reset }: { error: Error; reset: () => void }) {
   return (
     <main className="landing">
@@ -7,8 +9,10 @@ export default function Error({ reset }: { error: Error; reset: () => void }) {
       <p>Something jammed mid-flip.</p>
       <p className="muted">The error is on our side. Try again; if it persists, reload the page.</p>
       <div className="actions">
-        <button className="primary" onClick={reset}>Try again</button>
-        <a className="button" href="/dashboard">Your dashboard</a>
+        <Button variant="primary" onClick={reset}>
+          Try again
+        </Button>
+        <LinkButton href="/dashboard">Your dashboard</LinkButton>
       </div>
     </main>
   );

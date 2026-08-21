@@ -19,6 +19,11 @@ commits straight to main; move items down the lists as they move.
 
 ## Fixed
 
+- [x] Invisible button labels: the 404 page's "Your dashboard" and the
+      private-board "Sign in" rendered bone-on-bone (a later
+      `main.landing a` rule tied with `a.button.primary`). Moved those pages
+      to the design-system LinkButton/Button, which the rule exempts.
+
 - [x] Homepage, README (intro, features, deploy table, "Using a board"),
       Getting Started §5, /docs blurb: all lead with connecting Claude or
       ChatGPT. `6372c55`

@@ -1,3 +1,5 @@
+import { LinkButton } from '@/components/ui/Button';
+
 export default function NotFound() {
   return (
     <main className="landing">
@@ -8,8 +10,10 @@ export default function NotFound() {
         yesterday may have moved.
       </p>
       <div className="actions">
-        <a className="button primary" href="/dashboard">Your dashboard</a>
-        <a className="button" href="/docs">Docs</a>
+        <LinkButton variant="primary" href="/dashboard">
+          Your dashboard
+        </LinkButton>
+        <LinkButton href="/docs">Docs</LinkButton>
       </div>
     </main>
   );

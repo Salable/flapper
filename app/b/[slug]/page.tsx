@@ -6,6 +6,7 @@ import { getBySlug } from '@/lib/db/boards.mjs';
 import { secretsMatch } from '@/lib/broker/tokens.mjs';
 import { mintDisplayToken } from '@/lib/api/display-token.mjs';
 import { BoardPageClient } from '@/components/BoardPageClient';
+import { LinkButton } from '@/components/ui/Button';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,9 +37,9 @@ export default async function BoardPage({ params, searchParams }: Props) {
           settings), or sign in as its owner.
         </p>
         <div className="actions">
-          <a className="button primary" href={`/login?next=${encodeURIComponent(`/b/${slug}`)}`}>
+          <LinkButton variant="primary" href={`/login?next=${encodeURIComponent(`/b/${slug}`)}`}>
             Sign in
-          </a>
+          </LinkButton>
         </div>
       </main>
     );
