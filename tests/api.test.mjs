@@ -30,6 +30,7 @@ import {
 } from '../lib/api/handlers.mjs';
 import { mintDisplayToken } from '../lib/api/display-token.mjs';
 import { BOARD_TYPES } from '../lib/board-types/index.mjs';
+import { TEMPLATES } from '../lib/board-types/templates.mjs';
 import * as schema from '../lib/db/schema.mjs';
 import { eq } from 'drizzle-orm';
 
@@ -98,6 +99,72 @@ async function makeBoard({ ownerId = 'owner', slug = 'test-board', ...rest } = {
   assert.equal(key.status, 200);
   return { ...result.body, apiKey: key.body.apiKey };
 }
+
+/* ---- templates ---- */
+
+test('a template seeds the queue and presets config; the body still wins', async () => {
+  const created = await jsonOf(
+    call(createBoard, ctx(undefined, 'owner'), '/api/boards', {
+      method: 'POST',
+      body: { template: 'office-clock', name: 'Desk', timezone: 'Europe/London', fallback: 'TEA' },
+    }),
+  );
+  assert.equal(created.status, 201, JSON.stringify(created.body));
+  assert.equal(created.body.type, 'scheduled');
+  assert.equal(created.body.template, 'office-clock');
+  assert.equal(created.body.seeded, 3);
+  const q = (await jsonOf(call(getQueue, ctx(created.body.slug, 'owner'), '/queue'))).body;
+  assert.equal(q.items.length, 3);
+  assert.deepEqual(q.items.map((item) => item.schedule.kind), ['daily', 'daily', 'daily']);
+  assert.equal(q.config.timezone, 'Europe/London');
+  assert.equal(q.config.fallback, 'TEA');
+
+  // A live template with display config: theme and grid land in config.
+  const match = await jsonOf(
+    call(createBoard, ctx(undefined, 'owner'), '/api/boards', {
+      method: 'POST',
+      body: { template: 'match-day', name: 'NCFC' },
+    }),
+  );
+  assert.equal(match.status, 201);
+  assert.equal(match.body.type, 'live');
+  const mq = (await jsonOf(call(getQueue, ctx(match.body.slug, 'owner'), '/queue'))).body;
+  assert.equal(mq.config.theme, 'canary');
+  assert.equal(mq.config.cols, 24);
+  assert.equal(mq.items.length, 2);
+  assert.equal(mq.items[0].payload.text, 'ON THE BALL CITY');
+
+  // Every template creates cleanly - the content test checks shape, this
+  // checks the whole path including ingest and the queue cap.
+  for (const id of TEMPLATES.keys()) {
+    const result = await jsonOf(
+      call(createBoard, ctx(undefined, 'owner'), '/api/boards', {
+        method: 'POST',
+        body: { template: id, name: id },
+      }),
+    );
+    assert.equal(result.status, 201, `${id}: ${JSON.stringify(result.body)}`);
+  }
+});
+
+test('an unknown template, or a type that contradicts it, is a 422', async () => {
+  const unknown = await jsonOf(
+    call(createBoard, ctx(undefined, 'owner'), '/api/boards', {
+      method: 'POST',
+      body: { template: 'tartan', name: 'x' },
+    }),
+  );
+  assert.equal(unknown.status, 422);
+  assert.match(unknown.body.error, /unknown template "tartan"/);
+  const clash = await jsonOf(
+    call(createBoard, ctx(undefined, 'owner'), '/api/boards', {
+      method: 'POST',
+      body: { template: 'welcome', type: 'scheduled', name: 'x' },
+    }),
+  );
+  assert.equal(clash.status, 422);
+  assert.match(clash.body.error, /is a live board/);
+});
 
 /* ---- lifecycle ---- */
 

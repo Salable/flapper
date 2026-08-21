@@ -60,8 +60,11 @@ semantics carried inside tool errors. Two ways to connect:
   and authorize when the browser opens; no key needed (clients self-register
   via DCR/CIMD). Connected this way you act as your account: every board tool
   takes a `slug` argument, and the account tools `list_boards`,
-  `create_board`, and `get_board_key` come alive. `create_board` answers
-  with the slug and URLs only — a board's key is never emitted as a side
+  `create_board`, and `get_board_key` come alive. `create_board` takes a
+  `type`, or a `template` (the same starting points the /new screen
+  offers: a type plus preset config and a seeded queue — `office-clock`,
+  `match-day`, `departures`, … ; name/timezone/fallback still override
+  it), and answers with the slug and URLs only — a board's key is never emitted as a side
   effect; `get_board_key` is the explicit ask, for when a display or script
   genuinely needs it.
 - **Board API key** — present a board's key as the bearer token; every tool

@@ -6,7 +6,7 @@ import { AppBar } from '@/components/AppBar';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { Button, LinkButton } from '@/components/ui/Button';
 import { Chip, CopyButton, EmptyState } from '@/components/ui/bits';
-import { CreateBoardModal, type TypeMeta } from '@/components/CreateBoardModal';
+import type { TypeMeta } from '@/components/board-types/type-meta';
 import { UserMenu } from '@/components/UserMenu';
 import { ConnectedApps, useConnections } from '@/components/ConnectedApps';
 
@@ -38,7 +38,6 @@ export function DashboardClient({
 }) {
   const router = useRouter();
   const { confirm, dialog } = useConfirm();
-  const [creating, setCreating] = useState(false);
 
   // Restored from the back/forward cache, this page is a photograph of the
   // account as it was; ask the server again rather than trust it.
@@ -88,7 +87,6 @@ export function DashboardClient({
   return (
     <div className="app-shell">
       {dialog}
-      <CreateBoardModal open={creating} types={types} onClose={() => setCreating(false)} />
       <AppBar right={<UserMenu userName={userName} current="dashboard" />} />
       <main className="dash">
         {/* The page's heading and its one primary action share a row. */}
@@ -96,9 +94,9 @@ export function DashboardClient({
           <h1 className="dash-title">
             Boards{boards.length > 0 && <span className="dash-count">{boards.length}</span>}
           </h1>
-          <Button variant="primary" onClick={() => setCreating(true)}>
+          <LinkButton variant="primary" href="/new">
             New board
-          </Button>
+          </LinkButton>
         </header>
         {error !== '' && <p className="error">{error}</p>}
 
@@ -118,8 +116,11 @@ export function DashboardClient({
         ) : boards.length === 0 ? (
           <EmptyState title="No boards yet.">
             A board is a split-flap display with its own URL and its own API — put it on a wall,
-            drive it from anywhere. Create one; it takes a second. Or connect Claude below and
-            ask it to.
+            drive it from anywhere.{' '}
+            <LinkButton size="sm" variant="primary" href="/new">
+              Choose a board
+            </LinkButton>{' '}
+            Or connect Claude below and ask it to.
           </EmptyState>
         ) : (
           <>

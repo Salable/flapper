@@ -19,7 +19,7 @@ components/board-types/registry.ts       add { id, queueEditor } (null is fine)
 
 Run `node --test tests/board-type-contract.test.mjs`. The harness iterates
 every registered type and enforces everything below; a type that passes is
-loadable. Nothing else to wire: the create modal, settings, the API, and the
+loadable. Nothing else to wire: the /new screen, settings, the API, and the
 per-board AGENTS.md all read the registry.
 
 ## The definition contract

@@ -47,15 +47,27 @@ Better Auth email+password, design-system fields, error states inline.
 Board cards show a live dot (display connected), what the glass is showing,
 and chips for **type**, **private**, and **paused**. Clicking a card opens
 its **Settings** (the control room); *Open display* is the explicit action.
-**New board** opens the type picker.
+**New board** goes to `/new`.
 
-### 4. Create — the type-picker modal
+### 4. Create — `/new`, the rails
 
-Registry-driven: one card per board type (name, tagline, capability chips),
-then that type's parameter form (from its `createParams` schema) plus an
-optional slug. Live queue asks for a queue size; scheduled and shared ask
-for timezone and fallback message. Creation lands on the new board's
-Settings. A new type gets this flow for free.
+Choosing a board the way you choose something to watch: horizontal,
+snap-scrolling rails, one per family of use, each card a **template** from
+`lib/board-types/templates.mjs` — a type plus a preset config (grid, theme,
+timezone, fallback) and a seeded queue. The first rail is the registry
+itself, every type blank, so a new type is a card for free; the rest
+(*Around the office*, *Events and match day*, *Many screens*) are curated.
+A card's poster is the board in CSS tiles (`MiniBoard`), skinned by the
+template's theme — the Canary cards are green.
+
+Selecting a card expands a detail panel under its rail: the poster larger,
+what you get, what it starts with, and the form — name (prefilled from the
+template), the type's non-advanced `createParams` (timezone defaults from
+the browser), an optional slug. **Create board** posts `{template, …}` to
+`POST /api/boards`; the server applies the template's params and config
+and admits its seeds through the same door as `POST /message`, then the
+page lands on the board's Settings with the queue already primed. Arrow
+buttons appear on hover for mouse users; touch swipes.
 
 ### 5. Settings — `/b/{slug}/settings` (owner-only)
 

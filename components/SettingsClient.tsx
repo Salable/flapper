@@ -20,7 +20,7 @@ import { Field, TextInput } from '@/components/ui/Field';
 import { Chip, CopyButton, KeyReveal } from '@/components/ui/bits';
 import { BoardSidebar } from '@/components/BoardSidebar';
 import { TypeSettings } from '@/components/TypeSettings';
-import type { TypeMeta } from '@/components/CreateBoardModal';
+import type { TypeMeta } from '@/components/board-types/type-meta';
 import { maskSecret } from '@/lib/api/mask.mjs';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 

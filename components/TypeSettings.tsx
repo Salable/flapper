@@ -11,7 +11,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Field, TextInput, Select, Checkbox } from '@/components/ui/Field';
-import type { TypeMeta } from '@/components/CreateBoardModal';
+import type { TypeMeta } from '@/components/board-types/type-meta';
 
 type Param = TypeMeta['createParams'][number];
 

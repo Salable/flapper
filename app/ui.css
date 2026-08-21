@@ -440,7 +440,7 @@ a.ui-btn-danger {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(180deg, var(--tile-hi) 0%, #1a1a1d 49%, var(--tile-lo) 51%, #1a1a1d 100%);
+  background: linear-gradient(180deg, var(--tile-hi) 0%, var(--tile-mid) 49%, var(--tile-lo) 51%, var(--tile-mid) 100%);
   border: 1px solid rgba(236, 231, 221, 0.14);
   border-radius: 3px;
   font-family: var(--font-mono);

@@ -50,7 +50,8 @@ entrances: modals, tab panels, hero tiles. Stagger children with
 | `useConfirm` | destructive/irreversible actions — **native `confirm()` is banned** |
 | `Card`, `Chip`, `Segmented`, `EmptyState` | layout & state vocabulary |
 | `CopyButton`, `KeyReveal` | credentials and copyable values — a secret is shown only behind Reveal; any text that quotes it renders through `maskSecret` (lib/api/mask.mjs) and copies the real value |
-| `MiniBoard` | text as CSS split-flap tiles — the server-renderable stand-in and loading fallback for `Flapper` |
+| `MiniBoard` | text as CSS split-flap tiles — the server-renderable stand-in and loading fallback for `Flapper`; also the poster on every /new card, where a `.poster.is-canary` wrapper re-skins it by overriding the `--tile-*` tokens |
+| `.rail` / `.rail-card` / `.rail-detail` (board.css) | the /new screen's horizontal, snap-scrolling rows of template cards and the panel a chosen card expands into under its rail |
 
 Screen-level scaffolding: `.app-shell` + `AppBar` (brand left, context
 right), `.dash` content column. Board-type-specific UI lives in
@@ -133,8 +134,11 @@ once turned it bone-on-bone.
 4. If it expresses state (live/paused/error), use the signal tokens, never
    new colors.
 
-## Ahead: per-board media
+## Per-board media
 
-Board creation will eventually accept custom media (tile art, palettes) —
-the token layer is the seam: a board skin overrides tokens, components don't
-change. Keep components token-pure so that day is cheap.
+The token layer is the seam for a board's own look: a skin overrides tokens,
+components don't change. The first one is in: the Canary theme
+(`lib/board/themes.mjs`) is a second set of tile art for the display, and
+`.poster.is-canary` on /new re-colours a `MiniBoard` by overriding
+`--tile-hi/--tile-mid/--tile-lo` and `--ink`. Keep components token-pure so
+the next skin is as cheap.

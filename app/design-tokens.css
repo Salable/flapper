@@ -11,6 +11,7 @@
   --surface-1: #141417;      /* panels, cards */
   --surface-2: #1b1b1f;      /* raised elements, inputs on panels */
   --tile-hi: #232327;        /* tile face, upper half */
+  --tile-mid: #1a1a1d;       /* tile face, at the hinge */
   --tile-lo: #131316;        /* tile face, lower half */
   --edge: rgba(236, 231, 221, 0.11);
   --edge-strong: rgba(236, 231, 221, 0.28);
