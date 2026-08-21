@@ -331,7 +331,12 @@ function userAuthInfo(userId = 'owner') {
 /** Run a tool the way the registration callback would, in user mode. */
 async function runAsUser(name, args, userId = 'owner') {
   const tool = toolByName(name);
-  const { slug: slugArg, ...rest } = args ?? {};
+  // Mirrors the registration wrapper: strip the grafted selector, but a
+  // noSlug tool's own slug field (create_board) passes through untouched.
+  const all = args ?? {};
+  const { slug: grafted, ...stripped } = all;
+  const slugArg = tool.noSlug ? undefined : grafted;
+  const rest = tool.noSlug ? all : stripped;
   const auth = resolveToolAuth(userAuthInfo(userId), slugArg, tool);
   if (auth.isError) {
     return { isError: true, body: auth.content[0].text };
@@ -476,6 +481,8 @@ test('account tools: list, create, key - user mode only', async () => {
 
   const created = await runAsUser('create_board', { slug: 'made-by-mcp', name: 'Via MCP' });
   assert.equal(created.isError, false, JSON.stringify(created.body));
+  // The chosen slug must survive the wrapper's selector-stripping.
+  assert.equal(created.body.slug, 'made-by-mcp');
   assert.match(created.body.apiKey, /^[0-9a-f]{64}$/);
 
   const key = await runAsUser('get_board_key', { slug: board.slug });
