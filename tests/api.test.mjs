@@ -26,6 +26,7 @@ import {
   deleteQueueItem,
   reorderQueue,
   advanceQueue,
+  getBoardKey,
 } from '../lib/api/handlers.mjs';
 import { mintDisplayToken } from '../lib/api/display-token.mjs';
 
@@ -88,16 +89,26 @@ async function makeBoard({ ownerId = 'owner', slug = 'test-board', ...rest } = {
     }),
   );
   assert.equal(result.status, 201, JSON.stringify(result.body));
-  return result.body;
+  // The create response carries no key (it would land in agent transcripts);
+  // the helper fetches it the way a caller must - as its own explicit ask.
+  const key = await jsonOf(call(getBoardKey, ctx(result.body.slug, ownerId), '/key'));
+  assert.equal(key.status, 200);
+  return { ...result.body, apiKey: key.body.apiKey };
 }
 
 /* ---- lifecycle ---- */
 
-test('creating a board needs a session and returns key + urls', async () => {
+test('creating a board needs a session and returns urls but never the key', async () => {
   const denied = await jsonOf(
     call(createBoard, ctx(), '/api/boards', { method: 'POST', body: {} }),
   );
   assert.equal(denied.status, 401);
+
+  const raw = await jsonOf(
+    call(createBoard, ctx(undefined, 'owner'), '/api/boards', { method: 'POST', body: { slug: 'keyless' } }),
+  );
+  assert.equal(raw.status, 201);
+  assert.equal(raw.body.apiKey, undefined);
 
   const board = await makeBoard({ name: 'Lobby' });
   assert.match(board.boardId, /^[0-9a-z]{16}$/);
@@ -251,14 +262,7 @@ test('boards are created as a type; unknown types are named 422s', async () => {
 });
 
 test('a live board rolls its queue at the cap instead of refusing', async () => {
-  const board = (
-    await jsonOf(
-      call(createBoard, ctx(undefined, 'owner'), '/api/boards', {
-        method: 'POST',
-        body: { slug: 'ticker-board', type: 'live', queueCap: 3 },
-      }),
-    )
-  ).body;
+  const board = await makeBoard({ slug: 'ticker-board', type: 'live', queueCap: 3 });
   const send = (text) =>
     call(postMessage, ctx(board.slug), '/message', {
       method: 'POST',

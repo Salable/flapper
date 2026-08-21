@@ -2,7 +2,7 @@ import test, { before, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { MemoryBroker } from '../lib/broker/memory.mjs';
 import { makeTestDb, resetTestDb, makeTestUser } from '../lib/db/testing.mjs';
-import { createBoard } from '../lib/api/handlers.mjs';
+import { createBoard, getBoardKey } from '../lib/api/handlers.mjs';
 import {
   MCP_TOOLS,
   callTool,
@@ -49,7 +49,11 @@ async function makeBoard({ slug = 'mcp-board', ...rest } = {}) {
     { ...ctx(), getSession: async () => ({ user: { id: 'owner' } }) },
   );
   assert.equal(response.status, 201);
-  return response.json();
+  const created = await response.json();
+  // Creation never returns the key; fetch it as the explicit ask it is.
+  const asOwner = { ...ctx(), getSession: async () => ({ user: { id: 'owner' } }), slug: created.slug };
+  const key = await (await getBoardKey(new Request(`${BASE}/api/b/${created.slug}/key`), asOwner)).json();
+  return { ...created, apiKey: key.apiKey };
 }
 
 const toolByName = (name) => {
@@ -483,7 +487,9 @@ test('account tools: list, create, key - user mode only', async () => {
   assert.equal(created.isError, false, JSON.stringify(created.body));
   // The chosen slug must survive the wrapper's selector-stripping.
   assert.equal(created.body.slug, 'made-by-mcp');
-  assert.match(created.body.apiKey, /^[0-9a-f]{64}$/);
+  // The key is never a side effect of creation - it would sit in the transcript.
+  assert.equal(created.body.apiKey, undefined);
+  assert.ok(created.body.apiBase);
 
   const key = await runAsUser('get_board_key', { slug: board.slug });
   assert.equal(key.isError, false);
