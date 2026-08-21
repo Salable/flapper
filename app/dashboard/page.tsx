@@ -57,6 +57,9 @@ export default async function DashboardPage() {
     tagline: type.tagline,
     description: type.description,
     capabilities: type.capabilities,
+    sample: type.sample,
+    recommended: type.recommended,
+    tier: type.tier,
     createParams: type.createParams,
   }));
 

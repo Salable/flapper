@@ -30,7 +30,12 @@ export default {
   name: 'Countdown',          // the create card's title
   tagline: '…',               // one line under it
   description: '…',           // the card's body; also quoted to agents
-  capabilities: ['api'],      // chips on the card; free-form labels
+  capabilities: ['…'],        // the card's outcome list - what you get
+                              // ("Plays as it arrives"), never the machinery
+  sample: 'T-MINUS 10',       // a ≤12-tile line the card flips live
+  recommended: false,         // true marks the default ("Start here")
+  tier: undefined,            // name an account tier to lock the listing;
+                              // enforced in createBoard (REST and MCP alike)
 
   configVersion: 1,
   migrateConfig(config, fromVersion) { return config; },
@@ -137,8 +142,13 @@ already pins the hard rules:
 - Default `createParams` produce a valid config; junk input rejects 422.
 - Clock types: `snapshotExtras` returns JSON-serializable data; `itemAt`
   is total on empty input.
-- **No custom server routes** (a v1 non-goal). Everything a type does flows
-  through these hooks, called from the generic handlers.
+- **Types add no server routes - guaranteed, not merely unsupported.**
+  Everything a type does flows through these hooks, called from the generic
+  handlers, with the type's config and items as arguments. This is the
+  property that makes a catalogue possible: a type can be hosted without
+  being trusted with the request, the session, or the database, so a
+  third party's definition costs no more review than a data file. Do not
+  add a hook that hands a type any of those.
 
 ### Failure containment
 

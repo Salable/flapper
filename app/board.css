@@ -1283,7 +1283,8 @@ a.button.primary {
 
 .type-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  /* Wide enough for a 12-tile preview line at 16px; one column on phones. */
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: var(--space-3);
 }
 
@@ -1317,11 +1318,42 @@ a.button.primary {
   color: var(--muted);
 }
 
+.type-card.is-recommended {
+  border-color: var(--amber-dim);
+}
+
+.type-card-preview {
+  display: block;
+  overflow: hidden;
+  max-width: 100%;
+  padding: var(--space-2) 0 var(--space-1);
+}
+
+.type-card-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+/* Outcomes, as a short list - not chips naming the machinery. */
 .type-card-caps {
   display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 4px;
   margin-top: auto;
+  padding-top: var(--space-2);
+}
+
+.type-card-cap {
+  font: 400 var(--text-sm) / 1.5 var(--font-sans);
+  color: var(--ink);
+}
+
+.type-card-cap::before {
+  content: '·';
+  color: var(--amber);
+  margin-right: 6px;
 }
 
 /* ---- layout picker ---- */

@@ -29,6 +29,9 @@ import {
   getBoardKey,
 } from '../lib/api/handlers.mjs';
 import { mintDisplayToken } from '../lib/api/display-token.mjs';
+import { BOARD_TYPES } from '../lib/board-types/index.mjs';
+import * as schema from '../lib/db/schema.mjs';
+import { eq } from 'drizzle-orm';
 
 /**
  * The whole API surface, driven as plain (Request) -> Response calls against a
@@ -537,6 +540,35 @@ test('bands cannot be configured back in yet: footerRows and per-band settings 4
     key: board.apiKey,
   });
   assert.equal(zero.status, 200);
+});
+
+test('a type that names a tier is refused with a 402 below it - on the shared create path', async () => {
+  // The registry is a Map; a locked entry for the test's duration exercises
+  // the mechanism without any shipped type being premium.
+  const locked = { ...BOARD_TYPES.get('live'), id: 'premium-live', name: 'Premium live', tier: 'pro' };
+  BOARD_TYPES.set(locked.id, locked);
+  try {
+    const denied = await jsonOf(
+      call(createBoard, ctx(undefined, 'owner'), '/api/boards', {
+        method: 'POST',
+        body: { slug: 'locked-board', type: 'premium-live' },
+      }),
+    );
+    assert.equal(denied.status, 402);
+    assert.match(denied.body.error, /pro tier/);
+    assert.match(denied.body.error, /standard/);
+    // Raise the account and the same request succeeds.
+    await db.update(schema.user).set({ tier: 'pro' }).where(eq(schema.user.id, 'owner'));
+    const allowed = await jsonOf(
+      call(createBoard, ctx(undefined, 'owner'), '/api/boards', {
+        method: 'POST',
+        body: { slug: 'locked-board', type: 'premium-live' },
+      }),
+    );
+    assert.equal(allowed.status, 201);
+  } finally {
+    BOARD_TYPES.delete(locked.id);
+  }
 });
 
 test('a patched type param is validated by its own schema and stored coerced', async () => {

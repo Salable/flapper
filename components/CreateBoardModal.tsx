@@ -13,13 +13,21 @@ import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Field, TextInput, Select, Checkbox } from '@/components/ui/Field';
 import { Chip } from '@/components/ui/bits';
+import { Flapper } from '@/components/flapper/Flapper';
 
 export type TypeMeta = {
   id: string;
   name: string;
   tagline: string;
   description: string;
+  /** Outcome labels - what you get, not how it works. */
   capabilities: string[];
+  /** A line for the card's live preview. */
+  sample?: string;
+  /** The default for most walls; marked on the card. */
+  recommended?: boolean;
+  /** Named when the type is locked behind an account tier. */
+  tier?: string;
   createParams: {
     key: string;
     kind: 'text' | 'number' | 'select' | 'checkbox' | 'message';
@@ -99,7 +107,7 @@ export function CreateBoardModal({
     <Modal
       open={open}
       wide
-      title={picked ? `New ${picked.name.toLowerCase()}` : 'What kind of board?'}
+      title={picked ? `New ${picked.name.toLowerCase()}` : 'Choose a board'}
       onClose={() => {
         reset();
         onClose();
@@ -107,19 +115,34 @@ export function CreateBoardModal({
     >
       {picked === null ? (
         <>
+          <p className="ui-hint">
+            A live queue suits most walls. Pick a clock type for anything on a timetable - a live
+            board cannot be given a schedule later.
+          </p>
           <div className="type-grid">
             {types.map((type, index) => (
               <button
                 key={type.id}
-                className="type-card flap-in"
+                className={`type-card flap-in${type.recommended ? ' is-recommended' : ''}`}
                 style={{ '--flap-i': index } as React.CSSProperties}
                 onClick={() => setPicked(type)}
+                aria-label={`${type.name}${type.recommended ? ', recommended' : ''}. ${type.tagline}`}
               >
-                <span className="type-card-name">{type.name}</span>
+                {/* The real engine, small: every listing shows itself flipping. */}
+                <span className="type-card-preview" aria-hidden="true">
+                  <Flapper text={type.sample ?? type.name} tilePx={15} ambient={false} />
+                </span>
+                <span className="type-card-head">
+                  <span className="type-card-name">{type.name}</span>
+                  {type.recommended && <Chip tone="amber">Start here</Chip>}
+                  {type.tier && <Chip>{type.tier}</Chip>}
+                </span>
                 <span className="type-card-tagline">{type.tagline}</span>
                 <span className="type-card-caps">
                   {type.capabilities.map((capability) => (
-                    <Chip key={capability}>{capability}</Chip>
+                    <span key={capability} className="type-card-cap">
+                      {capability}
+                    </span>
                   ))}
                 </span>
               </button>
