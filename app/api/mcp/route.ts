@@ -1,11 +1,12 @@
 /**
- * The board's MCP endpoint (Streamable HTTP, stateless). The tools and the
- * key verifier live in lib/api/mcp.mjs; this file only binds them to
+ * The deployment's one MCP endpoint (Streamable HTTP, stateless). The tools
+ * and the key verifier live in lib/api/mcp.mjs; this file only binds them to
  * mcp-handler and the real singletons - the same division of labour as every
  * other route.
  *
- * Auth is the board's API key as the bearer token; MCP sessions have no
- * cookie, so getSession is a constant null rather than Better Auth.
+ * Auth is a board's API key as the bearer token - the key names the board,
+ * so one URL serves every board. MCP sessions have no cookie, so getSession
+ * is a constant null rather than Better Auth.
  */
 
 import { createMcpHandler, withMcpAuth } from 'mcp-handler';

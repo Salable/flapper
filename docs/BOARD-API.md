@@ -48,17 +48,19 @@ show it.
 
 ### MCP
 
-Every board also speaks the Model Context Protocol at `{apiBase}/mcp`
-(Streamable HTTP, stateless). The bearer token is the same board API key, and
-the tools mirror the REST endpoints — same validation, same access gates, same
-status semantics carried inside tool errors. Connect with:
+The deployment also speaks the Model Context Protocol at `{base}/api/mcp` —
+one endpoint for every board (Streamable HTTP, stateless). The bearer token is
+a board API key, and **the key names the board**: whichever board's key you
+connect with is the board every tool drives. The tools mirror the REST
+endpoints — same validation, same access gates, same status semantics carried
+inside tool errors. Connect with:
 
-- **Claude Code**: `claude mcp add --transport http <name> {apiBase}/mcp
+- **Claude Code**: `claude mcp add --transport http <name> {base}/api/mcp
   --header "authorization: Bearer <key>"`
 - **claude.ai / Claude Desktop**: Settings → Connectors → *Add custom
-  connector* → `{apiBase}/mcp`, with the key as an `authorization` request
+  connector* → `{base}/api/mcp`, with the key as an `authorization` request
   header (`Bearer <key>`).
-- **ChatGPT**: developer mode → add connector → `{apiBase}/mcp`, auth =
+- **ChatGPT**: developer mode → add connector → `{base}/api/mcp`, auth =
   bearer token.
 
 The MCP surface is the API-key surface: board management and the display's own

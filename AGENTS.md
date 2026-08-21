@@ -101,8 +101,9 @@ on public boards and need the key (or the owner's session) on private ones;
 management — rename, slug, privacy, rotation, deletion — is owner-session
 only, from the dashboard and `/b/{slug}/settings`.
 
-The same surface is exposed over MCP at `POST /api/b/{slug}/mcp` (Streamable
-HTTP, stateless, bearer = the board key). `lib/api/mcp.mjs` holds the tool
+The same surface is exposed over MCP at `POST /api/mcp` — one endpoint for
+the deployment (Streamable HTTP, stateless); the bearer token is a board's
+API key, and the key names the board. `lib/api/mcp.mjs` holds the tool
 definitions and the key verifier, both Next-free; each tool constructs a
 `Request` and calls the REST handler — the tests' own trick — so the two
 interfaces cannot drift. Only the route file imports `mcp-handler`.

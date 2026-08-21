@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { MemoryBroker } from '../lib/broker/memory.mjs';
 import { makeTestDb, resetTestDb, makeTestUser } from '../lib/db/testing.mjs';
 import { createBoard } from '../lib/api/handlers.mjs';
-import { MCP_TOOLS, callTool, verifyBoardKey, mcpSlugOf, registerBoardTools } from '../lib/api/mcp.mjs';
+import { MCP_TOOLS, callTool, verifyBoardKey, registerBoardTools } from '../lib/api/mcp.mjs';
 
 /**
  * The MCP tool layer, driven without mcp-handler or a transport: tools are
@@ -69,9 +69,10 @@ async function run(name, args, board, auth = authFor(board)) {
 
 /* ---- the verifier ---- */
 
-test('verifyBoardKey accepts the board key on its own mcp path only', async () => {
+test('verifyBoardKey resolves the board from the key alone', async () => {
   const board = await makeBoard();
-  const request = new Request(`${BASE}/api/b/${board.slug}/mcp`, { method: 'POST' });
+  const other = await makeBoard({ slug: 'other-board' });
+  const request = new Request(`${BASE}/api/mcp`, { method: 'POST' });
 
   const auth = await verifyBoardKey(db, request, board.apiKey);
   assert.ok(auth);
@@ -79,28 +80,23 @@ test('verifyBoardKey accepts the board key on its own mcp path only', async () =
   assert.equal(auth.extra.slug, board.slug);
   assert.equal(auth.extra.origin, BASE);
 
-  assert.equal(await verifyBoardKey(db, request, 'not-the-key'), undefined);
+  // A different board's key names that board, on the same endpoint.
+  const otherAuth = await verifyBoardKey(db, request, other.apiKey);
+  assert.equal(otherAuth.extra.slug, 'other-board');
+
+  assert.equal(await verifyBoardKey(db, request, 'not-a-key'), undefined);
   assert.equal(await verifyBoardKey(db, request, ''), undefined);
   assert.equal(await verifyBoardKey(db, request, undefined), undefined);
-
-  const wrongBoard = new Request(`${BASE}/api/b/no-such-board/mcp`, { method: 'POST' });
-  assert.equal(await verifyBoardKey(db, wrongBoard, board.apiKey), undefined);
 });
 
 test('verifyBoardKey honours x-forwarded-proto for the advertised origin', async () => {
   const board = await makeBoard();
-  const request = new Request(`http://internal.host/api/b/${board.slug}/mcp`, {
+  const request = new Request('http://internal.host/api/mcp', {
     method: 'POST',
     headers: { 'x-forwarded-proto': 'https' },
   });
   const auth = await verifyBoardKey(db, request, board.apiKey);
   assert.equal(auth.extra.origin, 'https://internal.host');
-});
-
-test('mcpSlugOf reads only its own path shape', () => {
-  assert.equal(mcpSlugOf(new Request(`${BASE}/api/b/lobby/mcp`)), 'lobby');
-  assert.equal(mcpSlugOf(new Request(`${BASE}/api/b/lobby/message`)), null);
-  assert.equal(mcpSlugOf(new Request(`${BASE}/api/mcp`)), null);
 });
 
 /* ---- reads ---- */
