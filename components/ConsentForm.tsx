@@ -4,6 +4,9 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { authClient } from '@/lib/auth-client';
 
+/** How long the "nothing was connected" note shows before the denial redirect follows. */
+const DENY_REDIRECT_MS = 2500;
+
 /**
  * The OAuth consent screen an MCP client's authorization lands on. The
  * provider redirects here with client_id + scope (and a signed oauth_query
@@ -17,6 +20,9 @@ export function ConsentForm() {
   const [clientUri, setClientUri] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  // Set once Deny has been answered: the client's redirect_uri carrying
+  // error=access_denied. We say so here first, then follow it.
+  const [deniedTo, setDeniedTo] = useState('');
 
   useEffect(() => {
     if (!clientId) return;
@@ -42,8 +48,18 @@ export function ConsentForm() {
       data?: { redirect_uri?: string } | null;
       error?: unknown;
     };
-    if (result.data?.redirect_uri) {
-      window.location.href = result.data.redirect_uri;
+    const redirectUri = result.data?.redirect_uri;
+    if (redirectUri) {
+      if (accept) {
+        window.location.href = redirectUri;
+        return;
+      }
+      // A denial must still reach the app (OAuth's access_denied), or a
+      // client waiting on a loopback listener never learns. But the app's
+      // error page is an abrupt place to land with no word from us, so say
+      // what happened here first and follow the redirect a moment later.
+      setDeniedTo(redirectUri);
+      window.setTimeout(() => window.location.assign(redirectUri), DENY_REDIRECT_MS);
       return;
     }
     setError('This authorization is no longer valid - close this page and reconnect from the app.');
@@ -52,6 +68,21 @@ export function ConsentForm() {
 
   if (!clientId) {
     return <p className="error">Missing authorization request - reconnect from the app you were using.</p>;
+  }
+
+  if (deniedTo) {
+    const app = clientName || 'the app';
+    return (
+      <div className="auth-form">
+        <p>
+          <strong>Nothing was connected.</strong> {app} was not given access to your Flapper account.
+        </p>
+        <p className="muted">
+          Taking you back to {app} so it knows - or <a href={deniedTo}>go now</a>. You can reconnect
+          from {app} any time.
+        </p>
+      </div>
+    );
   }
 
   return (

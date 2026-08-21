@@ -47,6 +47,16 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
       setBusy(false);
       return;
     }
+    // When an OAuth authorization is in flight, the provider's after-sign-in
+    // hook answers with `{ redirect: true, url }` instead of a session, and
+    // better-auth's redirect fetch plugin has already set window.location to
+    // it. Pushing `next` on top would race that full-page navigation (and
+    // flash the dashboard), so the form stays busy and lets the browser leave.
+    const data = result.data as { redirect?: boolean; url?: string } | null;
+    if (data?.redirect && data.url) {
+      window.location.assign(data.url);
+      return;
+    }
     router.push(next);
     router.refresh();
   }
