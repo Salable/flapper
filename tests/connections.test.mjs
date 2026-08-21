@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { eq } from 'drizzle-orm';
 import { makeTestDb, resetTestDb, makeTestUser } from '../lib/db/testing.mjs';
 import { listConnections, disconnect } from '../lib/api/connections.mjs';
+import { verifyMcpBearer } from '../lib/api/mcp.mjs';
+import { recordRevocation } from '../lib/api/revocations.mjs';
 import {
   oauthClient,
   oauthConsent,
@@ -25,6 +27,7 @@ beforeEach(async () => {
   await makeTestUser(db, { id: 'other' });
 });
 
+const JWT_SHAPED = 'eyJhbGciOiJFUzI1NiJ9.eyJzdWIiOiJvd25lciJ9.c2ln';
 const asUser = (id) => async () => ({ user: { id } });
 const request = (path, method = 'GET') => new Request(`https://flapper.test${path}`, { method });
 
@@ -88,6 +91,9 @@ test('disconnect removes the consent and revokes both token kinds, for that user
   });
   assert.equal(response.status, 200);
   const body = await response.json();
+  assert.equal(typeof body.accessEndsAt, 'number');
+  assert.ok(body.accessEndsAt <= Date.now() + 1000);
+  delete body.accessEndsAt;
   assert.deepEqual(body, { ok: true, removedConsents: 1, revokedRefreshTokens: 1, revokedAccessTokens: 1 });
 
   // The owner's grant is gone and their tokens are revoked...
@@ -106,5 +112,38 @@ test('disconnect removes the consent and revokes both token kinds, for that user
 
   // Idempotent: a second disconnect is a clean no-op.
   const again = await (await disconnect(request('/x', 'DELETE'), { db, getSession: asUser('owner'), clientId })).json();
+  delete again.accessEndsAt;
   assert.deepEqual(again, { ok: true, removedConsents: 0, revokedRefreshTokens: 0, revokedAccessTokens: 0 });
+});
+
+test('disconnect cuts off JWT access tokens the provider never stored', async () => {
+  // MCP access tokens are JWTs with no oauth_access_token row, so the only
+  // thing standing between a revoked client and the wall is the watermark.
+  const clientId = 'https://claude.ai/oauth/mcp';
+  await seedGrant();
+  const request_ = new Request('https://flapper.test/api/mcp', { method: 'POST' });
+  const issuedAt = (ms) => Math.floor(ms / 1000);
+  const claims = (iat, overrides = {}) => ({ sub: 'owner', client_id: clientId, iat, exp: iat + 3600, ...overrides });
+  const verify = (c) => verifyMcpBearer(db, request_, JWT_SHAPED, { verifyUserToken: async () => c });
+
+  const before = issuedAt(Date.now() - 60_000);
+  assert.equal((await verify(claims(before)))?.extra.mode, 'user', 'valid before any disconnect');
+
+  const { accessEndsAt } = await (
+    await disconnect(request('/x', 'DELETE'), { db, getSession: asUser('owner'), clientId })
+  ).json();
+
+  assert.equal(await verify(claims(before)), undefined, 'issued before the disconnect: refused');
+  assert.equal(await verify(claims(issuedAt(accessEndsAt - 1))), undefined, 'same second as the click: refused');
+  assert.equal((await verify(claims(issuedAt(accessEndsAt))))?.extra.mode, 'user', 'the next whole second: accepted');
+  assert.equal(await verify(claims(before, { iat: undefined })), undefined, 'no iat: cannot be placed, refused');
+  // Reconnecting issues a token dated after the watermark - and works.
+  const after = issuedAt(accessEndsAt + 5000);
+  assert.equal((await verify(claims(after)))?.extra.mode, 'user', 'issued after: accepted');
+  // Another client of the same user, and the same client for another user, are untouched.
+  assert.equal((await verify(claims(before, { client_id: 'https://chatgpt.com/oauth' })))?.extra.mode, 'user');
+  assert.equal((await verify(claims(before, { sub: 'other' })))?.extra.mode, 'user');
+  // A later disconnect moves the watermark forward (upsert), catching the newer token too.
+  await recordRevocation(db, { userId: 'owner', clientId, at: new Date(accessEndsAt + 10_000) });
+  assert.equal(await verify(claims(after)), undefined);
 });

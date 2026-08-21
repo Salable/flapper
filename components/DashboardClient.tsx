@@ -54,7 +54,7 @@ export function DashboardClient({
   async function disconnectApp(connection: Connection) {
     const ok = await confirm({
       title: `Disconnect ${connection.name}?`,
-      body: 'It loses access to your boards. Anything it already holds stops working within the hour; it can reconnect by signing in again.',
+      body: 'It loses access to your boards immediately - anything it already holds stops working on its next request. It can reconnect by signing in again.',
       confirmLabel: 'Disconnect',
       danger: true,
     });

@@ -60,6 +60,11 @@ commits straight to main; move items down the lists as they move.
       Disconnect that deletes the consent *and* revokes the refresh/access
       tokens (Better Auth's own delete-consent leaves a 30-day refresh token
       alive). `lib/api/connections.mjs`, GET/DELETE /api/account/connections.
+      **Follow-up (SPEC ask 7):** that revoked nothing a Claude connection
+      actually used - MCP access tokens are JWTs the provider never stores.
+      Disconnect now also sets a per-(user, client) watermark that the MCP
+      verifier checks on every request (`lib/api/revocations.mjs`), so
+      access ends with the click.
 
 - [x] Dashboard: "Connect Claude or ChatGPT" card with the MCP URL + copy;
       Docs link in the signed-in header; empty state points at Claude.
