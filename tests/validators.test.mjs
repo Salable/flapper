@@ -90,6 +90,13 @@ test('footerRows must be a non-negative integer', () => {
   assert.deepEqual(validateConfigPatch({ footerRows: 2 }), { footerRows: 2 });
 });
 
+test('theme must be one this build ships', () => {
+  refused(() => validateConfigPatch({ theme: 'tartan' }), /theme must be one of classic, canary/);
+  refused(() => validateConfigPatch({ theme: null }), /theme must be one of/);
+  assert.deepEqual(validateConfigPatch({ theme: 'canary' }), { theme: 'canary' });
+  assert.deepEqual(validateConfigPatch({ theme: 'classic' }), { theme: 'classic' });
+});
+
 test('per-band settings are shape-checked', () => {
   refused(() => validateConfigPatch({ regions: [] }), /regions must be an object/);
   refused(() => validateConfigPatch({ regions: { footer: 5 } }), /regions.footer must be an object/);

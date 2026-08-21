@@ -7,6 +7,7 @@ import { secretsMatch } from '@/lib/broker/tokens.mjs';
 import { mintDisplayToken } from '@/lib/api/display-token.mjs';
 import { BoardPageClient } from '@/components/BoardPageClient';
 import { LinkButton } from '@/components/ui/Button';
+import { resolveTheme } from '@/lib/board/themes.mjs';
 
 export const dynamic = 'force-dynamic';
 
@@ -55,6 +56,7 @@ export default async function BoardPage({ params, searchParams }: Props) {
       apiBase={`/api/b/${slug}`}
       boardKey={keyValid ? key! : null}
       displayToken={displayToken}
+      initialTheme={resolveTheme((board.config as { theme?: string } | null)?.theme).id}
     />
   );
 }

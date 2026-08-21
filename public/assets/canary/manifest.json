@@ -1,0 +1,301 @@
+{
+  "tileSize": 256,
+  "framesPerStrip": 10,
+  "frameMs": 40,
+  "cycle": [
+    {
+      "name": "blank",
+      "char": " ",
+      "to": "A",
+      "strip": "strip-00.webp",
+      "source": "Blank-A_2.mp4"
+    },
+    {
+      "name": "A",
+      "char": "A",
+      "to": "B",
+      "strip": "strip-01.webp",
+      "source": "A-B_2.mp4"
+    },
+    {
+      "name": "B",
+      "char": "B",
+      "to": "C",
+      "strip": "strip-02.webp",
+      "source": "B-C_2.mp4"
+    },
+    {
+      "name": "C",
+      "char": "C",
+      "to": "D",
+      "strip": "strip-03.webp",
+      "source": "C-D_2.mp4"
+    },
+    {
+      "name": "D",
+      "char": "D",
+      "to": "E",
+      "strip": "strip-04.webp",
+      "source": "D-E_2.mp4"
+    },
+    {
+      "name": "E",
+      "char": "E",
+      "to": "F",
+      "strip": "strip-05.webp",
+      "source": "E-F_2.mp4"
+    },
+    {
+      "name": "F",
+      "char": "F",
+      "to": "G",
+      "strip": "strip-06.webp",
+      "source": "F-G.mp4"
+    },
+    {
+      "name": "G",
+      "char": "G",
+      "to": "H",
+      "strip": "strip-07.webp",
+      "source": "G-H.mp4"
+    },
+    {
+      "name": "H",
+      "char": "H",
+      "to": "I",
+      "strip": "strip-08.webp",
+      "source": "H-I.mp4"
+    },
+    {
+      "name": "I",
+      "char": "I",
+      "to": "J",
+      "strip": "strip-09.webp",
+      "source": "I-J.mp4"
+    },
+    {
+      "name": "J",
+      "char": "J",
+      "to": "K",
+      "strip": "strip-10.webp",
+      "source": "J-K.mp4"
+    },
+    {
+      "name": "K",
+      "char": "K",
+      "to": "L",
+      "strip": "strip-11.webp",
+      "source": "K-L.mp4"
+    },
+    {
+      "name": "L",
+      "char": "L",
+      "to": "M",
+      "strip": "strip-12.webp",
+      "source": "L-M.mp4"
+    },
+    {
+      "name": "M",
+      "char": "M",
+      "to": "N",
+      "strip": "strip-13.webp",
+      "source": "M-N.mp4"
+    },
+    {
+      "name": "N",
+      "char": "N",
+      "to": "O",
+      "strip": "strip-14.webp",
+      "source": "N-O.mp4"
+    },
+    {
+      "name": "O",
+      "char": "O",
+      "to": "P",
+      "strip": "strip-15.webp",
+      "source": "O-P.mp4"
+    },
+    {
+      "name": "P",
+      "char": "P",
+      "to": "Q",
+      "strip": "strip-16.webp",
+      "source": "P-Q.mp4"
+    },
+    {
+      "name": "Q",
+      "char": "Q",
+      "to": "R",
+      "strip": "strip-17.webp",
+      "source": "Q-R.mp4"
+    },
+    {
+      "name": "R",
+      "char": "R",
+      "to": "S",
+      "strip": "strip-18.webp",
+      "source": "R-S.mp4"
+    },
+    {
+      "name": "S",
+      "char": "S",
+      "to": "T",
+      "strip": "strip-19.webp",
+      "source": "S-T.mp4"
+    },
+    {
+      "name": "T",
+      "char": "T",
+      "to": "U",
+      "strip": "strip-20.webp",
+      "source": "T-U.mp4"
+    },
+    {
+      "name": "U",
+      "char": "U",
+      "to": "V",
+      "strip": "strip-21.webp",
+      "source": "U-V.mp4"
+    },
+    {
+      "name": "V",
+      "char": "V",
+      "to": "W",
+      "strip": "strip-22.webp",
+      "source": "V-W.mp4"
+    },
+    {
+      "name": "W",
+      "char": "W",
+      "to": "X",
+      "strip": "strip-23.webp",
+      "source": "W-X.mp4"
+    },
+    {
+      "name": "X",
+      "char": "X",
+      "to": "Y",
+      "strip": "strip-24.webp",
+      "source": "X-Y.mp4"
+    },
+    {
+      "name": "Y",
+      "char": "Y",
+      "to": "Z",
+      "strip": "strip-25.webp",
+      "source": "Y-Z.mp4"
+    },
+    {
+      "name": "Z",
+      "char": "Z",
+      "to": "0",
+      "strip": "strip-26.webp",
+      "source": "Z-0.mp4"
+    },
+    {
+      "name": "0",
+      "char": "0",
+      "to": "1",
+      "strip": "strip-27.webp",
+      "source": "0-1_2.mp4"
+    },
+    {
+      "name": "1",
+      "char": "1",
+      "to": "2",
+      "strip": "strip-28.webp",
+      "source": "1-2_2.mp4"
+    },
+    {
+      "name": "2",
+      "char": "2",
+      "to": "3",
+      "strip": "strip-29.webp",
+      "source": "2-3_2.mp4"
+    },
+    {
+      "name": "3",
+      "char": "3",
+      "to": "4",
+      "strip": "strip-30.webp",
+      "source": "3-4_2.mp4"
+    },
+    {
+      "name": "4",
+      "char": "4",
+      "to": "5",
+      "strip": "strip-31.webp",
+      "source": "4-5_2.mp4"
+    },
+    {
+      "name": "5",
+      "char": "5",
+      "to": "6",
+      "strip": "strip-32.webp",
+      "source": "5-6_2.mp4"
+    },
+    {
+      "name": "6",
+      "char": "6",
+      "to": "7",
+      "strip": "strip-33.webp",
+      "source": "6-7_2.mp4"
+    },
+    {
+      "name": "7",
+      "char": "7",
+      "to": "8",
+      "strip": "strip-34.webp",
+      "source": "7-8_2.mp4"
+    },
+    {
+      "name": "8",
+      "char": "8",
+      "to": "9",
+      "strip": "strip-35.webp",
+      "source": "8-9_2.mp4"
+    },
+    {
+      "name": "9",
+      "char": "9",
+      "to": "fullstop",
+      "strip": "strip-36.webp",
+      "source": "9-fullstop_2.mp4"
+    },
+    {
+      "name": "fullstop",
+      "char": ".",
+      "to": "comma",
+      "strip": "strip-37.webp",
+      "source": "- fullstop-comma_1.mp4"
+    },
+    {
+      "name": "comma",
+      "char": ",",
+      "to": "!",
+      "strip": "strip-38.webp",
+      "source": ", comma-!_2.mp4"
+    },
+    {
+      "name": "!",
+      "char": "!",
+      "to": "(",
+      "strip": "strip-39.webp",
+      "source": "!-(.mp4"
+    },
+    {
+      "name": "(",
+      "char": "(",
+      "to": ")",
+      "strip": "strip-40.webp",
+      "source": "(-)_2.mp4"
+    },
+    {
+      "name": ")",
+      "char": ")",
+      "to": "blank",
+      "strip": "strip-41.webp",
+      "source": ")-blank_2.mp4"
+    }
+  ]
+}

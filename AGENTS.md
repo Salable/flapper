@@ -183,6 +183,25 @@ a clock — the app does not need to know. Use `--size` to match how big your
 tiles actually render; every frame stays decoded in memory in the display tab
 (~105 MB at 256, ~28 MB at 128).
 
+### Add a theme
+
+A theme is a second set of strips with the *same* ring, in different paint.
+The shipped ones are `classic` (`public/assets/`) and `canary`
+(`public/assets/canary/`, Norwich green, built from the designer's MP4 clips
+with `--fix-grey` because two of them were exported in the old grey). A
+board's theme is in its config (`PATCH /config {"theme":"canary"}`, or the
+Tiles select in Settings); the display decodes the new set in the background
+and `Flipboard.setArt()` swaps it under the tiles in place.
+
+```bash
+python3 tools/build_assets.py --src ./green-clips --out public/assets/canary --fix-grey
+```
+
+To add one: build it into `public/assets/<id>/`, add an entry to
+`lib/board/themes.mjs`, and list the id in the MCP `update_config` schema
+(`lib/api/mcp.mjs`). The validator, Settings select and `/capabilities`
+read the registry.
+
 ### Change how it moves
 
 Everything is in `lib/board/timing.mjs` and live-tunable from the panel under

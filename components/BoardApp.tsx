@@ -18,6 +18,7 @@ import { Controller } from '@/lib/board/controller.mjs';
 import { Player } from '@/lib/board/player.mjs';
 import { useStatePublisher } from '@/hooks/useStatePublisher';
 import { loadFlapperAssets, onAssetProgress } from '@/components/flapper/assets';
+import { resolveTheme } from '@/lib/board/themes.mjs';
 
 /** Board config is trusted but bands are deferred: never let a footer in. */
 function sanitizeConfig(config: any) {
@@ -30,11 +31,14 @@ export function BoardApp({
   apiBase,
   boardKey,
   displayToken,
+  initialTheme,
 }: {
   slug: string;
   apiBase: string;
   boardKey: string | null;
   displayToken: string;
+  /** The board's theme as the server knew it at page load - the first paint is already the right colour. */
+  initialTheme: string;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const playerRef = useRef<any>(null);
@@ -70,7 +74,7 @@ export function BoardApp({
       let manifest;
       let strips: ImageBitmap[];
       try {
-        ({ manifest, strips } = await loadFlapperAssets());
+        ({ manifest, strips } = await loadFlapperAssets(initialTheme));
       } catch (error: any) {
         if (cancelled) return;
         console.error(`flapper: tile art failed to load — ${error.message}`);
@@ -81,6 +85,24 @@ export function BoardApp({
       if (cancelled) return;
 
       const board = new Flipboard(canvas, manifest, strips, {});
+
+      // The theme lives in the board config, so a change in Settings reaches
+      // every display through the same sync nudge as a grid change. The new
+      // set decodes in the background; the board keeps playing in the old
+      // paint until it is ready, then swaps under the tiles in place.
+      let theme = resolveTheme(initialTheme).id;
+      const applyTheme = (wanted: string) => {
+        const next = resolveTheme(wanted).id;
+        if (next === theme) return;
+        theme = next;
+        loadFlapperAssets(next)
+          .then((art) => {
+            if (!cancelled && theme === next) board.setArt(art.manifest, art.strips);
+          })
+          .catch((error: any) => {
+            console.warn(`flapper: tile art for theme ${next} failed to load - ${error.message}`);
+          });
+      };
       const controller = new Controller(board, {});
       controller.onChange = (state: any) => {
         onStateRef.current?.({
@@ -119,6 +141,7 @@ export function BoardApp({
         onConfig: (config: any) => {
           try {
             setLayout(config?.layout ?? null);
+            applyTheme(config?.theme);
             controller.configure(sanitizeConfig(config));
           } catch (error: any) {
             console.warn(`flapper: stored config refused - ${error.message}`);
@@ -211,7 +234,7 @@ export function BoardApp({
       playerRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slug, apiBase, boardKey, displayToken]);
+  }, [slug, apiBase, boardKey, displayToken, initialTheme]);
 
   useStatePublisher(apiBase, displayToken, phase === 'ready', onStateRef);
 

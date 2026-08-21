@@ -13,7 +13,7 @@ npm test                           # ~230 tests, a few seconds, no browser
 node --test tests/layout.test.mjs  # a single file
 npm run build                      # migrates (when DATABASE_URL) then next build
 npm run db:generate                # after editing lib/db/schema.mjs
-python3 tools/build_assets.py      # only when the tile art changes
+python3 tools/build_assets.py      # only when the tile art changes (see AGENTS.md "Add a theme")
 cd desktop && npm start            # the Electron kiosk shell
 ```
 

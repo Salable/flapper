@@ -156,6 +156,11 @@ mid-message. Be considerate: if a user asked you to display something, do not
 silently reshape their board to make your text fit. Fit the text to the board,
 or ask.
 
+The same call sets the tile art: `{"theme":"canary"}` repaints every display
+of the board in Norwich green; `"classic"` is the charcoal original.
+`/capabilities` lists the themes a deployment ships under `themes`. Do not
+change a board's theme unless asked to.
+
 ### Bands are paused
 
 Flapper 1.x/2.x could split the board into a main band and a footer.
@@ -300,7 +305,7 @@ Use `POST {apiBase}/clear` to stop everything, or edit the item.
 | `POST` | `/api/b/{slug}/preview` | read | lay out and return pages **without displaying** |
 | `POST` | `/api/b/{slug}/clear` | key | stop and blank; optional `region`, omitted = every band |
 | `DELETE` | `/api/b/{slug}/queue` | key | drop pending, leave the current message playing |
-| `PATCH` | `/api/b/{slug}/config` | key | grid, `footerRows`, motion, dwell, per-band `regions` |
+| `PATCH` | `/api/b/{slug}/config` | key | grid, `theme`, `footerRows`, motion, dwell, per-band `regions` |
 
 "read" is open on a public board and needs the key on a private one. Three
 further routes belong to the display itself and are not for API clients:

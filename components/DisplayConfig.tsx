@@ -10,6 +10,7 @@
 import { useState } from 'react';
 import { DEFAULTS } from '@/lib/board/flipboard.js';
 import { CONTROLLER_DEFAULTS } from '@/lib/board/controller.mjs';
+import { DEFAULT_THEME, THEMES } from '@/lib/board/themes.mjs';
 
 type Config = Record<string, unknown>;
 
@@ -28,6 +29,7 @@ export function DisplayConfig({ slug, initial }: { slug: string; initial: Config
     sweepMs: DEFAULTS.sweepMs,
     staggerMode: DEFAULTS.staggerMode,
     alwaysFlip: DEFAULTS.alwaysFlip,
+    theme: DEFAULT_THEME,
   };
   const [config, setConfig] = useState<Config>({ ...defaults, ...initial });
   const [error, setError] = useState('');
@@ -93,6 +95,12 @@ export function DisplayConfig({ slug, initial }: { slug: string; initial: Config
       <h2>Display</h2>
       {error !== '' && <p className="error">{error}</p>}
       <div className="config-grid">
+        {select(
+          'cfg-theme',
+          'Tiles',
+          'theme',
+          Object.values(THEMES).map((theme) => [theme.id, theme.name] as [string, string]),
+        )}
         {range('cfg-cols', 'Columns', 'cols', 1, 80, 1, String)}
         {range('cfg-rows', 'Rows', 'rows', 1, 40, 1, String)}
         {range('cfg-dwell', 'Hold', 'dwellMs', 0, 8000, 100, ms)}
