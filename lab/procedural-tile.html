@@ -1,0 +1,136 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Flapper lab — procedural tile renderer</title>
+<style>
+  body{margin:0;background:#111;color:#ddd;font:14px system-ui;display:flex;flex-direction:column;align-items:center;gap:12px;padding:16px}
+  canvas{background:#000;max-width:100%}
+  .row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+  button,input{font:inherit;padding:6px 10px;background:#222;color:#ddd;border:1px solid #444;border-radius:6px}
+  textarea{width:min(900px,95vw);height:140px;background:#181818;color:#cfc;border:1px solid #333;font:12px ui-monospace,monospace}
+</style>
+<canvas id="c" width="1600" height="520"></canvas>
+<div class="row">
+  <input id="msg" value="HELLO WORLD 2026!" size="30">
+  <button onclick="post()">Post</button>
+  <button onclick="applyTheme(THEMES.classic)">Classic</button>
+  <button onclick="applyTheme(THEMES.canary)">Canary</button>
+  <button onclick="applyTheme(THEMES.brand)">Brand pack (logo glyph, Georgia, per-letter colour)</button>
+  <button onclick="applyTheme(THEMES.tilt)">3D tilt</button>
+</div>
+<textarea id="json" spellcheck="false"></textarea>
+<div class="row"><button onclick="applyTheme(JSON.parse(document.getElementById('json').value))">Apply edited theme JSON</button></div>
+<script>
+// ---------- the same ring and tile model flipboard.js uses ----------
+const RING = [' ', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', '.', ',', '!', '(', ')'];
+const COLS = 14, ROWS = 3;
+const tiles = Array.from({length: COLS*ROWS}, () => ({state: 0, pending: 0, elapsed: 0, wait: 0}));
+
+// ---------- theme JSON: the thing a user would upload ----------
+const THEMES = {
+  classic: { name:'Classic', tile:'#1d1d1f', tileEdge:'#0b0b0c', glyph:'#efe9df', font:'700 0.86em Helvetica Neue, Arial', radius:0.05, hinge:'#2a2a2c', pin:'#3a3a3c', flapMs:70, gap:0.035, shading:0.6 },
+  canary:  { name:'Canary',  tile:'#0a5a2f', tileEdge:'#063d20', glyph:'#ffffff', glyphStroke:'#ffffff', glyphFill:'transparent', font:'800 0.86em Helvetica Neue, Arial', radius:0.05, hinge:'#07401f', pin:'#0d6b3a', flapMs:70, gap:0.035, shading:0.55 },
+  brand:   { name:'Brand', tile:'#f4efe6', tileEdge:'#d8cfbf', glyph:'#1f2a44', font:'400 0.9em Georgia, serif', radius:0.12, hinge:'#c9bfae', pin:'#a89c88', flapMs:80, gap:0.05, shading:0.35,
+             perGlyph: { '!': { glyph:'#d9381e' }, '0': { glyph:'#2a7', font:'700 0.86em Georgia, serif' }, '(': { art:'logo' }, ')': { art:'logo' } } },
+  tilt:    { name:'3D tilt', tile:'#23252b', tileEdge:'#101114', glyph:'#ffd24a', font:'700 0.86em Helvetica Neue, Arial', radius:0.06, hinge:'#2f323a', pin:'#555', flapMs:70, gap:0.04, shading:0.7, perspective:0.35 },
+};
+let theme = THEMES.classic;
+
+// "art" overrides: a glyph can be drawn by a function or an uploaded image instead of text.
+const ART = {
+  logo(ctx, s, t) { // a little badge, stands in for an uploaded SVG/PNG
+    ctx.fillStyle = '#d9381e'; ctx.beginPath(); ctx.arc(s/2, s/2, s*0.28, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.font = `700 ${s*0.3}px Georgia`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('F', s/2, s/2+s*0.02);
+  }
+};
+
+// ---------- glyph cache: one offscreen "full card" per state per theme ----------
+let cards = [];
+function buildCards(size) {
+  cards = RING.map((ch, i) => {
+    const c = document.createElement('canvas'); c.width = c.height = size;
+    const ctx = c.getContext('2d');
+    const o = Object.assign({}, theme, theme.perGlyph?.[ch] || {});
+    // card body
+    ctx.fillStyle = o.tileEdge; rr(ctx, 0, 0, size, size, size*o.radius); ctx.fill();
+    ctx.fillStyle = o.tile; rr(ctx, size*0.02, size*0.02, size*0.96, size*0.96, size*o.radius); ctx.fill();
+    if (o.art && ART[o.art]) { ART[o.art](ctx, size, o); }
+    else {
+      ctx.font = o.font.replace(/([\d.]+)em/, (_, e) => `${size*e}px`);
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      if (o.glyphStroke) { ctx.lineWidth = size*0.03; ctx.strokeStyle = o.glyphStroke; ctx.strokeText(ch, size/2, size*0.53); }
+      if (o.glyphFill !== 'transparent') { ctx.fillStyle = o.glyph; ctx.fillText(ch, size/2, size*0.53); }
+    }
+    return c;
+  });
+}
+function rr(ctx,x,y,w,h,r){ctx.beginPath();ctx.roundRect(x,y,w,h,r);}
+
+// ---------- the renderer: replaces Flipboard.draw() ----------
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+function geometry() {
+  const gap = Math.floor(cv.width / COLS * theme.gap);
+  const size = Math.min(Math.floor((cv.width - gap*(COLS-1)) / COLS), Math.floor((cv.height - gap*(ROWS-1)) / ROWS));
+  return { size, gap, x: (cv.width - (size*COLS + gap*(COLS-1)))/2, y: (cv.height - (size*ROWS + gap*(ROWS-1)))/2 };
+}
+function drawTile(tile, x, y, s, progress) {
+  const cur = cards[tile.state], next = cards[(tile.state+1) % RING.length];
+  const h = s/2;
+  ctx.save(); ctx.translate(x, y);
+  // static halves: top shows NEXT (revealed as flap falls), bottom shows CURRENT until the flap lands on it
+  ctx.drawImage(progress > 0 ? next : cur, 0, 0, s, h, 0, 0, s, h);
+  ctx.drawImage(cur, 0, h, s, h, 0, h, s, h);
+  if (progress > 0) {
+    const a = progress * Math.PI;           // 0..π: top half falls through the hinge line
+    const k = Math.cos(a);                  // foreshortening
+    const persp = theme.perspective || 0;
+    if (a < Math.PI/2) {                    // first half: current top face folding down
+      ctx.save(); ctx.translate(0, h); ctx.scale(1, k); ctx.translate(0, -h);
+      if (persp) { const w = 1 + persp*(1-k)*0.2; ctx.translate(s/2,0); ctx.scale(w,1); ctx.translate(-s/2,0); }
+      ctx.drawImage(cur, 0, 0, s, h, 0, 0, s, h);
+      ctx.fillStyle = `rgba(0,0,0,${theme.shading*(1-k)})`; ctx.fillRect(0, 0, s, h);
+      ctx.restore();
+    } else {                                // second half: next bottom face unfolding, upside-down scale
+      ctx.save(); ctx.translate(0, h); ctx.scale(1, -k); 
+      if (persp) { const w = 1 + persp*(1+k)*0.2; ctx.translate(s/2,0); ctx.scale(w,1); ctx.translate(-s/2,0); }
+      ctx.drawImage(next, 0, h, s, h, 0, 0, s, h);
+      ctx.fillStyle = `rgba(0,0,0,${theme.shading*(1+k)*0.8})`; ctx.fillRect(0, 0, s, h);
+      ctx.restore();
+    }
+    // falling flap casts a shadow on the lower card
+    ctx.fillStyle = `rgba(0,0,0,${0.35*Math.sin(a)})`; ctx.fillRect(0, h, s, h*0.5*Math.sin(a));
+  }
+  // hinge line + pins
+  ctx.fillStyle = theme.hinge; ctx.fillRect(0, h - s*0.012, s, s*0.024);
+  ctx.fillStyle = theme.pin; ctx.fillRect(0, h - s*0.05, s*0.06, s*0.1); ctx.fillRect(s*0.94, h - s*0.05, s*0.06, s*0.1);
+  ctx.restore();
+}
+function draw() {
+  ctx.fillStyle = '#000'; ctx.fillRect(0,0,cv.width,cv.height);
+  const {size, gap, x, y} = geometry();
+  if (!cards.length || cards[0].width !== size) buildCards(size);
+  tiles.forEach((t, i) => drawTile(t, x + (i%COLS)*(size+gap), y + Math.floor(i/COLS)*(size+gap), size, t.pending ? Math.min(0.999, t.elapsed/theme.flapMs) : 0));
+}
+
+// ---------- tick: verbatim logic from flipboard.js, minus the frame quantisation ----------
+let last = performance.now(), raf = null;
+function tick(now) {
+  raf = null; const dt = Math.min(100, now - last); last = now; let any = false;
+  for (const t of tiles) {
+    if (!t.pending) continue; any = true;
+    let b = dt; if (t.wait > 0) { const u = Math.min(t.wait, b); t.wait -= u; b -= u; if (t.wait > 0) continue; }
+    t.elapsed += b;
+    while (t.pending && t.elapsed >= theme.flapMs) { t.elapsed -= theme.flapMs; t.state = (t.state+1)%RING.length; t.pending--; }
+    if (!t.pending) t.elapsed = 0;
+  }
+  draw(); if (any) raf = requestAnimationFrame(tick);
+}
+function start(){ if (!raf) { last = performance.now(); raf = requestAnimationFrame(tick); } }
+function post() {
+  const text = document.getElementById('msg').value.toUpperCase().padEnd(COLS*ROWS).slice(0, COLS*ROWS);
+  [...text].forEach((ch, i) => { const target = Math.max(0, RING.indexOf(ch)); const t = tiles[i];
+    const cur = (t.state + t.pending) % RING.length; t.pending += (target - cur + RING.length) % RING.length; t.wait = (i%COLS)*25; });
+  start();
+}
+function applyTheme(t){ theme = t; cards = []; document.getElementById('json').value = JSON.stringify(t, null, 1); draw(); }
+applyTheme(THEMES.classic); post();
+</script>
