@@ -9,6 +9,7 @@ import { Chip, CopyButton, EmptyState } from '@/components/ui/bits';
 import type { TypeMeta } from '@/components/board-types/type-meta';
 import { UserMenu } from '@/components/UserMenu';
 import { ConnectedApps, useConnections } from '@/components/ConnectedApps';
+import { SiteFooter } from '@/components/SiteFooter';
 
 type BoardRow = {
   id: string;
@@ -203,6 +204,7 @@ export function DashboardClient({
           </article>
         </section>
       </main>
+      <SiteFooter />
     </div>
   );
 }

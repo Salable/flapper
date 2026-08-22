@@ -1886,3 +1886,80 @@ a.button.primary {
 .compose .field {
   align-self: stretch;
 }
+
+/* ---- legal: the footer every page carries, and the placeholder banner ---- */
+
+.site-footer {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px 24px;
+  padding: 18px 24px 22px;
+  border-top: 1px solid var(--edge);
+  font: 400 11px / 1.6 var(--font-mono);
+  color: var(--muted);
+  letter-spacing: 0.02em;
+}
+
+.site-footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+}
+
+.site-footer-links a {
+  color: var(--muted);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+
+.site-footer-links a:hover,
+.site-footer-links a:focus-visible {
+  color: var(--ink);
+  border-bottom-color: var(--edge-strong);
+  outline: none;
+}
+
+.legal-placeholder {
+  border: 1px dashed var(--amber);
+  border-radius: 6px;
+  padding: 12px 14px;
+  margin: 0 0 20px;
+  color: var(--ink);
+  font: 400 13px / 1.6 var(--font-sans);
+  background: rgba(216, 178, 90, 0.08);
+}
+
+.legal-placeholder code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.legal-tag {
+  font-size: 10px;
+  color: var(--amber);
+  letter-spacing: 0.08em;
+  margin-left: 8px;
+}
+
+/* Consent lines on the signup form: a real sentence beside a real box. */
+.consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font: 400 12px / 1.5 var(--font-sans);
+  color: var(--ink);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.consent input {
+  margin: 3px 0 0;
+  flex: none;
+}
+
+.consent a {
+  color: var(--ink);
+}

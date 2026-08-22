@@ -1,5 +1,6 @@
 import { AppBar } from '@/components/AppBar';
 import { DOCS } from './registry';
+import { SiteFooter } from '@/components/SiteFooter';
 
 export const metadata = { title: 'Docs — Flapper' };
 
@@ -18,6 +19,7 @@ export default function DocsIndex() {
           ))}
         </div>
       </main>
+      <SiteFooter />
     </div>
   );
 }
