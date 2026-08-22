@@ -18,12 +18,6 @@ type BoardRow = {
   status: string;
   private: boolean;
   createdAt: number;
-  connected: boolean;
-  /** Connected, but its tab is hidden or its renderer has stopped drawing. */
-  frozen: boolean;
-  /** "ok", or "unavailable" when the service that relays display state is down. */
-  realtime?: string;
-  showing: string | null;
 };
 
 export function DashboardClient({
@@ -129,40 +123,18 @@ export function DashboardClient({
             <div className="board-grid">
               {boards.map((board) => (
                 <article className="board-card" key={board.id}>
-                  {/* The card opens the control room; the display is explicit. */}
-                  <a className="board-card-open" href={`/b/${board.slug}/settings`}>
-                    <span className="board-card-name">
-                      <i
-                        className={`live-dot${board.frozen ? ' is-frozen' : board.connected ? ' is-live' : ''}`}
-                        title={
-                          board.frozen
-                            ? 'A display is connected but its tab is in the background - it is not animating'
-                            : board.connected
-                              ? 'A display is connected'
-                              : 'No display connected'
-                        }
-                      />
-                      {board.name || board.slug}
-                    </span>
-                    <span className="board-card-slug muted">/b/{board.slug}</span>
+                  {/* A card is a name, a type, and three doors. Everything else
+                      about a board lives in its settings. */}
+                  <div className="board-card-open">
+                    <span className="board-card-name">{board.name || board.slug}</span>
                     <span className="board-card-meta">
                       <Chip>{typeName(board.type)}</Chip>
-                      {board.private && <Chip>private</Chip>}
-                      {board.status !== 'active' && <Chip tone="danger">paused</Chip>}
                     </span>
-                    <span className="board-card-meta muted">
-                      {board.realtime === 'unavailable'
-                        ? 'realtime unavailable · displays will catch up'
-                        : board.frozen
-                          ? 'frozen · display tab is in the background'
-                          : board.connected
-                            ? board.showing
-                              ? `showing ${board.showing}`
-                              : 'connected · blank'
-                            : 'no display connected'}
-                    </span>
-                  </a>
+                  </div>
                   <div className="board-card-actions">
+                    <LinkButton size="sm" href={`/b/${board.slug}/settings`}>
+                      Settings
+                    </LinkButton>
                     <LinkButton size="sm" href={`/b/${board.slug}`} target="_blank" rel="noopener">
                       Open display
                     </LinkButton>
@@ -179,6 +151,9 @@ export function DashboardClient({
         {/* Below the boards: how to drive them. Three equal columns - the
             assistant (stateful: the URL to connect, or who is connected),
             the REST contract, and the docs. */}
+        <header className="dash-head dash-head-secondary">
+          <h2 className="dash-title">Connections</h2>
+        </header>
         <section className="dash-more" aria-label="Ways to drive your boards">
           <article className="dash-col">
             <h2>Connect an assistant</h2>
