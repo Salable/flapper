@@ -237,18 +237,30 @@ select {
   padding-right: 9px;
 }
 
+/* A control's value is data - a name, a slug, a colour, JSON - and is never
+   uppercased by the page around it. Board text opts in with .as-board. */
+input,
+textarea,
+select {
+  text-transform: none;
+  letter-spacing: normal;
+}
+
 input[type='text'] {
   flex: 1;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
 }
 
 textarea {
   resize: none;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
   line-height: 1.6;
   flex: 1;
+}
+
+/* Text that will go on the glass is typed the way the glass shows it. */
+input.as-board,
+textarea.as-board {
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
 }
 
 input[type='text']:focus,

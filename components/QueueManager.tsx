@@ -124,6 +124,7 @@ export function QueueManager({ slug }: { slug: string }) {
           <label htmlFor="compose-text">Message</label>
           <input
             id="compose-text"
+            className="as-board"
             type="text"
             placeholder="Type a message — Enter to queue it"
             autoComplete="off"
@@ -191,7 +192,7 @@ export function QueueManager({ slug }: { slug: string }) {
               <li key={item.id} className={item.id === playingId ? 'is-playing' : ''}>
                 {editing?.id === item.id ? (
                   <input
-                    className="queue-edit"
+                    className="queue-edit as-board"
                     type="text"
                     autoFocus
                     value={editing.text}

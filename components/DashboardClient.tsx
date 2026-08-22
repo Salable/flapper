@@ -152,7 +152,7 @@ export function DashboardClient({
                     </span>
                     <span className="board-card-meta muted">
                       {board.realtime === 'unavailable'
-                        ? 'realtime service unavailable · displays will catch up'
+                        ? 'realtime unavailable · displays will catch up'
                         : board.frozen
                           ? 'frozen · display tab is in the background'
                           : board.connected

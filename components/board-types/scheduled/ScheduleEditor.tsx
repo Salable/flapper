@@ -239,6 +239,7 @@ export default function ScheduleEditor({ slug }: { slug: string }) {
         <Field label="Message" htmlFor="sched-text">
           <TextInput
             id="sched-text"
+            className="ui-input as-board"
             value={text}
             placeholder="What the board says in this slot"
             spellCheck={false}
@@ -408,6 +409,7 @@ export default function ScheduleEditor({ slug }: { slug: string }) {
         >
           <TextInput
             id="sched-fallback"
+            className="ui-input as-board"
             value={fallback}
             onChange={(e) => setFallback(e.target.value)}
           />
