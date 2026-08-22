@@ -1879,3 +1879,18 @@ a.button.primary {
   margin-top: 8px;
   font-size: 12px;
 }
+
+/* The queue's tail: add a message under the list and watch it appear above. */
+.compose {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 14px;
+  margin-top: 4px;
+  border-top: 1px dashed var(--edge);
+}
+
+.compose .field {
+  align-self: stretch;
+}

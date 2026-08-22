@@ -163,7 +163,7 @@ export function DashboardClient({
                     </span>
                   </a>
                   <div className="board-card-actions">
-                    <LinkButton size="sm" href={`/b/${board.slug}`}>
+                    <LinkButton size="sm" href={`/b/${board.slug}`} target="_blank" rel="noopener">
                       Open display
                     </LinkButton>
                     <Button size="sm" variant="ghost" onClick={() => remove(board)}>

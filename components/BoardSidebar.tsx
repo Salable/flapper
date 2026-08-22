@@ -46,7 +46,7 @@ export function BoardSidebar({
       </dl>
       <div className="board-side-actions">
         {boardUrl !== '' && (
-          <LinkButton size="sm" href={boardUrl}>
+          <LinkButton size="sm" href={boardUrl} target="_blank" rel="noopener">
             Open display
           </LinkButton>
         )}
