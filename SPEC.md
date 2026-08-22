@@ -44,7 +44,7 @@ Notes in `docs/attic/README.md` for anything removed, per the 4.0 convention.*
 | 19 | Smaller items | **Done / explained** | Flush/Clear disabled when idle; visible Cancel on step one; a pristine board already greets "FLAPPER" — the blank grid is a *cleared* board, by design |
 | 9.1–6 | Open questions | **Options + recommendations** | [docs/rfcs/0003-catalogue-and-open-questions.md](docs/rfcs/0003-catalogue-and-open-questions.md) |
 
-Also from the spruce-up ledger: the AuthForm OAuth continuation is explicit,
+Also from the (since cleared) spruce-up ledger: the AuthForm OAuth continuation is explicit,
 consent Deny says "nothing was connected" before following `access_denied`,
 and the AppBar wraps at phone width.
 
@@ -467,3 +467,48 @@ exactly what is missing.
    practice): a short page under `/legal/accessibility` once SPEC §7 is done.
 10. **If anything is ever sold**: the Consumer Contracts Regs section of the
     Terms, pricing page, order confirmation, cancellation flow.
+
+---
+
+## Open — from the 22 Aug walks
+
+*The release spruce-up ledger (`docs/SPRUCE-UP.md`, 21–22 Aug) is cleared
+and deleted; its history is in git. What it left open lives here, with the
+asks the 22 Aug walks added, so there is one list.*
+
+### Accepted, not fixing
+
+- **Dependabot: moderate, `esbuild@0.18` under `drizzle-kit`'s deprecated
+  `@esbuild-kit` loader.** A dev-server CORS issue in a tool we never serve
+  from; not exploitable here. We are on the latest `drizzle-kit` (0.31) and
+  npm's only "fix" is a downgrade to 0.18. Clears when drizzle-kit drops the
+  loader. Not forcing an override that could break migrations.
+
+### Needs a real account or the Upstash plan (Neal)
+
+- **Walk the display side on production**: post a message, watch the wall
+  re-skin after a theme save, switch tabs mid-draft. The walk stopped at the
+  realtime quota; the app now degrades (#9), but these steps have not been
+  seen on production since. Needs the Upstash plan changed or the month to
+  roll over.
+- **The desktop kiosk against a fresh account**: install the release, point
+  it at a new board, leave it overnight. Never walked by a first-timer.
+
+### Layout picker — asks from the first-timer walk (22 Aug)
+
+20. **The stage is pointer-only.** Tab skips the board region; there is no
+    way to place or size it from the keyboard. Ask: focusable stage, arrow
+    keys nudge by 1 % (Shift: 5 %), corner handle focusable too. SPEC §7.
+21. **No numeric readout.** Exact placement ("10 % from the left, 60 %
+    wide") is guesswork. Ask: four small number fields beside the stage,
+    bound both ways to the drag.
+22. **The box does not show the board's aspect.** The region is a flat
+    rectangle marked BOARD; a 20×8 board placed in a tall region will
+    letterbox with no warning. Ask: draw the grid's aspect inside the region
+    (a faint tile grid from `cols`/`rows`), or say "fits 64 % wide, letterboxed
+    top and bottom".
+
+### Done since the ledger
+
+- Template names no longer make twins: `/new` prefills "Carrow Road 2" when
+  the account already has a "Carrow Road" (`lib/board-types/names.mjs`).

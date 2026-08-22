@@ -6,7 +6,8 @@
  */
 
 import { asc, eq } from 'drizzle-orm';
-import { boards, queues } from './schema.mjs';
+// Re-pointed 22 Aug 2026 so this file loads from the attic.
+import { boards, queues } from '../lib/db/schema.mjs';
 
 export async function getQueueRow(db, queueId) {
   const [row] = await db.select().from(queues).where(eq(queues.id, queueId)).limit(1);

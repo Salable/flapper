@@ -84,3 +84,13 @@ test('params, config and seeds pass the validators the API applies', () => {
     assert.ok(template.tagline, `${template.id}: needs a tagline`);
   }
 });
+
+test('a prefilled template name steps around the names the account already has', async () => {
+  const { nextFreeName } = await import('../lib/board-types/names.mjs');
+  assert.equal(nextFreeName('Carrow Road', []), 'Carrow Road');
+  assert.equal(nextFreeName('Carrow Road', ['Lobby']), 'Carrow Road');
+  assert.equal(nextFreeName('Carrow Road', ['Carrow Road']), 'Carrow Road 2');
+  assert.equal(nextFreeName('Carrow Road', ['carrow road', 'Carrow Road 2']), 'Carrow Road 3', 'case-insensitive, and keeps counting');
+  assert.equal(nextFreeName('', ['x']), '', 'a blank template name stays blank');
+  assert.equal(nextFreeName('  Lobby ', ['Lobby']), 'Lobby 2', 'trimmed before comparing');
+});

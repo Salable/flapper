@@ -5,11 +5,28 @@
  * re-anchor so the item currently on the glass does not jump under an edit.
  */
 
-import manifest from '../../public/assets/manifest.json' with { type: 'json' };
-import { headlessController } from './headless-board.mjs';
-import { scheduleAt, cycleItems, cycleStartOffset } from '../board/schedule.mjs';
-import * as queuesDb from '../db/queues.mjs';
-import { listQueue } from '../db/queue.mjs';
+// Re-pointed 22 Aug 2026 so this file loads from the attic (node -e
+// "import('./attic/timeline.mjs')"). The one thing a revival must rebuild is
+// below: the compiled-cycle columns and their writer left the schema in 4.0.
+import { RING, NOMINAL_TILE_SIZE } from '../lib/board/ring.mjs';
+import { headlessController } from '../lib/api/headless-board.mjs';
+import { scheduleAt, cycleItems, cycleStartOffset } from './schedule-cycle.mjs';
+import { listQueue } from '../lib/db/queue.mjs';
+
+/** The tiles as the headless board wants them; the sprite manifest is gone. */
+const manifest = { cycle: RING, tileSize: NOMINAL_TILE_SIZE };
+
+/**
+ * 3.0 kept `durations`, `cycleMs` and `anchorMs` on the queue row and this
+ * wrote them. Those columns and `lib/db/queues.mjs` were removed with queue
+ * modes; bringing the compiled cycle back means adding them to
+ * `lib/db/schema.mjs` and a real writer here.
+ */
+const queuesDb = {
+  async setCompiled() {
+    throw new Error('attic/timeline.mjs: the compiled-cycle columns left the schema in 4.0 - see docs/attic/README.md');
+  },
+};
 
 /** A slot never runs shorter than this - a flip needs time to be seen. */
 const MIN_SLOT_MS = 3000;

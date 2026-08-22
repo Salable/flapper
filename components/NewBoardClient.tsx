@@ -27,6 +27,7 @@ import { Field, TextInput, Select, Checkbox } from '@/components/ui/Field';
 import { Chip } from '@/components/ui/bits';
 import { MiniBoard } from '@/components/ui/MiniBoard';
 import type { TypeMeta } from '@/components/board-types/type-meta';
+import { nextFreeName } from '@/lib/board-types/names.mjs';
 
 export type TemplateMeta = {
   id: string;
@@ -69,10 +70,13 @@ export function NewBoardClient({
   userName,
   types,
   families,
+  takenNames = [],
 }: {
   userName: string;
   types: TypeMeta[];
   families: FamilyMeta[];
+  /** Board names the account already has; a template's prefill steps around them. */
+  takenNames?: string[];
 }) {
   const router = useRouter();
   const [selected, setSelected] = useState<{ familyId: string; template: TemplateMeta } | null>(null);
@@ -88,7 +92,7 @@ export function NewBoardClient({
 
   function choose(familyId: string, template: TemplateMeta) {
     const type = typeOf(template);
-    const seeded: Record<string, unknown> = { name: template.defaultName, ...template.params };
+    const seeded: Record<string, unknown> = { name: nextFreeName(template.defaultName, takenNames), ...template.params };
     // Only a zone the template did not pin is defaulted from the browser.
     if (type?.createParams.some((param) => param.key === 'timezone') && seeded.timezone === undefined) {
       seeded.timezone = localTimezone();

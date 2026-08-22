@@ -3,7 +3,11 @@
 Removed source, preserved on purpose. Git history keeps everything, but the
 attic keeps the *interesting* removals findable: each entry records what the
 thing was, why it left, and what would bring it back. Code here is not
-imported by anything and is excluded from knip and the build.
+imported by anything and is outside knip's and the build's globs. The `.mjs`
+modules do still *load* (`node -e "import('./attic/timeline.mjs')"`) - their
+imports were re-pointed at today's paths on 22 Aug 2026 - and where a
+dependency no longer exists the file says so at that spot rather than
+failing to resolve.
 
 ## Entries
 
