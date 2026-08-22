@@ -1138,3 +1138,76 @@ test('AGENTS.md speaks the board’s type', async () => {
   assert.match(clockDoc, /schedule\.kind/);
   assert.ok(!clockDoc.includes('Jumping the queue'), 'no priority table on a clock board');
 });
+
+/* ---- when the realtime service is down ---- */
+
+/** A broker whose every call fails the way an over-quota Redis does. */
+function brokenBroker() {
+  const fail = async () => {
+    const error = new Error('the realtime service is unavailable - queues and settings still save, and displays catch up when it returns');
+    error.status = 503;
+    error.cause = new Error('Command failed: ERR max requests limit exceeded. Limit: 500000, Usage: 500000');
+    throw error;
+  };
+  return {
+    appendCommand: fail, touch: fail, commandsAfter: fail, latestCommandId: fail, setState: fail, getState: fail, deleteBoard: fail,
+  };
+}
+
+test('a dead broker never fails a write: the message queues, the nudge is logged and skipped', async () => {
+  const board = await makeBoard();
+  const dead = { ...ctx(board.slug), broker: brokenBroker() };
+  const posted = await jsonOf(call(postMessage, dead, '/message', { method: 'POST', body: { text: 'STILL HERE' }, key: board.apiKey }));
+  assert.equal(posted.status, 202, JSON.stringify(posted.body));
+  const queued = (await jsonOf(call(getQueue, ctx(board.slug), '/queue'))).body;
+  assert.equal(queued.items.some((item) => item.payload.text === 'STILL HERE'), true);
+  const configured = await jsonOf(call(patchConfig, dead, '/config', { method: 'PATCH', body: { cols: 12 }, key: board.apiKey }));
+  assert.equal(configured.status, 200);
+  const created = await jsonOf(
+    call(createBoard, { ...ctx(undefined, 'owner'), broker: brokenBroker() }, '/api/boards', { method: 'POST', body: { slug: 'born-offline', template: 'match-day' } }),
+  );
+  assert.equal(created.status, 201, 'a seeded template creates even when it cannot nudge');
+});
+
+test('health says the realtime service is unavailable, in words, not with the provider\'s error', async () => {
+  const board = await makeBoard();
+  const dead = { ...ctx(board.slug), broker: brokenBroker() };
+  const result = await jsonOf(call(health, dead, '/health'));
+  assert.equal(result.status, 200);
+  assert.equal(result.body.ok, false);
+  assert.equal(result.body.realtime, 'unavailable');
+  assert.equal(result.body.boardReady, false);
+  assert.equal(JSON.stringify(result.body).includes('Usage: 500000'), false, 'the provider message stays in the log');
+  // A read that cannot degrade is a 503 with the same sentence.
+  const state = await jsonOf(call(status, dead, '/status'));
+  assert.equal(state.status, 503);
+  assert.match(state.body.error, /realtime service is unavailable/);
+  assert.equal(state.body.error.includes('Usage'), false);
+});
+
+test('the streams hold the connection through a broker outage and back off', async () => {
+  const board = await makeBoard();
+  const slept = [];
+  const sleep = async (ms) => { slept.push(ms); };
+  const seen = [];
+  for await (const event of commandEvents(brokenBroker(), board.boardId, '0', { windowMs: 50_000, outageDelayMs: 20_000, sleep })) {
+    seen.push(event.type);
+  }
+  assert.deepEqual(seen, ['heartbeat', 'heartbeat', 'heartbeat'], 'heartbeats keep the client from reconnecting');
+  assert.deepEqual(slept, [20_000, 20_000, 20_000], 'a dead broker is polled at the outage cadence, not the active one');
+  const stateSeen = [];
+  for await (const event of stateEvents(brokenBroker(), board.boardId, { windowMs: 40_000, outageDelayMs: 20_000, sleep: async () => {} })) {
+    stateSeen.push(event.type);
+  }
+  assert.deepEqual(stateSeen, ['heartbeat', 'heartbeat']);
+});
+
+test('idle displays poll lazily: the command stream slows to seconds once nothing has happened for a minute', async () => {
+  const board = await makeBoard();
+  const slept = [];
+  for await (const event of commandEvents(broker, board.boardId, '0', { windowMs: 120_000, sleep: async (ms) => { slept.push(ms); } })) {
+    void event;
+  }
+  assert.ok(slept.slice(0, 10).every((ms) => ms === 750), 'brisk while fresh');
+  assert.ok(slept.slice(-5).every((ms) => ms >= 8000), `lazy once idle, got ${slept.slice(-5)}`);
+});

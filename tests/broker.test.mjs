@@ -76,3 +76,24 @@ test('tokens: ids are url-safe, secrets verify only exactly', async () => {
   assert.equal(await secretsMatch('', token), false);
   assert.equal(await secretsMatch(undefined, token), false);
 });
+
+test('RedisBroker turns any provider failure into a 503 a person can read, keeping the cause for the log', async () => {
+  const { RedisBroker, BrokerUnavailable } = await import('../lib/broker/redis.mjs');
+  const quota = new Error('Command failed: ERR max requests limit exceeded. Limit: 500000, Usage: 500000. See https://upstash.com/...');
+  const fakeRedis = {
+    xrange: async () => { throw quota; },
+    get: async () => { throw new TypeError('fetch failed'); },
+    pipeline: () => ({ expire() {}, exec: async () => { throw quota; } }),
+  };
+  const broker = new RedisBroker(fakeRedis);
+  for (const call of [() => broker.commandsAfter('b', '0'), () => broker.getState('b'), () => broker.touch('b')]) {
+    await assert.rejects(call, (error) => {
+      assert.ok(error instanceof BrokerUnavailable);
+      assert.equal(error.status, 503);
+      assert.match(error.message, /realtime service is unavailable/);
+      assert.equal(error.message.includes('500000'), false, 'the provider text never reaches a response');
+      assert.ok(error.cause);
+      return true;
+    });
+  }
+});
