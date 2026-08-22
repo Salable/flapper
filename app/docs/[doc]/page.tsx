@@ -3,6 +3,7 @@ import path from 'node:path';
 import { notFound } from 'next/navigation';
 import { marked } from 'marked';
 import { AppBar } from '@/components/AppBar';
+import { LinkButton } from '@/components/ui/Button';
 import { DOCS } from '../registry';
 
 export const dynamic = 'force-dynamic';
@@ -20,8 +21,8 @@ export default async function DocPage({ params }: { params: Promise<{ doc: strin
       <AppBar
         right={
           <>
-            <a className="button" href="/docs">All docs</a>
-            <a className="button" href="/dashboard">Dashboard</a>
+            <LinkButton href="/docs">All docs</LinkButton>
+            <LinkButton href="/dashboard">Dashboard</LinkButton>
           </>
         }
       />

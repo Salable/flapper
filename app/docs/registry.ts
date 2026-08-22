@@ -25,6 +25,12 @@ export const DOCS: { slug: string; file: string; title: string; blurb: string }[
     blurb: 'Tokens, components, type and motion rules - the contract for anything visual.',
   },
   {
+    slug: 'architecture',
+    file: 'ARCHITECTURE.md',
+    title: 'Architecture',
+    blurb: 'How Flapper is built and delivered: frameworks, the paths a message and a theme take, data, the systems in production.',
+  },
+  {
     slug: 'board-api',
     file: 'BOARD-API.md',
     title: 'Board API',

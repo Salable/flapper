@@ -15,6 +15,7 @@
 import { DEFAULT_THEME, resolveTheme } from '@/lib/board/themes.mjs';
 import { ProceduralSkin } from '@/lib/board/skins/procedural.mjs';
 import type { Skin } from '@/lib/board/skins/skin.mjs';
+import type { ThemePack } from '@/lib/board/theme-pack.mjs';
 
 export type { Skin };
 
@@ -81,7 +82,7 @@ function loadArt(key: string, src: string) {
  * a skin for a colour change (the editor does this on every tweak) costs
  * the cards, not a decode.
  */
-export async function loadProcedural(pack: any): Promise<Skin> {
+export async function loadProcedural(pack: ThemePack): Promise<Skin> {
   const fonts: { family: string; src: string; weight?: string; style?: string }[] = pack.fonts || [];
   const arts: [string, string][] = Object.entries(pack.art || {});
   const total = fonts.length + arts.length + 1;
@@ -137,6 +138,6 @@ export function loadSkin(themeId: string = DEFAULT_THEME): Promise<Skin> {
  * never reloads, and the editor gets a fresh skin only when something
  * actually differs.
  */
-export function loadBoardSkin(rev: string, pack: any): Promise<Skin> {
+export function loadBoardSkin(rev: string, pack: ThemePack): Promise<Skin> {
   return cachedSkin(`board:${rev}`, () => loadProcedural(pack));
 }

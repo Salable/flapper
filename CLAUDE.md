@@ -9,8 +9,10 @@ to running the repo.
 
 ```bash
 npm run dev                        # Next.js dev server (PGlite + memory broker, no env)
-npm test                           # ~230 tests, a few seconds, no browser
+npm test                           # ~320 tests, a few seconds, no browser
 node --test tests/layout.test.mjs  # a single file
+npm run typecheck                  # tsc --noEmit; CI runs it, so run it
+npx knip                           # dead files/exports/deps fail CI too
 npm run build                      # migrates (when DATABASE_URL) then next build
 npm run db:generate                # after editing lib/db/schema.mjs
 python3 tools/build_audio.py --src x.mp3   # only when the flap recording changes
@@ -21,7 +23,8 @@ cd desktop && npm start            # the Electron kiosk shell
 
 They serve different readers, and it is worth not confusing them:
 
-- **`AGENTS.md`** (this file's sibling) — for working *on* the code.
+- **`AGENTS.md`** (this file's sibling) — for working *on* the code;
+  **`docs/ARCHITECTURE.md`** is the map of frameworks, flows, data and delivery.
 - **`docs/BOARD-API.md`** — for *driving* a board over REST. Every board serves
   a live version at `GET /api/b/{slug}/AGENTS.md`, generated from
   `lib/api/agents-doc.mjs` with the board's own URLs. Change the contract and
@@ -56,6 +59,10 @@ connected.
   belongs in `lib/board/`, `lib/api/`, or `lib/db/` instead.
   The skins are tested against a stub 2D context (call sequence, not
   pixels); for *looks*, open a board's Settings → Display → Theme.
+- **`lib/auth.ts` changes need a dev-server restart.** `getAuth` is one of
+  the `globalThis` singletons below, so editing Better Auth options (fields,
+  hooks) while `npm run dev` runs leaves the old instance serving; a signup
+  will silently drop new fields until you restart.
 - **Singletons live on `globalThis` behind promises** (`getDb`, `getBroker`,
   `getAuth`) so dev-server recompiles share one instance — two PGlites on one
   `./.pglite` directory corrupt it. Never delete `./.pglite` while the dev
@@ -78,8 +85,10 @@ connected.
   imports the handlers under plain `node --test`. Only `lib/api/next-ctx.ts`
   touches `lib/auth.ts`.
 - A message's row budget is its **band**, not the board. Read `grid.mainRows`.
-- Display `settings` is a one-level spread over `localStorage`
-  (`lib/board/settings.mjs`); keep new settings flat or bump `SETTINGS_KEY`.
+- The display keeps its own state in `localStorage` (`lib/board/audio.mjs`
+  `readAudioState`/`writeAudioState`, key `flapper.audio.v1`) - per browser,
+  never the board's config. Keep new display-local settings flat and
+  versioned the same way.
 - A `202` from the API means validated-and-queued, not displayed. The stream
   routes end themselves before Vercel's function window; EventSource
   reconnection with `Last-Event-ID` is the design, not a bug.
@@ -92,6 +101,10 @@ connected.
 - **A theme's skin is shared property** (`components/flapper/assets.ts`):
   loaded once per tab, used by the wordmark and the display alike. Never
   call `.close()` on the bitmaps behind its art.
+- **The Upstash free tier is ~two weeks of one wall.** Every display is a
+  polling loop against Redis (AGENTS.md "Change the cloud" has the
+  arithmetic). When it runs out, the app degrades rather than breaks, but
+  displays stop getting live nudges until the plan or the month changes.
 - **Callback-prop identity is never behavioral** in `components/ui/` —
   callers pass inline closures; an effect keyed on one re-runs every parent
   render (the Modal once re-focused itself on every keystroke). Rules:

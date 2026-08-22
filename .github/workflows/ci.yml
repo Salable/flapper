@@ -28,7 +28,8 @@ jobs:
       - run: npm run typecheck
 
       # Dead code is a build failure: unused files, exports, and deps must be
-      # clean (attic/ is deliberately ignored - see docs/attic/README.md).
+      # clean. attic/ is outside knip's `project` globs by construction - see
+      # docs/attic/README.md.
       - run: npx knip
 
   build:

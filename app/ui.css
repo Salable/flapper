@@ -263,6 +263,13 @@ a.ui-btn-danger {
 }
 
 /* Vertical: a left-hand column (before / tablist / after) beside the panel. */
+/* Horizontal is the default shape; the one caller today is vertical. */
+.ui-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
 .ui-tabs-vertical {
   display: grid;
   grid-template-columns: 220px minmax(0, 1fr);

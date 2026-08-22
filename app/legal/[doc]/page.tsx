@@ -3,6 +3,7 @@ import path from 'node:path';
 import { notFound } from 'next/navigation';
 import { marked } from 'marked';
 import { AppBar } from '@/components/AppBar';
+import { LinkButton } from '@/components/ui/Button';
 import { SiteFooter } from '@/components/SiteFooter';
 import { LEGAL_DOCUMENTS, legalDocument } from '@/lib/legal/documents.mjs';
 
@@ -36,8 +37,8 @@ export default async function LegalPage({ params }: { params: Promise<{ doc: str
       <AppBar
         right={
           <>
-            <a className="button" href="/legal">All legal</a>
-            <a className="button" href="/">Home</a>
+            <LinkButton href="/legal">All legal</LinkButton>
+            <LinkButton href="/">Home</LinkButton>
           </>
         }
       />

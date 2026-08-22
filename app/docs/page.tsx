@@ -1,4 +1,5 @@
 import { AppBar } from '@/components/AppBar';
+import { LinkButton } from '@/components/ui/Button';
 import { DOCS } from './registry';
 import { SiteFooter } from '@/components/SiteFooter';
 
@@ -7,7 +8,7 @@ export const metadata = { title: 'Docs — Flapper' };
 export default function DocsIndex() {
   return (
     <div className="app-shell">
-      <AppBar right={<a className="button" href="/dashboard">Dashboard</a>} />
+      <AppBar right={<LinkButton href="/dashboard">Dashboard</LinkButton>} />
       <main className="dash docs">
         <h2 className="dash-title">Documentation</h2>
         <div className="boards">

@@ -21,7 +21,7 @@ import { ColorInput } from '@/components/ui/ColorInput';
 import { ThemePreview } from '@/components/flapper/ThemePreview';
 import { fileToArt } from '@/components/flapper/rasterize';
 import { THEMES, THEME_IDS } from '@/lib/board/themes.mjs';
-import { RANGES } from '@/lib/board/theme-pack.mjs';
+import { RANGES, type ThemePack } from '@/lib/board/theme-pack.mjs';
 import { THEME_LIMITS, stableStringify } from '@/lib/board/board-theme.mjs';
 import { RING } from '@/lib/board/ring.mjs';
 import {
@@ -39,12 +39,13 @@ import {
   FONT_WEIGHTS,
 } from '@/lib/board/theme-editor.mjs';
 
-export type ThemeDraft = { theme: string; pack: any };
+import type { ThemeDraft } from '@/lib/board/theme-editor.mjs';
+export type { ThemeDraft };
 
 const SAMPLE = 'FLAPPER 2026!\nTHE QUICK BROWN\nFOX .,!()';
 
 const themes: Record<string, any> = THEMES;
-const ranges: Record<string, [number, number]> = RANGES as any;
+const ranges: Readonly<Record<string, readonly number[]>> = RANGES;
 
 export function ThemeSettings({
   slug,
@@ -67,7 +68,7 @@ export function ThemeSettings({
   const [json, setJson] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const patch = useMemo(() => draftToPatch(draft) as { ok: true; theme: string; themePack: any } | { ok: false; errors: string[] }, [draft]);
+  const patch = useMemo(() => draftToPatch(draft), [draft]);
   const dirty = useMemo(() => {
     if (!patch.ok) return true;
     const was = savedPatch(config);
@@ -125,7 +126,7 @@ export function ThemeSettings({
   }
 
   const slider = (label: string, path: string, step = 0.01) => {
-    const [lo, hi] = ranges[path] || [0, 1];
+    const [lo = 0, hi = 1] = ranges[path] ?? [];
     return (
       <Field key={path} label={<>{label} <span className="muted">{num(path).toFixed(3).replace(/0+$/, '').replace(/\.$/, '')}</span></>} htmlFor={`th-${path}`}>
         <RangeSlider id={`th-${path}`} min={lo} max={hi} step={step} value={num(path)} onChange={(e) => field(path)(Number(e.target.value))} />

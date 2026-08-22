@@ -21,6 +21,7 @@ import { Player } from '@/lib/board/player.mjs';
 import { useStatePublisher } from '@/hooks/useStatePublisher';
 import { loadBoardSkin, onAssetProgress } from '@/components/flapper/assets';
 import { resolveBoardTheme } from '@/lib/board/board-theme.mjs';
+import type { ThemePack } from '@/lib/board/theme-pack.mjs';
 import {
   FlapSound,
   VOLUME_STEP,
@@ -51,7 +52,7 @@ export function BoardApp({
   boardKey: string | null;
   displayToken: string;
   /** The board's theme as the server resolved it at page load - the first paint is already the right colour. */
-  initialTheme: { rev: string; pack: any };
+  initialTheme: { rev: string; pack: ThemePack };
 }) {
   // Read through a ref and keyed on the rev: an object prop must not re-run the boot effect on every parent render.
   const initialThemeRef = useRef(initialTheme);

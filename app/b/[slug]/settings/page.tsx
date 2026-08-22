@@ -1,4 +1,5 @@
 import { headers } from 'next/headers';
+import { LinkButton } from '@/components/ui/Button';
 import { notFound, redirect } from 'next/navigation';
 import { sessionFromHeaders } from '@/lib/auth';
 import { getDb } from '@/lib/db/client.mjs';
@@ -22,12 +23,12 @@ export default async function SettingsPage({ params }: { params: Promise<{ slug:
         <h1>FLAPPER</h1>
         <p>Only this board&apos;s owner can open its settings.</p>
         <div className="actions">
-          <a className="button" href={`/b/${slug}`}>
+          <LinkButton href={`/b/${slug}`}>
             View the board
-          </a>
-          <a className="button" href="/dashboard">
+          </LinkButton>
+          <LinkButton href="/dashboard">
             Your dashboard
-          </a>
+          </LinkButton>
         </div>
       </main>
     );

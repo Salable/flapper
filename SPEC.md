@@ -48,7 +48,26 @@ Also from the spruce-up ledger: the AuthForm OAuth continuation is explicit,
 consent Deny says "nothing was connected" before following `access_denied`,
 and the AppBar wraps at phone width.
 
+## Shipped since — 21–22 Aug 2026
+
+Work that landed after the table above, each with its PR:
+
+| What | Where |
+| --- | --- |
+| **One renderer.** The pre-rendered sprite strips and their Python build are gone; tiles are drawn live from a theme pack (`lib/board/skins/procedural.mjs`), the ring lives in `lib/board/ring.mjs`, `classic`/`canary` are packs | [#4](https://github.com/Salable/flapper/pull/4), [#5](https://github.com/Salable/flapper/pull/5); design record `docs/RENDERER-RESEARCH.md` |
+| **A board's own theme.** `themePack` on config (sparse overrides on a preset, size-capped, stored as the diff), served by `GET /theme` with a revision the display keys its cache on; MCP `get_theme` | [#6](https://github.com/Salable/flapper/pull/6); `lib/board/board-theme.mjs` |
+| **The theme editor.** Settings → Display → Theme: preset, live board, palette/type/hinge/motion, per-character ink or uploaded mark, JSON under Advanced, saved as the diff | [#7](https://github.com/Salable/flapper/pull/7); `components/ThemeSettings.tsx` |
+| **A subtler stereo image** for the clacks (±0.35, eased through the middle) | [#8](https://github.com/Salable/flapper/pull/8) |
+| **Degrade, never break.** When Redis is down or over quota: writes save, 503s read as sentences, `/health` says `realtime: "unavailable"`, streams hold and back off; idle polling is cheaper | [#9](https://github.com/Salable/flapper/pull/9); AGENTS.md "Change the cloud" has the budget |
+| **Production-walk fixes.** Form values never uppercased (`.as-board` opts in); Open display in a new tab; the queue is one block (list, then Add a message); dashboard cards are name + type + three doors under a Connections heading | [#10](https://github.com/Salable/flapper/pull/10) |
+| **Launch readiness.** The legal scaffolding below — registry, five placeholder documents, footer, consent record at signup, Privacy & data in Account | [#10](https://github.com/Salable/flapper/pull/10); "Launch readiness" at the end of this file |
+
 ---
+
+> **Reading the asks below.** Sections 1–9 are the asks *as they were made*
+> on 21 Aug, kept verbatim as the record of what was wrong and why. Their
+> present tense is that day's; the Status table above is the truth about
+> what exists now. Ask 17 was deleted per its own terms (not a bug).
 
 ### 1. Dashboard layout
 
@@ -294,20 +313,7 @@ telling the user something untrue.
 
 ### 7. Interface and accessibility
 
-17. **Do the board-type cards have accessible names? [unverified]** Reading the
-    open create modal returned `dialog`, then three bare `button` entries with
-    no accessible names — a screen-reader user would hear "button, button,
-    button" with no way to tell Live Queue from Scheduled from Shared Screens.
-    Ordinary fields in step two of the same modal read back correctly, so if
-    real it is specific to the card pattern.
-
-    I could not confirm it from the source. `CreateBoardModal` renders real
-    `<button>`s whose content is nested `<span>`s, and `.flap-in` animates
-    `opacity`/`transform`, not `visibility` — none of which should strip a name.
-    So this may be an artifact of the reading tool. Ask: check it with a real
-    screen reader or an axe run; if it reproduces, fix the pattern, add a
-    contract test, and record the rule in `docs/DESIGN-SYSTEM.md` alongside
-    "Forms hold focus". If it doesn't, delete this item.
+17. *(Deleted — not a bug; see the Status table.)*
 
 18. **There is no account, settings, or profile area.** The entire global nav is
     Dashboard / Docs / Sign out; the user's name in the header is plain text,
@@ -350,19 +356,21 @@ Recorded because it should survive the next refactor.
 
 ### 9. Open questions / decisions I want options on
 
-1. **Background-tab freeze:** is the answer the Electron kiosk shell, a Wake
+1. **Background-tab freeze:** ~~is the answer the Electron kiosk shell, a Wake
    Lock / offscreen-canvas approach in the browser display, or accepting it and
-   detecting it loudly? What does a real customer's wall actually run?
+   detecting it loudly?~~ **Settled: detect it loudly** (`lib/api/liveness.mjs`,
+   `frozen`), and the kiosk shell for walls that must never sleep.
 2. **Engine vs template:** how far to take the split. Is a template just
    `typeId + config + seed items`, or does it need its own presentation hooks?
    What is the minimum that lets a third party publish one?
-3. **Immediate revocation:** what does invalidating issued access tokens cost
-   given the pinned `@better-auth/oauth-provider` / `mcp` packages — is it a
-   supported operation or does it mean a token blacklist?
+3. **Immediate revocation:** ~~what does invalidating issued access tokens cost~~
+   **Settled:** a per-client revocation watermark (`lib/api/revocations.mjs`,
+   migration 0005) — immediate, no blacklist, because the provider never
+   stored the JWTs in the first place.
 4. **Catalogue and entitlement:** does tier live in Flapper or entirely in
    salable.app, and what does `create_board` check on the MCP path?
-5. **Branch divergence:** which tree is authoritative for the dashboard (see the
-   note at the top), and should the worktree be merged before section 1 starts?
+5. **Branch divergence:** ~~which tree is authoritative for the dashboard~~
+   **Settled** (note at the top): the warning was stale; everything is on `main`.
 6. **Sidebar side, and how many columns:** left or right for the board sidebar,
    and is the vertical tab menu the *same* column as the board details (one
    sidebar, nav on top of details) or a separate one (nav left, details right,

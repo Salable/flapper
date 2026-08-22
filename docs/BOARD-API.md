@@ -324,7 +324,7 @@ Use `POST {apiBase}/clear` to stop everything, or edit the item.
 | --- | --- | --- | --- |
 | `GET` | `/api/b/{slug}` | read | discovery: points at the guide and health |
 | `GET` | `/api/b/{slug}/AGENTS.md` | read | this document, with live URLs |
-| `GET` | `/api/b/{slug}/health` | read | liveness, whether a display is connected |
+| `GET` | `/api/b/{slug}/health` | read | liveness, whether a display is connected; `realtime: "ok" \| "unavailable"` |
 | `GET` | `/api/b/{slug}/capabilities` | read | charset, grid, accepted values, limits |
 | `GET` | `/api/b/{slug}/status` | read | last reported state, plus `stale`/`frozen`/`updatedAt` |
 | `GET` | `/api/b/{slug}/events` | read | SSE stream of board state |
@@ -338,10 +338,14 @@ Use `POST {apiBase}/clear` to stop everything, or edit the item.
 | `POST` | `/api/b/{slug}/preview` | read | lay out and return pages **without displaying** |
 | `POST` | `/api/b/{slug}/clear` | key | stop and blank; optional `region`, omitted = every band |
 | `DELETE` | `/api/b/{slug}/queue` | key | drop pending, leave the current message playing |
-| `PATCH` | `/api/b/{slug}/config` | key | grid, `theme`, `themePack`, `footerRows`, motion, dwell, per-band `regions` |
+| `GET` | `/api/b/{slug}/export` | key | every queued item in a re-postable shape |
+| `PATCH` | `/api/b/{slug}/config` | key | grid, `theme`, `themePack`, motion, dwell (`footerRows` must stay 0; `regions.main.dwellMs` only) |
+| `GET` / `POST` | `/api/b/{slug}/key` | owner | read / rotate the API key — the owner's session only, never the key itself |
 
-"read" is open on a public board and needs the key on a private one. Three
-further routes belong to the display itself and are not for API clients:
+"read" is open on a public board and needs the key on a private one;
+"owner" is the signed-in owner (the settings page, or a connector signed in
+as them). Three further routes belong to the display itself and are not for
+API clients:
 `GET .../commands/stream`, `POST .../state`, and `POST .../queue/advance`
 (the last two take a display credential the board page holds).
 
@@ -357,6 +361,7 @@ further routes belong to the display itself and are not for API clients:
 | `413` | body or text too large | send less; limits are in `/capabilities` |
 | `422` | invalid value | the message says which field and why |
 | `429` | queue full (500 items) | flush, clear, or wait |
+| `503` | the realtime service is unavailable — the write you made is saved, displays catch up when it returns | retry reads later; do not retry writes, they succeeded |
 
 ## 8. Recommended workflow
 

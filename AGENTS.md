@@ -35,21 +35,26 @@ curl -X POST http://localhost:3000/api/b/YOUR-SLUG/message \
   -H 'content-type: application/json' -d '{"text":"HELLO"}'
 ```
 
-`npm test` runs ~190 tests in a few seconds with no browser in the loop.
+`npm test` runs ~320 tests in a few seconds with no browser in the loop.
 
 ---
 
 ## How it fits together
+
+`docs/ARCHITECTURE.md` is the map - frameworks, the request flows, the data,
+the delivery systems, every component and its screen. This section is the
+short version.
 
 The boundary that matters is **what can be tested** — anything with a decision
 in it lives in a pure module a test can reach, and the parts that touch a
 canvas, the DOM, or Redis are left as thin appliers.
 
 ```
-lib/board/    the engine and its logic: pure ESM, no React     ← all unit-tested
+lib/board/    the engine and its logic: pure ESM, no React     ← unit-tested (flipboard.js excepted: it needs a canvas)
 lib/board-types/  one definition per board type + the registry  ← contract-tested
 lib/db/       drizzle schema + board/queue queries (Neon or PGlite) ← PGlite-tested
 lib/api/      validation + route handlers as (Request) -> Response  ← unit-tested
+lib/legal/    the legal documents registry (what is published, what is still a placeholder)
 lib/broker/   the realtime channel (Upstash or memory)         ← contract-tested
 lib/auth.ts   Better Auth over the same db; next-ctx.ts injects sessions
 app/          Next.js: pages, and route.ts one-liners over lib/api
@@ -66,18 +71,34 @@ tools/        audio build, icon build, build-time migration
 | `lib/board/regions.mjs` | row bands: partition the grid, map lines to tile targets |
 | `lib/board/flipboard.js` | the engine: tiles, progress, the animation loop; paints through a skin |
 | `lib/board/ring.mjs` | the ring: the states a tile can rest on, in order |
+| `lib/board/themes.mjs` | the theme presets, validated at load |
+| `lib/board/audio.mjs` | the clacks: `planVoices` (pure) and the Web Audio shell around it |
+| `lib/board/idle.mjs` | the wordmark's ambient choreography (flickers and sweeps) |
 | `lib/board/skins/` | `ProceduralSkin`: paints a theme pack's cards and draws the flap |
 | `lib/board/theme-pack.mjs` | the pack schema, its validator and defaults |
+| `lib/board/board-theme.mjs` | a board's own theme: preset + sparse overrides, limits, the revision displays key on |
+| `lib/board/theme-editor.mjs` | the theme editor's decisions: drafts, per-glyph overrides, draft → patch |
+| `lib/legal/documents.mjs` | the legal documents the site publishes and whether each is still a placeholder |
 | `lib/board/track.mjs` | one queue, dwell clock and watchdog **per band** |
 | `lib/board/controller.mjs` | routes messages to bands; owns geometry and status |
 | `lib/board/player.mjs` | the display's playback machines: live (play/report) and clock (evaluate/cut/sleep) |
 | `lib/board/schedule.mjs` | the pure schedule evaluator: triggers, ties, DST, next-change |
 | `lib/board-types/index.mjs` | the type registry; `docs/BOARD-TYPES.md` is the authoring guide |
+| `lib/board-types/contract.mjs` | the harness every definition must pass (shape, client-safety) |
+| `lib/board-types/templates.mjs` | the `/new` rails: a type plus a preset config and seed messages |
 | `lib/db/queue.mjs` | the server-side queue: order, caps, the playback head, epochs |
 | `components/BoardApp.tsx` | boots the engine and the player, applies layout, wires F/Esc |
 | `lib/api/validators.mjs` | request validation, every 422 named |
 | `lib/api/handlers.mjs` | the API surface; route.ts files are one-line wrappers |
 | `lib/api/mcp.mjs` | the MCP tools: each drives a REST handler with a constructed Request |
+| `lib/api/agents-doc.mjs` | the per-board `AGENTS.md` template; kept in step with `docs/BOARD-API.md` by hand |
+| `lib/api/headless-board.mjs` | the Controller with no canvas, for `/preview`, `/capabilities`, estimates |
+| `lib/api/liveness.mjs` | stale / frozen / boardReady from a display's last report |
+| `lib/api/display-token.mjs`, `mask.mjs`, `revocations.mjs`, `connections.mjs` | display credentials; hiding the key in on-screen text; disconnecting an OAuth client for real; listing what can still get in |
+| `lib/broker/tokens.mjs` | ids, keys and hashing (Web Crypto; shared by `lib/api` and `lib/board`) |
+| `lib/db/schema.mjs` | the hand-written Drizzle schema, Better Auth tables included |
+| `components/BoardSidebar.tsx` | a board's identity beside any per-board screen |
+| `components/ThemeSettings.tsx` | the theme editor; its decisions are in `lib/board/theme-editor.mjs` |
 | `lib/api/headless-board.mjs` | the real Controller over stored config, server-side |
 | `lib/broker/index.mjs` | picks RedisBroker or MemoryBroker; the only chooser |
 | `lib/db/client.mjs` | picks Neon or PGlite; the only chooser |
@@ -209,10 +230,10 @@ Mute and volume (M, ↑/↓) are the display's, kept in localStorage under
 ### Add a theme
 
 A theme is the *same* ring in different paint. A board's theme is in its
-config (`PATCH /config {"theme":"canary"}`, or the Tiles select in
-Settings); the display loads the new skin in the background and
-`Flipboard.setSkin()` swaps it under the tiles in place. Every registered id
-reaches the validator, the Settings select, `/capabilities` and the MCP
+config (`PATCH /config {"theme":"canary"}`, or Settings → Display → Theme);
+the display loads the new skin in the background and `Flipboard.setSkin()`
+swaps it under the tiles in place. Every registered id reaches the
+validator, the theme editor's preset picker, `/capabilities` and the MCP
 `update_config` schema from `lib/board/themes.mjs` alone.
 
 To ship a new preset, add a pack to `THEMES` in `themes.mjs`:
@@ -331,6 +352,20 @@ accident.
   is `{ok, value}` or `{ok: false, error: {message, status}}`, so a 422 from
   the controller stays a 422 by the time it reaches a caller.
 - **Comments say *why*.** The code already says what.
+
+- **A control's value is never uppercased by the page.** `input`, `textarea`
+  and `select` reset `text-transform`; only `.as-board` (the message
+  composers) shows what the glass will show. A name, a slug, a colour, JSON
+  are data (`app/board.css`, "A control's value is data").
+- **A write never fails because the realtime service is down.** `nudge` is
+  best-effort and logged; `RedisBroker` turns every provider failure into a
+  503 in plain words; the streams hold their connection and back off. If
+  you add a broker call to a write path, wrap it in `bestEffort`.
+- **Consent is a record, not a flag.** Signup stores `termsVersion`,
+  `termsAcceptedAt`, `marketingConsent`, `marketingConsentAt` with
+  server-set timestamps (`lib/auth.ts` `databaseHooks`). Never set those
+  timestamps from the client, and never pre-tick the marketing box.
+
 
 ## Testing
 

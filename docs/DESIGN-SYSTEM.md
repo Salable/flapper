@@ -51,13 +51,18 @@ entrances: modals, tab panels, hero tiles. Stagger children with
 | `Card`, `Chip`, `Segmented`, `EmptyState` | layout & state vocabulary |
 | `ColorInput` | a colour as a theme pack holds it — the text is the truth (raw while typing, committed on blur/Enter once it parses), the native picker a second writer of `#rrggbb`, a swatch, and a None for nullable fields |
 | `ThemePreview` (components/flapper/) | a board drawn from a pack, re-skinned (debounced) as the pack changes; the live half of Settings → Display → Theme |
+| `rasterize.ts` (components/flapper/) | an uploaded image as a theme pack wants it: ≤ 128 px, WebP or PNG, inline, under the art size cap |
+| `SiteFooter` | the company line and the legal documents, on every product page |
 | `CopyButton`, `KeyReveal` | credentials and copyable values — a secret is shown only behind Reveal; any text that quotes it renders through `maskSecret` (lib/api/mask.mjs) and copies the real value |
 | `MiniBoard` | text as CSS split-flap tiles — the server-renderable stand-in and loading fallback for `Flapper`; also the poster on every /new card, where a `.poster.is-canary` wrapper re-skins it by overriding the `--tile-*` tokens |
 | `.rail` / `.rail-card` / `.rail-detail` (board.css) | the /new screen's horizontal, snap-scrolling rows of template cards and the panel a chosen card expands into under its rail |
 
 Screen-level scaffolding: `.app-shell` + `AppBar` (brand left, context
-right), `.dash` content column. Board-type-specific UI lives in
-`components/board-types/<id>/` and composes these primitives.
+right), `.dash` content column, `SiteFooter` (the company line and every
+legal document; on product pages, never the display). Board-type-specific
+UI lives in `components/board-types/<id>/` and composes these primitives;
+`components/board-types/registry.ts` and `type-meta.ts` are the client-side
+mirror of the type registry that the contract harness keeps honest.
 
 ## The flapper as a component (`components/flapper/`)
 

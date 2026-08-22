@@ -74,6 +74,11 @@ body {
   line-height: 1.7;
 }
 
+.loading-label {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+}
+
 .loading-bar {
   width: 180px;
   height: 2px;
@@ -342,247 +347,6 @@ input[type='checkbox'] {
   gap: 8px;
 }
 
-.readouts {
-  display: flex;
-  gap: 16px;
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-}
-
-#queue,
-#server {
-  flex: none;
-}
-
-#server {
-  opacity: 0.75;
-}
-
-#status {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* ---- network access ---- */
-
-.row.access {
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-#public-toggle {
-  flex: none;
-  min-width: 130px;
-}
-
-/* Public binding is a state worth noticing at a glance. */
-#public-toggle.is-public {
-  background: #d8b25a;
-  border-color: transparent;
-  color: #191505;
-  font-weight: 600;
-}
-
-#public-toggle:disabled {
-  opacity: 0.45;
-}
-
-#access-detail {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* ---- compose ---- */
-
-.segmented {
-  display: flex;
-  gap: 2px;
-  flex: none;
-  border: 1px solid var(--edge);
-  border-radius: 5px;
-  padding: 2px;
-}
-
-.chip {
-  border: 0;
-  background: transparent;
-  color: var(--muted);
-  font: inherit;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  font-size: 11px;
-  padding: 4px 10px;
-  border-radius: 3px;
-  cursor: pointer;
-}
-
-.chip.is-on {
-  background: var(--ink);
-  color: #101012;
-}
-
-.row.options {
-  gap: 14px;
-  padding: 8px 10px;
-  border: 1px solid var(--edge);
-  border-radius: 5px;
-}
-
-/* ---- band cards ---- */
-
-#queues {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.band {
-  border: 1px solid var(--edge);
-  border-radius: 5px;
-  overflow: hidden;
-}
-
-.band.is-target {
-  border-color: rgba(236, 231, 221, 0.32);
-}
-
-.band-head {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  padding: 7px 10px;
-}
-
-.band-name {
-  border: 0;
-  background: transparent;
-  color: var(--ink);
-  font: inherit;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  font-size: 11px;
-  padding: 0;
-  cursor: pointer;
-  flex: none;
-}
-
-.band-rows {
-  flex: none;
-  font-size: 11px;
-}
-
-/* The one part that can be long, so it is the one part allowed to give. */
-.band-now {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.band-now.is-held {
-  color: var(--muted);
-}
-
-.band-count,
-.band-actions {
-  flex: none;
-}
-
-.band-actions {
-  display: flex;
-  gap: 6px;
-}
-
-.band-actions button {
-  padding: 3px 9px;
-  font-size: 11px;
-}
-
-.band-queue {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  border-top: 1px solid var(--edge);
-  /* Roughly six rows, then it scrolls inside the card rather than pushing the
-     rest of the panel - and the window - around. */
-  max-height: 132px;
-  overflow-y: auto;
-}
-
-/* A band holding a standing line costs one header row, nothing more. */
-.band-queue:empty {
-  display: none;
-}
-
-.band-queue li {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  padding: 4px 10px;
-  counter-increment: queue;
-}
-
-.band-queue li::before {
-  content: counter(queue);
-  color: var(--muted);
-  font-size: 10px;
-  flex: none;
-  min-width: 12px;
-}
-
-.band-queue {
-  counter-reset: queue;
-}
-
-.qtext {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  text-transform: uppercase;
-}
-
-.qmeta {
-  flex: none;
-  font-size: 10px;
-  letter-spacing: 0.06em;
-}
-
-/* ---- disclosures ---- */
-
-details.section {
-  border-top: 1px solid var(--edge);
-  padding-top: 8px;
-}
-
-details.section > summary {
-  list-style: none;
-  cursor: pointer;
-  color: var(--muted);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  font-size: 10px;
-  padding-bottom: 2px;
-}
-
-details.section > summary::-webkit-details-marker {
-  display: none;
-}
-
-details.section > summary::before {
-  content: '▸ ';
-}
-
-details.section[open] > summary::before {
-  content: '▾ ';
-}
-
 details.section > .row {
   padding-top: 10px;
 }
@@ -697,32 +461,6 @@ main.landing .error {
 main.landing a:not([class*='ui-btn']) {
   color: var(--ink);
 }
-
-/* Links that dress as buttons on server-rendered pages. */
-a.button {
-  font: inherit;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--ink);
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--edge);
-  border-radius: 4px;
-  padding: 7px 14px;
-  text-decoration: none;
-  display: inline-block;
-}
-
-a.button:hover {
-  background: rgba(255, 255, 255, 0.12);
-}
-
-a.button.primary {
-  background: var(--accent);
-  color: #101012;
-  border-color: transparent;
-  font-weight: 600;
-}
-
 
 /* ---- settings page ---- */
 
@@ -887,15 +625,6 @@ a.button.primary {
   letter-spacing: var(--track-label);
 }
 
-.dash-empty {
-  margin: auto;
-  text-align: center;
-  max-width: 420px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
 .board-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
@@ -931,7 +660,6 @@ a.button.primary {
   white-space: nowrap;
 }
 
-.board-card-slug,
 .board-card-meta {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1258,41 +986,6 @@ a.button.primary {
   padding: 6px 14px;
   border-left: 2px solid #d8b25a;
   color: var(--muted);
-}
-
-/* ---- queue mode & sharing ---- */
-
-.mode-toggle {
-  display: flex;
-  gap: 2px;
-  border: 1px solid var(--edge);
-  border-radius: 5px;
-  padding: 2px;
-}
-
-.mode-toggle button {
-  border: 0;
-  background: transparent;
-  color: var(--muted);
-  border-radius: 3px;
-}
-
-.mode-toggle button.is-on {
-  background: var(--ink);
-  color: #101012;
-}
-
-.attach-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  align-self: stretch;
-  padding: 4px 0;
-}
-
-.landing-hero {
-  margin-bottom: 6px;
 }
 
 /* ---- /new: the rails ---- */
@@ -1901,6 +1594,12 @@ a.button.primary {
   font: 400 11px / 1.6 var(--font-mono);
   color: var(--muted);
   letter-spacing: 0.02em;
+}
+
+.site-footer-company {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .site-footer-links {

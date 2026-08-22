@@ -12,12 +12,9 @@
     "app/**",
     "components/**",
     "hooks/**",
-    "lib/**",
     "tools/**",
-    "tests/**"
-  ],
-  "ignore": [
-    "attic/**",
-    ".next/**"
+    "tests/**",
+    "lib/**",
+    "!lib/**/*.d.mts"
   ]
 }

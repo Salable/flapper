@@ -18,6 +18,16 @@ commits straight to main; move items down the lists as they move.
 - [ ] Not walked yet: the Display tab's layout picker as a first-timer; the
       desktop kiosk shell against a fresh account. (Dashboard and settings
       at phone width: walked 21 Aug - the AppBar now wraps.)
+
+- [ ] From the 22 Aug production walk, not yet fixed: a template's default
+      board name ("Carrow Road") is prefilled, so creating the same template
+      twice makes twins with nothing on the dashboard to tell them apart.
+      Ask: placeholder rather than value, or a created date on the card.
+
+- [ ] The production walk stopped at the realtime quota (Upstash free tier,
+      see AGENTS.md "Change the cloud"). The app now degrades cleanly (#9),
+      but the display-side steps - post, watch the wall re-skin - have not
+      been walked on production since. Walk them once the plan changes.
 - [x] The prod "Connected" list: walked 21 Aug with Neal's login. It showed
       nothing while Claude still had access (consent deleted, refresh token
       alive - the pre-watermark disconnect). Connections now list live

@@ -30,12 +30,18 @@ an extension point with a written contract (`docs/BOARD-TYPES.md`).
 | Access | public; signed-in users are redirected to `/dashboard` |
 | Job | pitch + route to signup/login |
 
-Tile-styled FLAPPER wordmark (the MiniBoard component, animated flap-in),
-pitch, **Create account** / **Sign in** CTAs.
+The FLAPPER wordmark on the real engine (`Flapper`, with `MiniBoard` as its
+server-rendered stand-in), pitch, **Create account** / **Sign in** CTAs, and
+the site footer (company line + every legal document) that every product
+page carries — never the display.
 
 ### 2. Sign up / Sign in — `/signup`, `/login`
 
 Better Auth email+password, design-system fields, error states inline.
+Signup has two unticked, separate boxes: agreeing to the Terms and Privacy
+Notice (required) and marketing email (optional, purpose named). Both are
+recorded on the user with server-set timestamps — the consent record PECR
+asks for (SPEC.md "Launch readiness").
 
 ### 3. Dashboard — `/dashboard`
 
@@ -44,10 +50,12 @@ Better Auth email+password, design-system fields, error states inline.
 | Access | signed-in |
 | Job | the fleet at a glance; create and open boards |
 
-Board cards show a live dot (display connected), what the glass is showing,
-and chips for **type**, **private**, and **paused**. Clicking a card opens
-its **Settings** (the control room); *Open display* is the explicit action.
-**New board** goes to `/new`.
+A board card is its name, its type, and three doors — **Settings**, **Open
+display** (a new tab: a display is for another screen), **Delete**. Nothing
+about a board's live state is here; that is the settings page's job, and the
+dashboard asks the broker nothing. Below the boards, under a **Connections**
+heading: the assistant connector, the REST contract, the docs. **New board**
+goes to `/new`.
 
 ### 4. Create — `/new`, the rails
 
@@ -74,8 +82,10 @@ buttons appear on hover for mouse users; touch swipes.
 Three tabs; the AppBar shows the slug, the type chip, and a paused chip when
 deactivated.
 
-- **Queue** — per-type. Live: compose (priority, hold, loop) + the rolling
-  list with reorder/edit/loop/remove, flush, clear. Scheduled: the schedule
+- **Queue** — per-type. Live: one block — the rolling list with
+  reorder/edit/loop/remove on top, **Add a message** (priority, hold, loop)
+  beneath it so what you add appears right above where you typed, flush and
+  clear last. Scheduled: the schedule
   editor — compose onto the clock (every N sec/min, hourly, daily, weekly,
   once; duration incl. "until next trigger"), a live next-3-occurrences
   preview running the real evaluator, the schedule list with next times and
@@ -110,19 +120,37 @@ fallback, never a dark gap. Keys: **F** fullscreen, **Esc** panic-blank
 stays silent until its first key or click, the kiosk shell does not). Paused/unknown-type boards show
 "BOARD PAUSED. SEE SETTINGS".
 
+### 6¼. Consent — `/consent`
+
+The OAuth consent screen an assistant lands a user on: which client wants
+in, what it gets (every board on the account), Allow / Deny. Deny says
+"nothing was connected" before following `access_denied`. Sign-in reached
+from a connector's redirect says who is asking (`AuthForm`'s `connecting`).
+
 ### 6½. Account — `/account` (signed in)
 
 Who you are and what is connected to you: profile (name, email, member
-since) and **Connected apps** — the OAuth clients that have signed in as
-you, each with Disconnect (access ends on the client's next request, via
-the revocation watermark in `lib/api/revocations.mjs`). Reached from your
-name in the AppBar (`UserMenu`). Billing and tier land here when they
-exist; the dashboard's connect column only glances at this list.
+since), **Connected apps** — the OAuth clients that have signed in as you,
+each with Disconnect (access ends on the client's next request, via the
+revocation watermark in `lib/api/revocations.mjs`) — and **Privacy & data**:
+the marketing preference as one switch (withdrawal is one click, the
+timestamp moves server-side), and data export / account deletion as
+explicit placeholders until the real paths exist. Reached from your name in
+the AppBar (`UserMenu`). Billing and tier land here when they exist.
 
-### 7. Docs — `/docs`, `/docs/{slug}`
+### 7. Legal — `/legal`, `/legal/{slug}`
+
+Public. Terms of Service · Privacy Notice · Cookie Policy · Desktop App
+Licence · Company Details, rendered from `docs/legal/*.md` through the
+registry in `lib/legal/documents.mjs`. A document whose `status` is still
+`placeholder` carries an amber banner and `[[PLACEHOLDER: …]]` markers for
+what is missing; flipping it to `published` is how it goes live. There is no
+cookie banner by design — only strictly-necessary cookies are set.
+
+### 8. Docs — `/docs`, `/docs/{slug}`
 
 Getting started · Queues & board types · Authoring board types · Design
-system · Board API. The per-board agent guide is served live at
+system · Architecture · Board API. The per-board agent guide is served live at
 `GET /api/b/{slug}/AGENTS.md` with the board's URLs baked in, **speaking the
 board's type** (a clock board's copy documents schedules and has no
 priority table).
@@ -140,13 +168,17 @@ priority table).
   or unknown type pauses that board, never the app.
 - **Deactivation**: pause + JSON export, never deletion — the future
   Salable gating story hangs off `boards.status`.
-- **Cleanup certainty**: knip runs in CI (dead files/exports/deps fail the
-  build); removed 3.0 machinery lives in `attic/` with a documented
-  README; removed routes answer **410** with a pointer.
+- **Cleanup certainty**: knip and `tsc --noEmit` run in CI (dead
+  files/exports/deps and type errors fail the build); removed 3.0 machinery
+  lives in `attic/` with a documented README; removed routes answer **410**
+  with a pointer.
+- **Degrades, never breaks**: when the realtime service (Redis) is down or
+  over quota, writes still save, `/health` says `realtime: "unavailable"`,
+  and displays hold their stream open and catch up — nothing shows a
+  provider's error text.
 
 ## Known seams (deliberate)
 
 - Bands/regions and multi-section layouts: deferred (the layout picker is
   built to grow into N regions).
-- Custom per-board media/skins: future work alongside Salable gating.
 - `user.tier` column is dormant, documented in the schema.

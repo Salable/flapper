@@ -1,6 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import type { ThemePack } from '@/lib/board/theme-pack.mjs';
 
 // The board draws to a canvas from live data; there is nothing for the server
 // to prerender.
@@ -13,7 +14,7 @@ export function BoardPageClient(props: {
   apiBase: string;
   boardKey: string | null;
   displayToken: string;
-  initialTheme: { rev: string; pack: any };
+  initialTheme: { rev: string; pack: ThemePack };
 }) {
   return <BoardApp {...props} />;
 }

@@ -27,6 +27,10 @@ or ChatGPT, or over a REST API from anywhere.
   `/api/b/{slug}/AGENTS.md` with the board's URLs baked in
 - **One API key per board** — shown and regenerable in settings; every write
   needs it
+- **A look of its own per board** — start from Classic or Canary, change the
+  palette, the type, the hinge, the motion, give any character its own ink
+  or an uploaded mark, on a live board in Settings → Display → Theme; saved
+  as the difference from the preset and drawn the same on every display
 - **An MCP server built in** — add `/api/mcp` as a connector in claude.ai,
   Claude Desktop, Claude Code, or ChatGPT and sign in; the agent can list,
   create, and drive your boards. A single board connects with its key alone.
@@ -66,7 +70,7 @@ There is no asset build: the tiles are drawn live from a theme pack, so a
 new look is a JSON edit — see [Making it your own](AGENTS.md#making-it-your-own).
 
 ```bash
-npm test             # ~230 tests, a few seconds, no browser needed
+npm test             # ~320 tests, a few seconds, no browser needed
 npm run db:generate  # after editing lib/db/schema.mjs: new SQL migration
 ```
 
@@ -147,7 +151,8 @@ it to the wall. `npm run pack` builds a universal macOS .app.
 The engine is framework-free: one canvas, one integer and a fraction per
 tile, a skin that paints a theme pack's cards and draws the flap between
 them, and an animation loop that stops completely when every tile has
-landed. Around it:
+landed. Around it ([docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) is the full
+map - frameworks, flows, data, delivery):
 
 - `lib/board/` — the engine and its pure logic (layout, timing, regions,
   queues), all unit-tested under `node --test`

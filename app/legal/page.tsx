@@ -1,4 +1,5 @@
 import { AppBar } from '@/components/AppBar';
+import { LinkButton } from '@/components/ui/Button';
 import { SiteFooter } from '@/components/SiteFooter';
 import { LEGAL_DOCUMENTS } from '@/lib/legal/documents.mjs';
 
@@ -7,7 +8,7 @@ export const metadata = { title: 'Legal — Flapper' };
 export default function LegalIndex() {
   return (
     <div className="app-shell">
-      <AppBar right={<a className="button" href="/">Home</a>} />
+      <AppBar right={<LinkButton href="/">Home</LinkButton>} />
       <main className="dash docs">
         <h2 className="dash-title">Legal</h2>
         <div className="boards">

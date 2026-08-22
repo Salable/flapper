@@ -10,6 +10,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Flipboard } from '@/lib/board/flipboard.js';
 import { loadProcedural } from '@/components/flapper/assets';
+import type { ThemePack } from '@/lib/board/theme-pack.mjs';
 import { Button } from '@/components/ui/Button';
 
 const DEBOUNCE_MS = 120;
@@ -21,7 +22,7 @@ export function ThemePreview({
   rows = 3,
   tilePx = 56,
 }: {
-  pack: any;
+  pack: ThemePack;
   text: string;
   cols?: number;
   rows?: number;
