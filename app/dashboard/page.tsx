@@ -30,8 +30,14 @@ export default async function DashboardPage() {
   // The live signal per card: is a display connected, and what is on the glass.
   const rows = await Promise.all(
     boards.map(async (board: any) => {
-      // A broker hiccup costs a card its live dot, not the page its boards.
-      const state = await broker.getState(board.id).catch(() => null);
+      // A broker outage costs a card its live dot, not the page its boards -
+      // and the card says so, rather than claiming nothing is connected.
+      let realtime = 'ok';
+      const state = await broker.getState(board.id).catch((error: any) => {
+        realtime = 'unavailable';
+        console.error(`flapper: realtime unavailable - ${error?.cause?.message ?? error?.message}`);
+        return null;
+      });
       // The same rule /status applies, so the card and the API never disagree.
       const { boardReady: connected, frozen } = displayHealth(state);
       const line =
@@ -42,6 +48,7 @@ export default async function DashboardPage() {
         name: board.name,
         type: board.type,
         status: board.status,
+        realtime,
         private: board.private,
         createdAt: board.createdAt.getTime(),
         connected,

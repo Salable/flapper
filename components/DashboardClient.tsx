@@ -21,6 +21,8 @@ type BoardRow = {
   connected: boolean;
   /** Connected, but its tab is hidden or its renderer has stopped drawing. */
   frozen: boolean;
+  /** "ok", or "unavailable" when the service that relays display state is down. */
+  realtime?: string;
   showing: string | null;
 };
 
@@ -149,13 +151,15 @@ export function DashboardClient({
                       {board.status !== 'active' && <Chip tone="danger">paused</Chip>}
                     </span>
                     <span className="board-card-meta muted">
-                      {board.frozen
-                        ? 'frozen · display tab is in the background'
-                        : board.connected
-                          ? board.showing
-                            ? `showing ${board.showing}`
-                            : 'connected · blank'
-                          : 'no display connected'}
+                      {board.realtime === 'unavailable'
+                        ? 'realtime service unavailable · displays will catch up'
+                        : board.frozen
+                          ? 'frozen · display tab is in the background'
+                          : board.connected
+                            ? board.showing
+                              ? `showing ${board.showing}`
+                              : 'connected · blank'
+                            : 'no display connected'}
                     </span>
                   </a>
                   <div className="board-card-actions">

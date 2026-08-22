@@ -271,6 +271,24 @@ implementation, a memory fake. Swapping Upstash for something else — or the
 stream-poll SSE for a push transport — touches nothing outside that directory
 and the two stream handlers in `lib/api/handlers.mjs`.
 
+**The realtime bill is a polling bill.** Vercel functions cannot hold a
+Redis subscription, so every display is a loop of REST commands: the
+command stream polls `XRANGE` (750 ms while something is happening, 8 s
+once idle), the display heartbeats its state every 5 s (`SET`), and each
+5-minute stream reconnect touches the keys. One display running all day is
+roughly 30k commands, so a wall that never sleeps is ~900k a month —
+Upstash's free tier (500k) lasts about a fortnight. The numbers that set
+this are `idleDelayMs`/`pollMs` in the stream handlers and `HEARTBEAT_MS`
+in `hooks/useStatePublisher.ts`; the alternative is a push transport.
+
+When Redis is down or over quota the app degrades rather than breaks:
+`RedisBroker` turns every failure into a 503 that reads as a sentence (the
+provider's text goes to the log), writes still succeed and log a skipped
+nudge, `/health` answers `realtime: "unavailable"`, the dashboard says so,
+and the streams hold their connection with 20 s heartbeats instead of
+letting displays reconnect in a loop - which is what turns an over-quota
+service into a more over-quota service.
+
 ### Drive it from something else
 
 A feed, a build status, a now-playing hook — all `POST .../message` with the
