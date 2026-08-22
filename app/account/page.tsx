@@ -19,6 +19,7 @@ export default async function AccountPage() {
         name: session.user.name || '',
         email: session.user.email,
         createdAt: new Date(session.user.createdAt).getTime(),
+        marketingConsent: Boolean((session.user as { marketingConsent?: boolean }).marketingConsent),
       }}
     />
   );

@@ -138,6 +138,36 @@ function makeAuth(db: unknown) {
   return betterAuth({
     database: drizzleAdapter(db as never, { provider: 'pg', schema }),
     emailAndPassword: { enabled: true },
+    user: {
+      additionalFields: {
+        // The consent record: written at signup, the marketing flag editable
+        // from Account. Timestamps are set server-side from the flags in the
+        // databaseHooks below so a client cannot backdate a consent.
+        marketingConsent: { type: 'boolean', required: false, defaultValue: false, input: true },
+        marketingConsentAt: { type: 'date', required: false, input: false },
+        termsVersion: { type: 'string', required: false, input: true },
+        termsAcceptedAt: { type: 'date', required: false, input: false },
+      },
+    },
+    databaseHooks: {
+      user: {
+        create: {
+          before: async (user: any) => ({
+            data: {
+              ...user,
+              termsAcceptedAt: user.termsVersion ? new Date() : null,
+              marketingConsentAt: user.marketingConsent ? new Date() : null,
+            },
+          }),
+        },
+        update: {
+          before: async (data: any) => {
+            if (typeof data.marketingConsent !== 'boolean') return { data };
+            return { data: { ...data, marketingConsentAt: data.marketingConsent ? new Date() : null } };
+          },
+        },
+      },
+    },
     secret: secret ?? 'flapper-dev-secret-do-not-deploy',
     baseURL: publicBaseUrl(),
     // The generic /token path would shadow /oauth2/token.

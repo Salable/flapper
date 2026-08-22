@@ -367,3 +367,95 @@ Recorded because it should survive the next refactor.
    and is the vertical tab menu the *same* column as the board details (one
    sidebar, nav on top of details) or a separate one (nav left, details right,
    panel centre)? The second is heavier but keeps details visible on every tab.
+---
+
+## Launch readiness — legal and compliance for a UK website
+
+*Research and design, 22 Aug 2026. Nothing here is legal advice; it is what
+the product needs in place, in the shape it needs it, so that a solicitor (or
+a careful founder) can fill the text in rather than design the plumbing. Every
+placeholder the app ships is marked `[[PLACEHOLDER: …]]` in the document and
+carries a visible banner on the page until its `status` in
+`lib/legal/documents.mjs` is flipped to `published`.*
+
+### What applies, and why
+
+| Regime | What it asks of Flapper | Where it lands |
+|---|---|---|
+| **UK GDPR / Data Protection Act 2018** | A privacy notice at the point of collection; a lawful basis per purpose (contract for the account, legitimate interest for security logs, **consent** for marketing); a record of processing; named processors and where they are; international-transfer safeguards (Vercel, Neon, Upstash are US companies → UK IDTA / Addendum, or the UK–US Data Bridge where certified); retention periods; the rights (access, rectification, erasure, portability, objection) and how to exercise them; breach handling (72 h to the ICO); data-protection fee paid to the ICO unless exempt. | `docs/legal/privacy.md`; Account → *Privacy & data*; the consent columns below |
+| **PECR 2003 (as amended, incl. DUAA 2025)** | Electronic marketing to individuals needs **consent**: an unticked box, separate from the terms, naming who will contact them and about what, withdrawable as easily as it was given, and *recorded*. The soft opt-in does not apply at signup (no sale). Cookies: strictly-necessary ones are exempt from consent; anything else (analytics, A/B, ads) needs opt-in *before* it is set, with Reject as prominent as Accept. | Signup checkbox + `user.marketingConsent*`; `docs/legal/cookies.md` — **Flapper sets only strictly-necessary cookies today (the session and OAuth state), so no banner is required. Adding analytics changes that.** |
+| **Companies Act 2006 / Trading Disclosures Regs 2008 / E-Commerce Regs 2002** | Registered name, company number, place of registration, registered office, and a contact email (a geographic address too) on the site, easily found. VAT number if registered. | `components/SiteFooter.tsx` + `docs/legal/company.md` |
+| **Consumer Rights Act 2015 / Consumer Contracts Regs 2013** | Only once something is sold: pre-contract information, 14-day cancellation for digital services (with the express-consent-to-start carve-out), clear pricing, confirmation. Today Flapper sells nothing; the Terms say so and reserve the section. | `docs/legal/terms.md` §Payment (reserved) |
+| **Equality Act 2010** | Reasonable adjustments for disabled users — not a website standard in law for a private company, but WCAG 2.1 AA is the defensible bar, and SPEC §7 already tracks it. | SPEC §7 |
+| **Online Safety Act 2023** | Probably out of scope: boards show content their owner chooses, there is no user-to-user service. *Decision for counsel*: a public board URL that anyone can view is "published", not "shared between users". | `docs/legal/terms.md` §Acceptable use |
+| **Desktop app** | An EULA for the Electron kiosk (licence, no warranty, updates, telemetry = none), surfaced in the release notes and on first run. | `docs/legal/eula.md`; release notes |
+
+Sources consulted: ICO guidance on direct marketing by electronic mail and on
+PECR cookies (2025 update), the Data (Use and Access) Act 2025 changes to PECR
+enforcement (fines now up to £17.5 m / 4 %), HWB's and Influx's UK website
+requirement guides, and the Crunch summary of the E-Commerce Regulations.
+
+### The documents
+
+| Slug | Title | Status | Needs from Neal before it can be written |
+|---|---|---|---|
+| `terms` | Terms of Service | placeholder | legal entity; governing law (England & Wales); whether boards may be used commercially; uptime promise (none); liability cap; age (18+ proposed) |
+| `privacy` | Privacy Notice | placeholder | controller identity and contact; DPO or privacy contact email; ICO registration number; processor list confirmed (Vercel, Neon, Upstash; any email provider); transfer mechanism per processor; retention periods (proposal: account until deleted, board state 30 days after last touch — the broker TTL already does this, logs 90 days) |
+| `cookies` | Cookie Policy | placeholder | confirm no analytics; name the cookies (`better-auth.session_token`, OAuth state) with lifetimes |
+| `eula` | Desktop App Licence | placeholder | licence terms for the kiosk; whether the app may be redistributed |
+| `company` | Company Details | placeholder | registered name, number, place, registered office, contact email, VAT number (if any) |
+
+Each file has the *headings* the finished document needs, with the text of
+each section either written (where the product already decides it — what
+cookies exist, what data a board stores) or a `[[PLACEHOLDER: …]]` naming
+exactly what is missing.
+
+### What the app does now (implemented with the placeholders)
+
+1. **`/legal/{slug}`** — public pages rendering `docs/legal/*.md` with a
+   placeholder banner while `status` is `placeholder`; `/legal` lists them.
+2. **Site footer** (`SiteFooter`) on the landing, auth, dashboard, account and
+   docs pages — not the display: company line + Terms · Privacy · Cookies ·
+   Desktop licence · Company details. The display is wall glass and stays bare.
+3. **Signup** has two boxes, both unticked: *I agree to the Terms of Service
+   and Privacy Notice* (required to submit; links open in a new tab) and
+   *Email me about new features — you can unsubscribe any time* (optional,
+   separate, names the purpose). Both are stored on the user:
+   `termsAcceptedAt`, `termsVersion`, `marketingConsent`, `marketingConsentAt`
+   — the record PECR asks for. The terms version is the registry's `version`,
+   so a future change to the Terms can prompt re-acceptance.
+4. **Account → Privacy & data**: the marketing preference as a switch (writes
+   `marketingConsent` + timestamp both ways — withdrawal is one click, as the
+   ICO wants), and *Download your data* / *Delete your account* as explicit
+   placeholders that open a mail to the privacy contact until the real paths
+   exist.
+5. **No cookie banner**, by design, documented in the cookie policy. The
+   contract test in `tests/legal.test.mjs` asserts the registry and files
+   agree and that every placeholder document still says so.
+
+### To do later — in this order
+
+1. **Inputs** (Neal): the table above, plus a decision on the legal entity
+   that is the data controller and the contact address for privacy requests.
+2. **Write the five documents**, flip each `status` to `published` and set
+   `effectiveDate`; the banners disappear and the footer shows the date.
+3. **ICO**: pay the data-protection fee (or record the exemption); keep a
+   one-page record of processing (purposes, data, processors, retention,
+   transfers) — `docs/legal/privacy.md` §Annex is its skeleton.
+4. **Processors**: sign/collect DPAs — Vercel, Neon, Upstash each publish
+   one; record the transfer mechanism each relies on.
+5. **Data subject rights, for real**: account deletion that cascades boards,
+   keys, sessions, connections (Better Auth's `deleteUser` plus our tables);
+   a data export (boards + config + queue as JSON — `export_queue` already
+   exists per board). Replace the two placeholders in Account.
+6. **Retention job**: boards/queues for deleted accounts; broker keys already
+   expire after 30 days.
+7. **Email**: the first time the app sends any email (verification, marketing)
+   it needs a provider, an unsubscribe link in every marketing message, and
+   the consent check before sending.
+8. **Desktop**: show the EULA on first run of the kiosk; link it from the
+   release notes (`.github/workflows/release.yml`).
+9. **Accessibility statement** (optional for a private company, good
+   practice): a short page under `/legal/accessibility` once SPEC §7 is done.
+10. **If anything is ever sold**: the Consumer Contracts Regs section of the
+    Terms, pricing page, order confirmation, cancellation flow.

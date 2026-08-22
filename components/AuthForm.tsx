@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { authClient, signIn, signUp } from '@/lib/auth-client';
+import { TERMS_VERSION } from '@/lib/legal/documents.mjs';
 
 export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
   const params = useSearchParams();
@@ -30,6 +31,11 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  // Two boxes, both unticked, both separate: agreeing to the terms is the
+  // price of an account; marketing is a choice, named for what it is, and
+  // never bundled with the first (PECR / UK GDPR consent).
+  const [agreed, setAgreed] = useState(false);
+  const [marketing, setMarketing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -37,9 +43,21 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
     event.preventDefault();
     setBusy(true);
     setError('');
+    if (mode === 'signup' && !agreed) {
+      setError('Please agree to the Terms of Service and Privacy Notice to create an account.');
+      setBusy(false);
+      return;
+    }
     const result =
       mode === 'signup'
-        ? await signUp.email({ name: name || email.split('@')[0], email, password })
+        ? await signUp.email({
+            name: name || email.split('@')[0],
+            email,
+            password,
+            // Recorded on the user with server-set timestamps (lib/auth.ts).
+            termsVersion: TERMS_VERSION,
+            marketingConsent: marketing,
+          } as any)
         : await signIn.email({ email, password });
     if (result.error) {
       setError(result.error.message ?? 'Something went wrong.');
@@ -100,6 +118,28 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
           autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
         />
       </div>
+      {mode === 'signup' && (
+        <>
+          <label className="consent">
+            <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} required />
+            <span>
+              I agree to the{' '}
+              <a href="/legal/terms" target="_blank" rel="noopener">
+                Terms of Service
+              </a>{' '}
+              and{' '}
+              <a href="/legal/privacy" target="_blank" rel="noopener">
+                Privacy Notice
+              </a>
+              .
+            </span>
+          </label>
+          <label className="consent">
+            <input type="checkbox" checked={marketing} onChange={(e) => setMarketing(e.target.checked)} />
+            <span>Email me about new Flapper features and tips. Optional — you can unsubscribe any time.</span>
+          </label>
+        </>
+      )}
       {error !== '' && <p className="error">{error}</p>}
       <button className="primary wide" disabled={busy}>
         {busy ? '…' : mode === 'signup' ? 'Create account' : 'Sign in'}

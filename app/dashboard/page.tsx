@@ -3,9 +3,7 @@ import { redirect } from 'next/navigation';
 import { sessionFromHeaders } from '@/lib/auth';
 import { getDb } from '@/lib/db/client.mjs';
 import { listByOwner } from '@/lib/db/boards.mjs';
-import { getBroker } from '@/lib/broker/index.mjs';
 import { BOARD_TYPES } from '@/lib/board-types/index.mjs';
-import { displayHealth } from '@/lib/api/liveness.mjs';
 import { DashboardClient } from '@/components/DashboardClient';
 
 export const dynamic = 'force-dynamic';
@@ -15,7 +13,6 @@ export default async function DashboardPage() {
   if (!session) redirect('/login?next=/dashboard');
 
   const db = await getDb();
-  const broker = getBroker();
   // A failed load is its own state on the page ("we couldn't load your
   // boards", with a retry), never an empty list dressed as onboarding.
   let boards: any[] = [];
@@ -27,36 +24,17 @@ export default async function DashboardPage() {
     loadError = true;
   }
 
-  // The live signal per card: is a display connected, and what is on the glass.
-  const rows = await Promise.all(
-    boards.map(async (board: any) => {
-      // A broker outage costs a card its live dot, not the page its boards -
-      // and the card says so, rather than claiming nothing is connected.
-      let realtime = 'ok';
-      const state = await broker.getState(board.id).catch((error: any) => {
-        realtime = 'unavailable';
-        console.error(`flapper: realtime unavailable - ${error?.cause?.message ?? error?.message}`);
-        return null;
-      });
-      // The same rule /status applies, so the card and the API never disagree.
-      const { boardReady: connected, frozen } = displayHealth(state);
-      const line =
-        state?.snapshot?.lines?.find((entry: string) => entry.trim() !== '')?.trim() ?? null;
-      return {
-        id: board.id,
-        slug: board.slug,
-        name: board.name,
-        type: board.type,
-        status: board.status,
-        realtime,
-        private: board.private,
-        createdAt: board.createdAt.getTime(),
-        connected,
-        frozen,
-        showing: connected ? line : null,
-      };
-    }),
-  );
+  // A card is a name, a type and three doors; the live state of a display is
+  // the settings page's business, so the dashboard asks the broker nothing.
+  const rows = boards.map((board: any) => ({
+    id: board.id,
+    slug: board.slug,
+    name: board.name,
+    type: board.type,
+    status: board.status,
+    private: board.private,
+    createdAt: board.createdAt.getTime(),
+  }));
 
   const types = [...BOARD_TYPES.values()].map((type: any) => ({
     id: type.id,

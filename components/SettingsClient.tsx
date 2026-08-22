@@ -325,7 +325,9 @@ export function SettingsClient({ board: initial }: { board: Board }) {
             {/* Identity lives in the sidebar; paused is live status, and a
                 paused board plays nothing, so it stays in view up here too. */}
             {board.status !== 'active' && <Chip tone="danger">paused</Chip>}
-            <LinkButton href={boardUrl}>Open display</LinkButton>
+            <LinkButton href={boardUrl} target="_blank" rel="noopener">
+              Open display
+            </LinkButton>
             <LinkButton href="/dashboard">Dashboard</LinkButton>
           </>
         }

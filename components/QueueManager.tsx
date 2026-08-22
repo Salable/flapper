@@ -119,64 +119,6 @@ export function QueueManager({ slug }: { slug: string }) {
     <>
       {dialog}
       <section className="settings-block">
-        <h2>Compose</h2>
-        <div className="field">
-          <label htmlFor="compose-text">Message</label>
-          <input
-            id="compose-text"
-            type="text"
-            placeholder="Type a message — Enter to queue it"
-            autoComplete="off"
-            spellCheck={false}
-            value={text}
-            onChange={(event) => setText(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') send();
-            }}
-          />
-        </div>
-        <div className="compose-options">
-          <div className="field">
-            <label htmlFor="compose-priority">Priority</label>
-            <select id="compose-priority" value={priority} onChange={(e) => setPriority(e.target.value)}>
-              <option value="normal">Queue it</option>
-              <option value="next">Play next</option>
-              <option value="now">Play now</option>
-            </select>
-          </div>
-          <div className="field">
-            <label htmlFor="compose-hold">Hold</label>
-            <select id="compose-hold" value={holdMs} onChange={(e) => setHoldMs(e.target.value)}>
-              <option value="">Board default</option>
-              <option value="1000">1s</option>
-              <option value="2000">2s</option>
-              <option value="5000">5s</option>
-              <option value="10000">10s</option>
-              <option value="30000">30s</option>
-            </select>
-          </div>
-          <div className="field checkbox">
-            <label htmlFor="compose-loop">
-              <input
-                id="compose-loop"
-                type="checkbox"
-                checked={loop}
-                onChange={(e) => setLoop(e.target.checked)}
-              />{' '}
-              Loop
-            </label>
-          </div>
-          <button className="primary" onClick={send}>
-            Add to queue
-          </button>
-        </div>
-        <span className="muted">
-          Loop sends a played message to the back of the queue instead of removing it. A band&apos;s
-          only exit from a loop is removing the item or clearing.
-        </span>
-      </section>
-
-      <section className="settings-block">
         <h2>Queue</h2>
         {error !== '' && <p className="error">{error}</p>}
         {items.length === 0 ? (
@@ -191,7 +133,7 @@ export function QueueManager({ slug }: { slug: string }) {
               <li key={item.id} className={item.id === playingId ? 'is-playing' : ''}>
                 {editing?.id === item.id ? (
                   <input
-                    className="queue-edit"
+                    className="queue-edit as-board"
                     type="text"
                     autoFocus
                     value={editing.text}
@@ -245,6 +187,63 @@ export function QueueManager({ slug }: { slug: string }) {
             ))}
           </ol>
         )}
+        <div className="compose" aria-label="Add a message">
+          <div className="field">
+            <label htmlFor="compose-text">Add a message</label>
+            <input
+              id="compose-text"
+              className="as-board"
+              type="text"
+              placeholder="Type a message — Enter to queue it"
+              autoComplete="off"
+              spellCheck={false}
+              value={text}
+              onChange={(event) => setText(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') send();
+              }}
+            />
+        </div>
+          <div className="compose-options">
+            <div className="field">
+              <label htmlFor="compose-priority">Priority</label>
+              <select id="compose-priority" value={priority} onChange={(e) => setPriority(e.target.value)}>
+                <option value="normal">Queue it</option>
+                <option value="next">Play next</option>
+                <option value="now">Play now</option>
+              </select>
+            </div>
+            <div className="field">
+              <label htmlFor="compose-hold">Hold</label>
+              <select id="compose-hold" value={holdMs} onChange={(e) => setHoldMs(e.target.value)}>
+                <option value="">Board default</option>
+                <option value="1000">1s</option>
+                <option value="2000">2s</option>
+                <option value="5000">5s</option>
+                <option value="10000">10s</option>
+                <option value="30000">30s</option>
+              </select>
+            </div>
+            <div className="field checkbox">
+              <label htmlFor="compose-loop">
+                <input
+                  id="compose-loop"
+                  type="checkbox"
+                  checked={loop}
+                  onChange={(e) => setLoop(e.target.checked)}
+                />{' '}
+                Loop
+              </label>
+            </div>
+            <button className="primary" onClick={send}>
+              Add to queue
+            </button>
+        </div>
+          <span className="muted">
+            Loop sends a played message to the back of the queue instead of removing it. A band&apos;s
+            only exit from a loop is removing the item or clearing.
+          </span>
+        </div>
         <div className="actions">
           <button
             onClick={() => act(() => post('/queue', 'DELETE'))}
