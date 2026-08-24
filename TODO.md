@@ -1,0 +1,177 @@
+# TODO — the sheets and designs direction
+
+*Written 24 Aug 2026 on branch `claude/design-pass`, out of a working session on
+the control room. It records decisions that were made, not options that were
+considered, so that the building can be checked against something. Where a
+decision is still open it says who it belongs to.*
+
+Related: [SPEC.md](SPEC.md) is the older ask ledger (the layout-picker asks
+20–22 live there, and 20 and 21 are now done). This file is the newer direction
+and supersedes SPEC's assumption that a board is a queue you manage.
+
+---
+
+## The model, as decided
+
+**A board is a deck of sheets.** A sheet is one thing the board shows. Sheets
+*persist* — the board cycles Sheet 1 → 2 → 3 → 1 forever, and a board with one
+sheet is a standing sign. This is the queue's existing looping behaviour made
+the default rather than a per-message toggle, so `↻` stops being a row action
+and the two-line Loop paragraph goes away.
+
+**The tabs are the sheets.**
+
+```
+┌────────────────────────────────────────────────────┐
+│ FLAPPER      Carrow Road ⧉            [OPEN DISPLAY]│   logo = back
+├────────────────────────────────────────────────────┤
+│  SHEET 1 │ SHEET 2 │ API │ + ADD SHEET             │
+└────────────────────────────────────────────────────┘
+```
+
+Tab order is play order, reordered by dragging the tabs — which retires `↑` and
+`↓` from the row actions, leaving edit and remove.
+
+**A sheet has a source.** What the sheet shows comes from somewhere, and that
+somewhere is a property of the sheet, not a mode of the board:
+
+| Source | The words come from | State |
+| --- | --- | --- |
+| Typed | you, typing on the board | **done** — the preview is the typing panel |
+| Pushed | an agent posting to that sheet | close: one addressable slot per sheet over the existing queue |
+| Fetched | Flapper calling a URL | its own project — see Open questions |
+| Clock | the time, re-rendered as it ticks | parked, its own design |
+
+A board of typed sheets is manual. A board of one pushed sheet is what "driven
+by the API" means, and it needs no mode flag. A mixed board alternates, and
+per-sheet dwell is what makes "a minute of each" work — no new machinery.
+
+Because the source is per sheet, the `template` / `api` / `ui` tag on a queue
+row stops being needed: the sheet's own kind says where its words come from.
+
+**Designs are a library, in their own place.** Not a tab among the sheets,
+because a design is a thing you make once and apply to many sheets. Ten or so
+shipped, plus new ones. Two families, because the ink has to read against the
+card: dark tiles with bone ink, pastel tiles with black ink.
+
+**A sheet picks a design** — but from a small set per board, not freely. The
+renderer caches all 42 card faces as bitmaps (~11 MB at 256 px) and rebuilds
+them when the design changes. Rebuilding between every sheet, every cycle,
+would stall the flap on the kind of hardware a wall runs on. Holding several
+skins resident costs ~11 MB each, so the honest ceiling is three or four
+designs per board.
+
+**A tint is a colour per cell** — a wash across the grid. Stored as the formula
+(two colours and an angle) rather than the grid it produces, composited over
+each card at draw time so the card cache stays shared. `overlay` protects a pure
+black or pure white glyph, so the letters stay readable while the face takes the
+hue. Gradients, photographs and logos are all the same feature: whatever fills
+the `cols × rows` colour grid, the renderer cannot tell the difference.
+
+---
+
+## Work list
+
+### Done on this branch
+
+- [x] Split-screen design surface — sticky preview beside the controls (`c7ab43a`)
+- [x] Type directly on the preview board; "Put this on the board" sends it (`c7ab43a`)
+- [x] Screen shape as a board property; rows derived from cards across (`3add914`)
+- [x] The layout stage takes the screen's shape and shows the letterbox — SPEC ask 22 (`c7ab43a`)
+- [x] Keyboard and numeric readout on the layout picker — SPEC asks 20, 21 (`383e6f0`)
+- [x] Per-cell tint, gradients, and Sorbet as the first pastel design (`9f6b254`)
+- [x] Board card says Edit, not Settings (`9baf778`)
+
+### Next — the designer suite
+
+Building it is also how we find out what is still hard-coded. Known already:
+
+- [ ] **A tint editor.** Sorbet's gradient exists only as a literal in
+      `lib/board/themes.mjs`. Until there is a way to make one, "ten in the box
+      plus make more" means ten in the box. This is the strongest argument for
+      building the designer at all.
+- [ ] **The design gallery** — the shipped designs as live boards, in their own
+      place, openable and copyable into a new design.
+- [ ] **Eight more designs.** A design is validated data, not code, so these are
+      authoring. Split across the two ink families.
+- [ ] **`NewBoardClient.tsx:168` keys the poster on the string `'canary'`.**
+      Add a fourth design and its card silently renders in Classic's colours —
+      Sorbet's poster is wrong today and nothing noticed.
+- [ ] **`.poster.is-canary` (`board.css:1105`) restates the pack in CSS.** The
+      values match now but they are a copy and can drift again.
+- [ ] **The MiniBoard's tile face is Classic, baked into the design system.**
+      `ui.css:462` draws every CSS tile from `--tile-hi/mid/lo`, which are
+      Classic's three greys. So the wordmark, the dashboard cards and every
+      poster are Classic-shaped whatever design a board wears.
+
+### Then — sheets
+
+- [ ] Sheets replace the Queue tab; tabs are the deck; drag to reorder
+- [ ] Sheets persist and loop by default; retire `↻` and the Loop paragraph
+- [ ] Board name and copy-link into the app bar; the sidebar dissolves
+- [ ] One addressable slot per sheet, so a pushed sheet is a real source
+- [ ] Per-sheet design, capped at a few per board
+- [ ] Move queue size next to the sheets, out of General → Type settings
+- [ ] Decide where board admin lives once the tab bar is sheets (see below)
+
+### Bigger, each its own branch
+
+- [ ] **Square or slightly tall cards.** `drawTile(ctx, state, progress, x, y, size)`
+      is one `size` "filling the square", the card cache is `size²`, and every
+      pack metric is a fraction of that one edge — including the flap's own
+      vertical scaling. `rowsThatFit` already takes `cardAspect` and the test
+      covers it, so the geometry is ready; the skin contract is not.
+- [ ] **Photographs and logos on the board.** Draw the image into a
+      `cols × rows` canvas, read it back, feed the same tint grid. The browser
+      does the downsampling, which is exactly the roughness wanted. Small work
+      on top of what `9f6b254` already built.
+- [ ] **Fetched sheets.** Turns Flapper from a thing you push to into an HTTP
+      client: polling, credentials for other people's endpoints, response
+      mapping, timeouts, stale data, and a new outbound surface from the server.
+      Weeks, and its own decisions.
+- [ ] **A clock or countdown sheet.** The board-type contract already has a
+      `playback: 'clock'` machine with `itemAt()` — that is how Scheduled picks
+      the active message from the time. What is missing is a sheet whose
+      *content* is the time, re-rendered as it ticks. Parked as its own design.
+- [ ] **Movement.** A shape gliding and bouncing around the grid. As a moving
+      *tint* it is cheap and smooth — recompute the grid per frame, no tiles
+      flip. As moving *glyphs* it is bound by flap physics: a tile only advances
+      forward through 42 states, so it would be slow and clack constantly.
+      Note that the render loop currently stops when nothing is animating
+      (`flipboard.js` `stop()` / `isAnimating()`), so a continuous animation
+      means keeping it running — worth capping the rate on wall hardware.
+
+---
+
+## Open questions — yours
+
+1. **Where board admin lives** once the tab bar belongs to the sheets. Slug,
+   privacy, pause, export and delete need a home; a gear at the end of the tab
+   bar was the leading idea and was not settled. The API key is *not* part of
+   this — it belongs to the API sheet that uses it.
+2. **Designs on the account or on the board.** Account-level makes one Carrow
+   Road design reusable across every board, which is what a brand kit is for,
+   and needs a table and a migration. Board-level reuses today's sparse pack in
+   `config.themePack` and means rebuilding the same green tiles every time.
+3. **Pushed vs fetched** for "a sheet is an API call" — the first is about a
+   day's work on rails that exist, the second is a project. Both are worth
+   having; the first is worth having first either way, because a fetched sheet
+   is a pushed sheet where Flapper does the pushing.
+
+## Refused by design, not missing
+
+- **New states on the ring.** `theme-pack.mjs:96` — `ring cannot be changed by
+  a pack yet`. The ring is server-side and `/capabilities`, the substitution
+  table and every board's `AGENTS.md` derive from it, so changing it changes
+  what every connected agent is told. An API-contract decision before it is a
+  feature.
+
+## Corrections to assumptions made along the way
+
+- **There is no scrolling.** `SCROLL SPEED` in the display settings is the flap
+  step rate, not marquee text; `layout.mjs` has no scroll or marquee. Long text
+  becomes multiple *pages* shown in sequence.
+- **`Settings` is still what eight documents call the Edit screen.** The button
+  was renamed; GETTING-STARTED, QUEUES, SCREENS, BOARD-TYPES and others still
+  say "Settings → Queue". A sweep is owed, minus GETTING-STARTED's references
+  to *Claude's* settings.
