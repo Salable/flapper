@@ -86,12 +86,11 @@ the `cols × rows` colour grid, the renderer cannot tell the difference.
 
 ### Next — the designer suite
 
-Building it is also how we find out what is still hard-coded. Known already:
+Building it was also how we found what was still hard-coded. All four are now
+done; what remains is the gallery and the designs themselves.
 
-- [ ] **A tint editor.** Sorbet's gradient exists only as a literal in
-      `lib/board/themes.mjs`. Until there is a way to make one, "ten in the box
-      plus make more" means ten in the box. This is the strongest argument for
-      building the designer at all.
+- [x] **A tint editor** — the Wash group in the theme editor: none or gradient,
+      two stops, an angle, a strength, and how it applies (`8a01dae`).
 - [ ] **The design gallery** — the shipped designs as live boards, in their own
       place, openable and copyable into a new design.
 - [ ] **Eight more designs.** A design is validated data, not code, so these are
