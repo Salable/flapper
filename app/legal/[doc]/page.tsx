@@ -50,7 +50,7 @@ export default async function LegalPage({ params }: { params: Promise<{ doc: str
           </p>
         )}
         {/* Our own repo markdown, not user content. */}
-        <article className="doc-body" dangerouslySetInnerHTML={{ __html: html }} />
+        <article className="doc-body doc-prose" dangerouslySetInnerHTML={{ __html: html }} />
       </main>
       <SiteFooter />
     </div>

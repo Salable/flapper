@@ -1,10 +1,3 @@
-:root {
-  /* Legacy aliases onto design-tokens.css; new styles use the tokens directly. */
-  --panel: var(--surface-1);
-  --accent: var(--ink);
-  --mono: var(--font-mono);
-}
-
 * {
   box-sizing: border-box;
 }
@@ -27,7 +20,7 @@ body {
   flex-direction: column;
   background: var(--bg);
   color: var(--ink);
-  font: 12px/1.5 var(--mono);
+  font: 12px/1.5 var(--font-mono);
   -webkit-font-smoothing: antialiased;
   user-select: none;
   cursor: default;
@@ -57,7 +50,7 @@ body {
   justify-content: center;
   gap: 12px;
   background: var(--bg);
-  letter-spacing: 0.14em;
+  letter-spacing: var(--track-glass);
   text-transform: uppercase;
   color: var(--muted);
 }
@@ -75,8 +68,8 @@ body {
 }
 
 .loading-label {
-  font-size: 11px;
-  letter-spacing: 0.14em;
+  font-size: var(--text-meta);
+  letter-spacing: var(--track-glass);
 }
 
 .loading-bar {
@@ -89,7 +82,7 @@ body {
 #loading-fill {
   width: 0;
   height: 100%;
-  background: var(--accent);
+  background: var(--ink);
   transition: width 90ms linear;
 }
 
@@ -98,7 +91,7 @@ body {
   right: 16px;
   bottom: 14px;
   color: var(--muted);
-  letter-spacing: 0.08em;
+  letter-spacing: var(--track-wide);
   opacity: 0;
   transition: opacity 500ms ease;
   pointer-events: none;
@@ -115,7 +108,7 @@ body {
   left: 16px;
   bottom: 14px;
   color: var(--muted);
-  letter-spacing: 0.08em;
+  letter-spacing: var(--track-wide);
   opacity: 0;
   transition: opacity 300ms ease;
   pointer-events: none;
@@ -132,7 +125,7 @@ body {
   flex: 0 0 auto;
   z-index: 10;
   padding: 16px 18px 14px;
-  background: var(--panel);
+  background: var(--surface-1);
   border-top: 1px solid var(--edge);
   -webkit-app-region: no-drag;
   max-height: 70%;
@@ -177,28 +170,9 @@ body {
   letter-spacing: 0.04em;
 }
 
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  min-width: 0;
-}
 
-.field.grow {
-  flex: 1;
-}
 
-.field.checkbox {
-  justify-content: flex-end;
-}
 
-.field label {
-  color: var(--muted);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  font-size: 10px;
-  white-space: nowrap;
-}
 
 .stack {
   display: flex;
@@ -264,7 +238,7 @@ textarea {
 /* Text that will go on the glass is typed the way the glass shows it. */
 input.as-board,
 textarea.as-board {
-  letter-spacing: 0.14em;
+  letter-spacing: var(--track-glass);
   text-transform: uppercase;
 }
 
@@ -277,7 +251,7 @@ select:focus {
 
 ::placeholder {
   color: var(--muted);
-  letter-spacing: 0.08em;
+  letter-spacing: var(--track-wide);
   text-transform: none;
 }
 
@@ -286,7 +260,7 @@ button {
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--ink);
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(236, 231, 221, 0.06);
   border: 1px solid var(--edge);
   border-radius: 4px;
   padding: 7px 14px;
@@ -294,11 +268,11 @@ button {
 }
 
 button:hover {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(236, 231, 221, 0.12);
 }
 
 button.primary {
-  background: var(--accent);
+  background: var(--ink);
   color: #101012;
   border-color: transparent;
   font-weight: 600;
@@ -325,21 +299,15 @@ input[type='range']::-webkit-slider-thumb {
   width: 11px;
   height: 11px;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--ink);
 }
 
 input[type='checkbox'] {
-  accent-color: var(--accent);
+  accent-color: var(--ink);
   vertical-align: -1px;
   margin-right: 4px;
 }
 
-.field.checkbox label {
-  text-transform: none;
-  letter-spacing: 0.04em;
-  font-size: 12px;
-  color: var(--ink);
-}
 
 .pair {
   display: grid;
@@ -356,7 +324,7 @@ button.ghost {
   border-style: dashed;
   color: var(--muted);
   padding: 4px 10px;
-  font-size: 11px;
+  font-size: var(--text-meta);
 }
 
 /* ---- web-only additions ---- */
@@ -368,10 +336,10 @@ code.curl {
   cursor: text;
   white-space: pre-wrap;
   word-break: break-all;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(236, 231, 221, 0.05);
   border: 1px solid var(--edge);
   padding: 8px 10px;
-  font: 11px/1.6 var(--mono);
+  font: var(--text-meta)/1.6 var(--font-mono);
   color: var(--ink);
 }
 
@@ -391,7 +359,7 @@ main.landing {
 
 main.landing h1 {
   font-size: 28px;
-  letter-spacing: 0.35em;
+  letter-spacing: var(--track-display);
   margin: 0;
   font-weight: 600;
 }
@@ -403,12 +371,7 @@ main.landing p {
   line-height: 1.8;
 }
 
-main.landing .actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 10px;
-}
-
+main.landing 
 main.landing .boards {
   margin-top: 26px;
   display: flex;
@@ -428,7 +391,7 @@ main.landing .boards a {
 }
 
 main.landing .boards a:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(236, 231, 221, 0.05);
 }
 
 main.landing .error {
@@ -456,12 +419,6 @@ main.landing .error {
   cursor: text;
 }
 
-/* Prose links only - a .ui-btn owns its own ink (see ui.css). */
-.auth-form a:not([class*='ui-btn']),
-main.landing a:not([class*='ui-btn']) {
-  color: var(--ink);
-}
-
 /* ---- settings page ---- */
 
 .settings-block {
@@ -474,8 +431,8 @@ main.landing a:not([class*='ui-btn']) {
 }
 
 .settings-block h2 {
-  font-size: 11px;
-  letter-spacing: 0.18em;
+  font-size: var(--text-meta);
+  letter-spacing: var(--track-heading);
   text-transform: uppercase;
   color: var(--muted);
   margin: 0;
@@ -495,6 +452,12 @@ main.landing a:not([class*='ui-btn']) {
   padding: 8px 10px;
   user-select: text;
   cursor: text;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
 }
 
 .settings-block .actions {
@@ -524,12 +487,12 @@ main.landing a:not([class*='ui-btn']) {
   gap: 16px;
   padding: 14px 24px;
   border-bottom: 1px solid var(--edge);
-  background: var(--panel);
+  background: var(--surface-1);
 }
 
 .app-bar .brand {
   font-size: 16px;
-  letter-spacing: 0.35em;
+  letter-spacing: var(--track-display);
   font-weight: 600;
   color: var(--ink);
   text-decoration: none;
@@ -653,7 +616,7 @@ main.landing a:not([class*='ui-btn']) {
 
 .board-card-name {
   font-size: 14px;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--track-wide);
   text-transform: uppercase;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -664,7 +627,7 @@ main.landing a:not([class*='ui-btn']) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 11px;
+  font-size: var(--text-meta);
 }
 
 .board-card-actions {
@@ -691,7 +654,7 @@ main.landing a:not([class*='ui-btn']) {
 .board-card-actions .button,
 .board-card-actions button {
   padding: 5px 10px;
-  font-size: 11px;
+  font-size: var(--text-meta);
 }
 
 .board-card-actions button.ghost {
@@ -788,25 +751,17 @@ main.landing a:not([class*='ui-btn']) {
   border-top: 1px solid var(--edge);
 }
 
+.board-side-links a {
+  font-size: var(--text-sm);
+}
+
 .board-side-links h2 {
-  font-size: 11px;
-  letter-spacing: 0.18em;
+  font-size: var(--text-meta);
+  letter-spacing: var(--track-heading);
   text-transform: uppercase;
   color: var(--muted);
   margin: 0 0 var(--space-1);
   font-weight: 600;
-}
-
-.board-side-links a {
-  font-size: var(--text-sm);
-  color: var(--ink);
-  text-decoration: underline;
-  text-decoration-color: var(--edge-strong);
-  text-underline-offset: 3px;
-}
-
-.board-side-links a:hover {
-  text-decoration-color: var(--amber);
 }
 
 /* ---- control room: queue + compose + display config ---- */
@@ -847,19 +802,19 @@ main.landing a:not([class*='ui-btn']) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--track-wide);
   text-transform: uppercase;
 }
 
 .queue-text .now {
-  color: #d8b25a;
+  color: var(--amber);
   margin-right: 8px;
   font-weight: 600;
 }
 
 .queue-meta {
   flex: none;
-  font-size: 11px;
+  font-size: var(--text-meta);
 }
 
 .queue-actions {
@@ -870,7 +825,7 @@ main.landing a:not([class*='ui-btn']) {
 
 .queue-actions button {
   padding: 3px 8px;
-  font-size: 11px;
+  font-size: var(--text-meta);
 }
 
 .queue-actions button.is-on {
@@ -889,7 +844,7 @@ main.landing a:not([class*='ui-btn']) {
   padding: 5px 8px;
   user-select: text;
   cursor: text;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--track-wide);
   text-transform: uppercase;
 }
 
@@ -926,18 +881,14 @@ main.landing a:not([class*='ui-btn']) {
 
 .doc-body h2 {
   font-size: 13px;
-  letter-spacing: 0.18em;
+  letter-spacing: var(--track-heading);
   text-transform: uppercase;
-  color: #d8b25a;
+  color: var(--amber);
   margin: 30px 0 8px;
 }
 
-.doc-body a {
-  color: var(--ink);
-}
-
 .doc-body code {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(236, 231, 221, 0.06);
   border: 1px solid var(--edge);
   border-radius: 3px;
   padding: 1px 5px;
@@ -976,7 +927,7 @@ main.landing a:not([class*='ui-btn']) {
 
 .doc-body th {
   color: var(--muted);
-  letter-spacing: 0.08em;
+  letter-spacing: var(--track-wide);
   text-transform: uppercase;
   font-size: 10px;
 }
@@ -984,7 +935,7 @@ main.landing a:not([class*='ui-btn']) {
 .doc-body blockquote {
   margin: 12px 0;
   padding: 6px 14px;
-  border-left: 2px solid #d8b25a;
+  border-left: 2px solid var(--amber);
   color: var(--muted);
 }
 
@@ -1132,11 +1083,21 @@ main.landing a:not([class*='ui-btn']) {
 }
 
 /* A board skin is a token override - the seam docs/DESIGN-SYSTEM.md saves
-   for per-board media. The Canary tiles, in CSS. */
+   for per-board media. The Canary tiles, in CSS.
+
+   These were hand-typed and did not match the theme they advertise: the
+   poster read #1ca40a where Canary's pack says card.fill #139a04, so the
+   card was brighter and more saturated than any board it could make. Now
+   anchored to the pack's value, stepped down for mid and lo by the same
+   ratios Classic's tile tokens use (x0.743, x0.543). White ink is correct
+   here - Canary's glyph is a white stroke on a transparent fill.
+
+   Deriving these from the pack at build time instead of restating it is the
+   remaining half of the job (see the poster question in the design review). */
 .poster.is-canary {
-  --tile-hi: #1ca40a;
-  --tile-mid: #149805;
-  --tile-lo: #0f7f04;
+  --tile-hi: #139a04;
+  --tile-mid: #0e7203;
+  --tile-lo: #0a5302;
   --ink: #ffffff;
 }
 
@@ -1161,7 +1122,7 @@ main.landing a:not([class*='ui-btn']) {
 
 .rail-card-name {
   font: 600 var(--text-md) / 1.4 var(--font-mono);
-  letter-spacing: 0.08em;
+  letter-spacing: var(--track-wide);
   text-transform: uppercase;
 }
 
@@ -1174,9 +1135,9 @@ main.landing a:not([class*='ui-btn']) {
   margin-top: auto;
   padding-top: var(--space-2);
   font: 500 var(--text-xs) / 1 var(--font-mono);
-  letter-spacing: 0.1em;
+  letter-spacing: var(--track-label);
   text-transform: uppercase;
-  color: var(--faint);
+  color: var(--muted);
 }
 
 /* Arrows: pointer-only affordance, gone on touch where the rail is a swipe. */
@@ -1258,7 +1219,7 @@ main.landing a:not([class*='ui-btn']) {
 
 .rail-detail-head h3 {
   font: 600 var(--text-lg) / 1.3 var(--font-mono);
-  letter-spacing: 0.08em;
+  letter-spacing: var(--track-wide);
   text-transform: uppercase;
   margin: 0;
 }
@@ -1348,7 +1309,7 @@ main.landing a:not([class*='ui-btn']) {
 
 .layout-region-label {
   font: 600 var(--text-xs) / 1 var(--font-mono);
-  letter-spacing: 0.2em;
+  letter-spacing: var(--track-heading);
   color: var(--muted);
   pointer-events: none;
 }
@@ -1408,8 +1369,8 @@ main.landing a:not([class*='ui-btn']) {
 }
 
 .dash-col h2 {
-  font-size: 11px;
-  letter-spacing: 0.18em;
+  font-size: var(--text-meta);
+  letter-spacing: var(--track-heading);
   text-transform: uppercase;
   color: var(--muted);
   margin: 0;
@@ -1489,8 +1450,8 @@ main.landing a:not([class*='ui-btn']) {
 }
 
 .theme-group legend {
-  font: 500 11px / 1 var(--font-mono);
-  letter-spacing: 0.08em;
+  font: 500 var(--text-meta) / 1 var(--font-mono);
+  letter-spacing: var(--track-wide);
   text-transform: uppercase;
   color: var(--muted);
   padding: 0 4px;
@@ -1580,20 +1541,60 @@ main.landing a:not([class*='ui-btn']) {
   align-self: stretch;
 }
 
+/*
+ * A legal document is the longest continuous reading in the product, and prose
+ * is not data: .doc-body's mono is right for /docs (API reference, code) and
+ * wrong for five documents of sentences. So the legal pages opt into sans at a
+ * measure prose can hold - the mono column ran to about 87 characters, against
+ * the 45-75 that reads comfortably - and their headings come back to ink, since
+ * amber is for attention and every heading in a five-document set is not.
+ * The mono stays where it belongs: the [[PLACEHOLDER]] markers and the
+ * effective-date line.
+ */
+.doc-prose {
+  font-family: var(--font-sans);
+  font-size: var(--text-md);
+  line-height: 1.7;
+}
+
+.doc-prose p,
+.doc-prose li,
+.doc-prose blockquote {
+  max-width: 68ch;
+}
+
+.doc-prose h1,
+.doc-prose h2,
+.doc-prose h3 {
+  font-family: var(--font-mono);
+  color: var(--ink);
+}
+
+.doc-prose em {
+  font-family: var(--font-mono);
+  font-style: normal;
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
 /* ---- legal: the footer every page carries, and the placeholder banner ---- */
 
+/* Full bleed at the app bar's 24px gutter: the bar and the footer bracket
+   every page, and the footer's left edge has always lined up with the
+   wordmark's. Only its invented values are gone - it had reached for an 11px
+   size, 18/22px padding and a 0.02em tracking register that appeared nowhere
+   else in the app. */
 .site-footer {
   flex: none;
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
   align-items: baseline;
-  gap: 8px 24px;
-  padding: 18px 24px 22px;
+  gap: var(--space-2) var(--space-5);
+  padding: var(--space-4) var(--space-5);
   border-top: 1px solid var(--edge);
-  font: 400 11px / 1.6 var(--font-mono);
+  font: 400 var(--text-meta) / 1.6 var(--font-mono);
   color: var(--muted);
-  letter-spacing: 0.02em;
 }
 
 .site-footer-company {
@@ -1618,7 +1619,6 @@ main.landing a:not([class*='ui-btn']) {
 .site-footer-links a:focus-visible {
   color: var(--ink);
   border-bottom-color: var(--edge-strong);
-  outline: none;
 }
 
 .legal-placeholder {
@@ -1627,8 +1627,9 @@ main.landing a:not([class*='ui-btn']) {
   padding: 12px 14px;
   margin: 0 0 20px;
   color: var(--ink);
-  font: 400 13px / 1.6 var(--font-sans);
+  font: 400 var(--text-md) / 1.6 var(--font-sans);
   background: rgba(216, 178, 90, 0.08);
+  max-width: 68ch;
 }
 
 .legal-placeholder code {
@@ -1639,7 +1640,7 @@ main.landing a:not([class*='ui-btn']) {
 .legal-tag {
   font-size: 10px;
   color: var(--amber);
-  letter-spacing: 0.08em;
+  letter-spacing: var(--track-wide);
   margin-left: 8px;
 }
 
@@ -1659,6 +1660,16 @@ main.landing a:not([class*='ui-btn']) {
   flex: none;
 }
 
-.consent a {
-  color: var(--ink);
+
+/* The layout's four numbers: the same state as the stage above them, typed.
+   Narrow columns because a percentage is at most five characters. */
+.layout-numbers {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: var(--space-2) var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.layout-number {
+  font-variant-numeric: tabular-nums;
 }
