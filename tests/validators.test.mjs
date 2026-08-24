@@ -91,6 +91,17 @@ test('footerRows must be a non-negative integer', () => {
   assert.deepEqual(validateConfigPatch({ footerRows: 2 }), { footerRows: 2 });
 });
 
+test('screen is a shape, or null, and typos are refused', () => {
+  assert.deepEqual(validateConfigPatch({ screen: { w: 16, h: 9 } }), { screen: { w: 16, h: 9 } });
+  assert.deepEqual(validateConfigPatch({ screen: null }), { screen: null });
+  // A typo that quietly does nothing is the worst outcome - same rule as regions.
+  refused(() => validateConfigPatch({ screen: { w: 16, h: 9, ratio: 1.7 } }), /screen.ratio is not a screen field/);
+  for (const bad of [{ w: 0, h: 9 }, { w: 16, h: -1 }, { w: 'wide', h: 9 }]) {
+    refused(() => validateConfigPatch({ screen: bad }), /screen\.[wh] must be a positive number/);
+  }
+  refused(() => validateConfigPatch({ screen: [16, 9] }), /screen must be an object/);
+});
+
 test('theme must be one this build ships', () => {
   refused(() => validateConfigPatch({ theme: 'tartan' }), new RegExp(`theme must be one of ${THEME_IDS.join(', ')}`));
   refused(() => validateConfigPatch({ theme: null }), /theme must be one of/);
