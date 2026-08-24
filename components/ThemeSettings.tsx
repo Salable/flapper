@@ -128,7 +128,18 @@ export function ThemeSettings({
   const slider = (label: string, path: string, step = 0.01) => {
     const [lo = 0, hi = 1] = ranges[path] ?? [];
     return (
-      <Field key={path} label={<>{label} <span className="muted">{num(path).toFixed(3).replace(/0+$/, '').replace(/\.$/, '')}</span></>} htmlFor={`th-${path}`}>
+      <Field
+        key={path}
+        label={
+          <>
+            {label} <span className="muted">{num(path).toFixed(3).replace(/0+$/, '').replace(/\.$/, '')}</span>
+            <span className="field-range">
+              {lo}–{hi}
+            </span>
+          </>
+        }
+        htmlFor={`th-${path}`}
+      >
         <RangeSlider id={`th-${path}`} min={lo} max={hi} step={step} value={num(path)} onChange={(e) => field(path)(Number(e.target.value))} />
       </Field>
     );
@@ -203,7 +214,7 @@ export function ThemeSettings({
           {slider('Band height', 'hinge.thickness', 0.005)}
         </fieldset>
         <fieldset className="theme-group">
-          <legend>Motion</legend>
+          <legend>Light</legend>
           {slider('Shading', 'motion.shading')}
           {slider('Shadow', 'motion.shadow')}
           {slider('Highlight', 'motion.highlight')}

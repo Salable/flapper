@@ -10,6 +10,7 @@
 
 import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/Button';
+import { Field, TextInput } from '@/components/ui/Field';
 
 export type Layout = { xPct: number; yPct: number; wPct: number; hPct: number };
 
@@ -72,6 +73,70 @@ export function LayoutPicker({
   }
 
   const pct = (value: number) => `${value}%`;
+  const round1 = (value: number) => Math.round(value * 10) / 10;
+
+  /* The board could only be placed by dragging it, which left the layout
+     unreachable by keyboard and its values unknowable - you could see roughly
+     where the board sat but never say where. Arrows nudge, Shift+arrows size,
+     and the four numbers below are the same state, typed. */
+  function nudge(event: React.KeyboardEvent) {
+    const step = event.altKey ? 0.5 : 1;
+    const sizing = event.shiftKey;
+    const move: Record<string, [number, number]> = {
+      ArrowLeft: [-step, 0],
+      ArrowRight: [step, 0],
+      ArrowUp: [0, -step],
+      ArrowDown: [0, step],
+    };
+    const delta = move[event.key];
+    if (!delta) return;
+    event.preventDefault();
+    const [dx, dy] = delta;
+    setLayout((prev) =>
+      sizing
+        ? {
+            ...prev,
+            wPct: round1(clamp(prev.wPct + dx, MIN_PCT, 100 - prev.xPct)),
+            hPct: round1(clamp(prev.hPct + dy, MIN_PCT, 100 - prev.yPct)),
+          }
+        : {
+            ...prev,
+            xPct: round1(clamp(prev.xPct + dx, 0, 100 - prev.wPct)),
+            yPct: round1(clamp(prev.yPct + dy, 0, 100 - prev.hPct)),
+          },
+    );
+    setDirty(true);
+  }
+
+  function setValue(key: keyof Layout, raw: string) {
+    const value = Number(raw);
+    if (!Number.isFinite(value)) return;
+    setLayout((prev) => {
+      const next = { ...prev, [key]: value };
+      // Keep the board on the screen whichever number moved.
+      next.wPct = clamp(next.wPct, MIN_PCT, 100);
+      next.hPct = clamp(next.hPct, MIN_PCT, 100);
+      next.xPct = clamp(next.xPct, 0, 100 - next.wPct);
+      next.yPct = clamp(next.yPct, 0, 100 - next.hPct);
+      return next;
+    });
+    setDirty(true);
+  }
+
+  const number = (key: keyof Layout, label: string) => (
+    <Field label={label} htmlFor={`layout-${key}`}>
+      <TextInput
+        id={`layout-${key}`}
+        type="number"
+        className="ui-input layout-number"
+        min={key === 'wPct' || key === 'hPct' ? MIN_PCT : 0}
+        max={100}
+        step={0.5}
+        value={String(round1(layout[key]))}
+        onChange={(event) => setValue(key, event.target.value)}
+      />
+    </Field>
+  );
 
   return (
     <div className="ui-field">
@@ -79,12 +144,16 @@ export function LayoutPicker({
       <div className="layout-stage" ref={stageRef}>
         <div
           className="layout-region"
+          role="group"
+          tabIndex={0}
+          aria-label={`The board: ${round1(layout.wPct)}% by ${round1(layout.hPct)}% of the screen, ${round1(layout.xPct)}% from the left and ${round1(layout.yPct)}% from the top. Arrow keys move it, Shift and arrow keys size it.`}
           style={{
             left: pct(layout.xPct),
             top: pct(layout.yPct),
             width: pct(layout.wPct),
             height: pct(layout.hPct),
           }}
+          onKeyDown={nudge}
           onPointerDown={(event) => begin('move', event)}
           onPointerMove={track}
           onPointerUp={end}
@@ -103,9 +172,16 @@ export function LayoutPicker({
           />
         </div>
       </div>
+      <div className="layout-numbers">
+        {number('xPct', 'From left %')}
+        {number('yPct', 'From top %')}
+        {number('wPct', 'Width %')}
+        {number('hPct', 'Height %')}
+      </div>
       <span className="ui-hint">
-        Drag to place the board; pull the corner to size it. Percentages of the screen, so the
-        same layout fits a phone and a video wall.
+        Drag to place the board, pull the corner to size it, or type the numbers. With the board
+        focused, arrow keys move it and Shift with an arrow sizes it. Percentages of the screen, so
+        the same layout fits a phone and a video wall.
       </span>
       <div className="ui-modal-actions" style={{ justifyContent: 'flex-start' }}>
         <Button
