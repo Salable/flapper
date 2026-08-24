@@ -11,7 +11,16 @@ import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Checkbox, Field, RangeSlider, Select, TextInput } from '@/components/ui/Field';
 import { Segmented } from '@/components/ui/bits';
-import { MAX_COLS, MAX_ROWS, rowsThatFit } from '@/lib/board/geometry.mjs';
+import {
+  MAX_COLS,
+  MAX_ROWS,
+  gridFor,
+  cardSizeMm,
+  screenSizeMm,
+  CARD_SIZE_IDS,
+  DEFAULT_CARD_SIZE,
+  DEFAULT_SCREEN as DEFAULT_SCREEN_SHAPE,
+} from '@/lib/board/geometry.mjs';
 import { DEFAULTS } from '@/lib/board/flipboard.js';
 import { CONTROLLER_DEFAULTS } from '@/lib/board/controller.mjs';
 import { TEMPLATES } from '@/lib/board-types/templates.mjs';
@@ -33,6 +42,15 @@ function templateName(id: unknown) {
  * screen and how big a card should be, and the grid follows - rather than
  * choosing 20x8 and finding out on the wall that it letterboxes.
  */
+/** What each step on the scale is called on screen. */
+const SIZE_LABELS: Record<string, string> = {
+  huge: 'Huge',
+  large: 'Large',
+  medium: 'Medium',
+  small: 'Small',
+  tiny: 'Tiny',
+};
+
 const SCREENS = [
   { value: '16:9', label: '16:9', w: 16, h: 9 },
   { value: '4:3', label: '4:3', w: 4, h: 3 },
@@ -68,8 +86,13 @@ export function DisplayConfig({
   };
   const [config, setConfig] = useState<Config>({ ...defaults, ...initial });
   const [error, setError] = useState('');
-  const stored = (initial.screen ?? null) as { w: number; h: number } | null;
-  const [screen, setScreenState] = useState<{ w: number; h: number }>(stored ?? { w: 16, h: 9 });
+  type Screen = { w: number; h: number; diagonalIn: number };
+  const stored = (initial.screen ?? null) as Partial<Screen> | null;
+  const [screen, setScreenState] = useState<Screen>({
+    w: stored?.w ?? DEFAULT_SCREEN_SHAPE.w,
+    h: stored?.h ?? DEFAULT_SCREEN_SHAPE.h,
+    diagonalIn: stored?.diagonalIn ?? DEFAULT_SCREEN_SHAPE.diagonalIn,
+  });
   // Where this board's shape came from, so the numbers below can be accounted
   // for rather than just found.
   const fromTemplate = templateName(initial.template);
@@ -82,41 +105,35 @@ export function DisplayConfig({
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
 
-  const cols = Number(config.cols) || 1;
-  const suggestedRows = rowsThatFit(cols, screen.w, screen.h);
-  const fitsExactly = Number(config.rows) === suggestedRows;
-  const fitLine = fitsExactly
-    ? `${cols} × ${suggestedRows} square cards fill a ${screen.w}:${screen.h} screen.`
-    : `${cols} × ${config.rows} on a ${screen.w}:${screen.h} screen leaves a band ` +
-      `${Number(config.rows) > suggestedRows ? 'left and right' : 'top and bottom'}.`;
-
   /*
-   * Cards down follows the screen and the cards across, rather than being a
-   * third thing to keep in step by hand.
+   * The grid is an outcome, and this is the whole of the arithmetic.
    *
-   * It was a slider with a "Fit to screen" button beside it, which is the app
-   * knowing the answer and making you ask for it. It is worked out now, and
-   * taking it over is the deliberate act - for a board that is meant to
-   * letterbox, or a band across the top of a wall.
+   * A board used to be authored as a column count and a row count, with the
+   * screen as a hint. That has it backwards twice over: it asks somebody to do
+   * the arithmetic the app already does, and it makes "how big is a card" mean
+   * something different on every screen. Now the two real facts go in - how big
+   * the glass is, and how big a card should be - and cols x rows falls out.
+   * Nothing in the system authors a grid any more: not this editor, not a
+   * template, not the API.
    */
-  const [ownRows, setOwnRows] = useState(() => {
-    // A board whose rows already disagree with its screen was set by hand -
-    // saying "worked out" over a number that is not the worked-out one would be
-    // a straight contradiction, and every board made before this existed is in
-    // exactly that position.
-    const startCols = Number(initial.cols) || DEFAULTS.cols;
-    const startRows = Number(initial.rows) || DEFAULTS.rows;
-    const shape = (initial.screen as { w: number; h: number } | undefined) ?? { w: 16, h: 9 };
-    return startRows !== rowsThatFit(startCols, shape.w, shape.h);
-  });
-  const auto = !ownRows;
-  const fitRows = (next: { cols?: number; screen?: { w: number; h: number } }) => {
-    if (ownRows) return;
-    const across = next.cols ?? cols;
-    const shape = next.screen ?? screen;
-    const rows = rowsThatFit(across, shape.w, shape.h);
-    if (rows !== Number(config.rows)) patch('rows', rows);
-  };
+  const cardSize = CARD_SIZE_IDS.includes(String(config.cardSize))
+    ? String(config.cardSize)
+    : DEFAULT_CARD_SIZE;
+  const grid = gridFor(cardSize, screen);
+  const sizeMm = screenSizeMm(screen);
+
+  /** A card size, and the grid it makes on this screen - one write. */
+  function pickSize(size: string) {
+    const next = gridFor(size, screen);
+    patch({ cardSize: size, cols: next.cols, rows: next.rows });
+  }
+
+  /** A screen, and the grid it makes at this card size - one write. */
+  function applyScreen(next: Screen) {
+    setScreenState(next);
+    const made = gridFor(cardSize, next);
+    patch({ screen: next, cols: made.cols, rows: made.rows });
+  }
 
   /**
    * Tell the parent what the config is now, after a commit rather than during
@@ -129,10 +146,8 @@ export function DisplayConfig({
   }, [config]);
 
   function setScreen(next: { w: number; h: number }) {
-    setScreenState(next);
     setCustom(false);
-    patch('screen', next);
-    fitRows({ screen: next });
+    applyScreen({ ...screen, w: next.w, h: next.h });
   }
 
   function pickScreen(value: string) {
@@ -149,14 +164,29 @@ export function DisplayConfig({
     setScreen({ w: found.w, h: found.h });
   }
 
-  async function patch(key: string, value: unknown) {
-    setConfig((prev) => ({ ...prev, [key]: value }));
+  /*
+   * One field or several, but always one request.
+   *
+   * Picking a screen changes the shape and the row count that follows from it,
+   * and sending those as two PATCHes raced: both read-modify-write the same
+   * JSON column, the server merges them with no transaction, and whichever
+   * response landed last dictated the panel. On a local PGlite the queries are
+   * too fast to lose one; against a hosted database over a socket the earlier
+   * change was dropped outright. Anything that changes two related fields
+   * sends them together.
+   */
+  async function patch(fields: Record<string, unknown>): Promise<void>;
+  async function patch(key: string, value: unknown): Promise<void>;
+  async function patch(keyOrFields: string | Record<string, unknown>, value?: unknown) {
+    const fields =
+      typeof keyOrFields === 'string' ? { [keyOrFields]: value } : keyOrFields;
+    setConfig((prev) => ({ ...prev, ...fields }));
     setError('');
     try {
       const response = await fetch(`/api/b/${slug}/config`, {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ [key]: value }),
+        body: JSON.stringify(fields),
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || `HTTP ${response.status}`);
@@ -224,13 +254,38 @@ export function DisplayConfig({
         )}
         <Field
           label="Screen it goes on"
-          hint="The shape of the wall or panel you are designing for. The display always fills its own window; this is what the row count is worked out against."
+          hint="The shape of the wall or panel you are designing for. The display always fills its own window."
         >
           <Segmented
             options={SCREENS.map((s) => ({ value: s.value, label: s.label }))}
             value={screenKey}
             onChange={pickScreen}
           />
+        </Field>
+        <Field
+          label={
+            <>
+              Screen size <span className="muted">{screen.diagonalIn}&Prime; diagonal</span>
+            </>
+          }
+          htmlFor="cfg-screen-size"
+          hint="How big the glass actually is, corner to corner - the number on the box. This is what decides how much board fits: the same cards, more of them on a bigger screen."
+        >
+          <div className="geometry-rows">
+            <RangeSlider
+              id="cfg-screen-size"
+              min={10}
+              max={200}
+              step={1}
+              value={screen.diagonalIn}
+              onChange={(event) =>
+                applyScreen({ ...screen, diagonalIn: Math.max(1, Number(event.target.value) || 1) })
+              }
+            />
+            <p className="geometry-derived">
+              {Math.round(sizeMm.widthMm)} × {Math.round(sizeMm.heightMm)}mm
+            </p>
+          </div>
         </Field>
         {screenKey === 'custom' && (
           <div className="geometry-custom">
@@ -242,8 +297,7 @@ export function DisplayConfig({
                 value={String(screen.w)}
                 onChange={(event) => {
                   const w = Math.max(1, Number(event.target.value) || 1);
-                  setScreenState({ ...screen, w });
-                  patch('screen', { ...screen, w });
+                  applyScreen({ ...screen, w });
                 }}
               />
             </Field>
@@ -255,8 +309,7 @@ export function DisplayConfig({
                 value={String(screen.h)}
                 onChange={(event) => {
                   const h = Math.max(1, Number(event.target.value) || 1);
-                  setScreenState({ ...screen, h });
-                  patch('screen', { ...screen, h });
+                  applyScreen({ ...screen, h });
                 }}
               />
             </Field>
@@ -265,71 +318,46 @@ export function DisplayConfig({
         <Field
           label={
             <>
-              Cards across <span className="muted">{String(config.cols)}</span>
-              <span className="field-range">1–{MAX_COLS}</span>
+              Card size{' '}
+              <span className="muted">
+                {SIZE_LABELS[cardSize]} · {cardSizeMm(cardSize)}mm
+              </span>
             </>
           }
-          htmlFor="cfg-cols"
-          hint="How big a card is: fewer across means bigger cards. The rest follows from this and the screen."
+          hint="How big a card is on the glass. A real size, so it reads the same from the back of the room whatever screen it goes on - a bigger screen holds more of them rather than bigger ones."
         >
-          <RangeSlider
-            id="cfg-cols"
-            min={1}
-            max={MAX_COLS}
-            step={1}
-            value={cols}
-            onChange={(event) => {
-              const across = Number(event.target.value);
-              patch('cols', across);
-              fitRows({ cols: across });
-            }}
-          />
+          <div className="geometry-sizes">
+            {CARD_SIZE_IDS.map((id: string) => {
+              const grid = gridFor(id, screen);
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  className={`geometry-size${cardSize === id ? ' is-on' : ''}`}
+                  aria-pressed={cardSize === id}
+                  onClick={() => pickSize(id)}
+                >
+                  <span className="geometry-size-name">{SIZE_LABELS[id]}</span>
+                  <span className="geometry-size-mm">{cardSizeMm(id)}mm</span>
+                  <span className="geometry-size-grid">
+                    {grid.cols} × {grid.rows}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </Field>
-        <Field
-          label={
-            <>
-              Cards down <span className="muted">{String(config.rows)}</span>
-              <span className="field-range">{auto ? 'worked out' : 'set by hand'}</span>
-            </>
-          }
-          htmlFor={auto ? undefined : 'cfg-rows'}
-          hint={fitLine}
-        >
-          {auto ? (
-            <div className="geometry-rows">
-              <p className="geometry-derived">
-                {cols} across on a {screen.w}:{screen.h} screen is {suggestedRows} down.
-              </p>
-              <Button
-                size="sm"
-                onClick={() => {
-                  setOwnRows(true);
-                }}
-              >
-                Set it myself
-              </Button>
-            </div>
-          ) : (
-            <div className="geometry-rows">
-              <RangeSlider
-                id="cfg-rows"
-                min={1}
-                max={MAX_ROWS}
-                step={1}
-                value={Number(config.rows)}
-                onChange={(event) => patch('rows', Number(event.target.value))}
-              />
-              <Button
-                size="sm"
-                onClick={() => {
-                  setOwnRows(false);
-                  if (Number(config.rows) !== suggestedRows) patch('rows', suggestedRows);
-                }}
-              >
-                Fit to the screen
-              </Button>
-            </div>
-          )}
+        {/* The grid, as an outcome. Never an input: a column count is what the
+            screen and the card size come to, and typing one is doing arithmetic
+            the app has already done. */}
+        <Field label="The board this makes">
+          <p className="geometry-derived">
+            <strong>
+              {grid.cols} × {grid.rows} cards
+            </strong>{' '}
+            — {Math.round(sizeMm.widthMm)}mm × {Math.round(sizeMm.heightMm)}mm of glass at{' '}
+            {cardSizeMm(cardSize)}mm a card.
+          </p>
         </Field>
       </div>
       <div className="config-grid">

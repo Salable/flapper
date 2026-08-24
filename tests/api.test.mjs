@@ -1,4 +1,5 @@
 import test, { before, beforeEach } from 'node:test';
+import { gridFor } from '../lib/board/geometry.mjs';
 import assert from 'node:assert/strict';
 import { MemoryBroker } from '../lib/broker/memory.mjs';
 import { makeTestDb, resetTestDb, makeTestUser } from '../lib/db/testing.mjs';
@@ -131,7 +132,12 @@ test('a template seeds the queue and presets config; the body still wins', async
   assert.equal(match.body.type, 'live');
   const mq = (await jsonOf(call(getQueue, ctx(match.body.slug, 'owner'), '/queue'))).body;
   assert.equal(mq.config.theme, 'canary');
-  assert.equal(mq.config.cols, 24);
+  // The grid the template's card size produces, not a number typed here: a
+  // board asks for a size and the scale answers, so there is one place a
+  // column count is decided and this asserts the board went through it.
+  assert.equal(mq.config.cardSize, 'small');
+  assert.equal(mq.config.cols, gridFor('small').cols);
+  assert.equal(mq.config.rows, gridFor('small').rows);
   assert.equal(mq.items.length, 2);
   assert.equal(mq.items[0].payload.text, 'ON THE BALL CITY');
 
@@ -147,7 +153,7 @@ test('a template seeds the queue and presets config; the body still wins', async
   assert.equal(chosen.status, 201, JSON.stringify(chosen.body));
   const cq = (await jsonOf(call(getQueue, ctx(chosen.body.slug, 'owner'), '/queue'))).body;
   assert.equal(cq.config.theme, 'sorbet', 'the named design beat the template');
-  assert.equal(cq.config.cols, 24, "the template's other config still applies");
+  assert.equal(cq.config.cols, gridFor('small').cols, "the template's other config still applies");
 
   // And a design this build does not ship is refused rather than defaulted.
   const unknown = await jsonOf(
