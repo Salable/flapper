@@ -496,7 +496,7 @@ a.ui-btn-danger {
   left: 0;
   right: 0;
   top: 50%;
-  border-top: 1px solid rgba(0, 0, 0, 0.55);
+  border-top: 1px solid var(--tile-hinge, rgba(0, 0, 0, 0.55));
 }
 
 .ui-miniboard-sm .ui-tile,

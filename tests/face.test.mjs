@@ -14,6 +14,15 @@ test('a pack becomes the face colours a CSS tile reads', () => {
   assert.equal(face.ink, THEMES.classic.glyph.fill);
 });
 
+test('the seam across a card comes from the pack, not from black', () => {
+  // A near-black line reads as a hinge on a charcoal card and as a
+  // strikethrough on a pale one. Sorbet's every letter looked crossed out.
+  assert.equal(faceColours(THEMES.sorbet).hinge, THEMES.sorbet.hinge.fill);
+  assert.equal(faceColours(THEMES.classic).hinge, THEMES.classic.hinge.fill);
+  const brightness = (h) => parseInt(h.slice(1, 3), 16);
+  assert.ok(brightness(faceColours(THEMES.sorbet).hinge) > 150, 'a pale card gets a pale seam');
+});
+
 test("an outline pack's ink is its stroke, because its fill is transparent", () => {
   // Canary draws white outlines on green. Reading glyph.fill would give
   // `transparent`, and a poster with invisible letters.
@@ -26,7 +35,7 @@ test('every shipped design produces a usable face', () => {
   for (const [id, pack] of Object.entries(THEMES)) {
     const face = faceColours(pack);
     assert.ok(face, `${id} has no face`);
-    for (const key of ['hi', 'mid', 'lo', 'ink', 'edge']) {
+    for (const key of ['hi', 'mid', 'lo', 'ink', 'edge', 'hinge']) {
       assert.match(face[key], /^#[0-9a-f]{6}$/, `${id}.${key} is ${face[key]}`);
     }
   }
@@ -64,6 +73,7 @@ test('faceStyle names the custom properties the tile rules already read', () => 
     '--ink',
     '--tile-edge',
     '--tile-hi',
+    '--tile-hinge',
     '--tile-lo',
     '--tile-mid',
   ]);
