@@ -1,6 +1,7 @@
 'use client';
 
 import { Chip, CopyButton } from '@/components/ui/bits';
+import { screenLabel, screenOf, gridForConfig } from '@/lib/board/geometry.mjs';
 import { LinkButton } from '@/components/ui/Button';
 import { formatDay } from '@/lib/format';
 
@@ -19,6 +20,7 @@ export function BoardSidebar({
   isPrivate,
   createdAt,
   boardUrl,
+  config,
 }: {
   name: string;
   slug: string;
@@ -28,7 +30,19 @@ export function BoardSidebar({
   createdAt: number;
   /** Resolved client-side (the server does not know the public origin); '' until then. */
   boardUrl: string;
+  /** The board's config, for the shape it is designed for. */
+  config: Record<string, unknown>;
 }) {
+  /*
+   * The screen, beside the type and the created date, because it is the fact
+   * that decides what the board looks like - and until it was said here, the
+   * only way to find out was to open Display and scroll. A board that has
+   * never been asked says so rather than quietly showing the default as though
+   * somebody had picked it.
+   */
+  const chosen = (config?.screen ?? null) !== null;
+  const shape = screenLabel(screenOf(config));
+  const grid = gridForConfig(config);
   return (
     <aside className="board-side" aria-label="This board">
       <h1 className="board-side-name">{name || slug}</h1>
@@ -42,6 +56,14 @@ export function BoardSidebar({
         {isPrivate && <Chip>private</Chip>}
       </div>
       <dl className="board-side-facts">
+        <dt>Screen</dt>
+        <dd>
+          {shape} {!chosen && <span className="muted">(default)</span>}
+        </dd>
+        <dt>Board</dt>
+        <dd>
+          {grid.cols} × {grid.rows} cards
+        </dd>
         <dt>Created</dt>
         <dd>{formatDay(createdAt)}</dd>
       </dl>

@@ -391,6 +391,7 @@ export function SettingsClient({ board: initial }: { board: Board }) {
               isPrivate={board.private}
               createdAt={board.createdAt}
               boardUrl={origin === '' ? '' : boardUrl}
+              config={board.config}
             />
           }
           after={
