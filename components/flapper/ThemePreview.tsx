@@ -24,6 +24,7 @@ export function ThemePreview({
   onText,
   bar = true,
   fixed = false,
+  loop = 0,
 }: {
   pack: ThemePack;
   /**
@@ -60,6 +61,12 @@ export function ThemePreview({
    * Given an exact tile size there is nothing to measure, so don't.
    */
   fixed?: boolean;
+  /**
+   * Advance to the next message every `loop` ms, for a board being used to
+   * demonstrate a behaviour rather than a design. 0 is off, which is what
+   * everything else wants.
+   */
+  loop?: number;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const boardRef = useRef<any>(null);
@@ -131,6 +138,13 @@ export function ThemePreview({
     const timer = setTimeout(() => board.setText(showing), 400);
     return () => clearTimeout(timer);
   }, [showing, replays, messages.length]);
+
+  // A board that is demonstrating rather than sitting still.
+  useEffect(() => {
+    if (!loop || messages.length < 2) return;
+    const timer = setInterval(() => setReplays((n) => n + 1), loop);
+    return () => clearInterval(timer);
+  }, [loop, messages.length]);
 
   // The canvas box settles after first paint and moves with the window.
   useEffect(() => {

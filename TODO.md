@@ -187,6 +187,28 @@ through it, which is the same mechanism as a moving tint.
       that would need a fixed screen ratio - so that constraint applies to
       authored transitions, not generated ones.
 
+## Big letters
+
+A glyph spanning 2x2 tiles, the way a real board uses dedicated large-character
+units. Worth having and it lands on one of two hard things:
+
+- **Quarter-glyph states.** Four tiles each showing a corner of a letter, which
+  means new states on the ring - and the ring is refused for now, because
+  `/capabilities`, the substitution table and every board's AGENTS.md derive
+  from it (see "Refused by design" below).
+- **Merged cells.** The renderer draws one glyph across a 2x2 block, which means
+  the board gains a notion of a cell that is not one tile. That reaches the
+  layout engine, the row/col model the API speaks, and what `GET /status`
+  reports as `lines`.
+
+There is a third, cheaper path for a *fixed* big word rather than a general
+mode: `art` already puts an image on a state instead of a glyph, so four art
+tiles can be four quarters of one letter today - within the pack's limits of
+eight art entries at 16 KB each. Enough for a demo or a logo, not for typing.
+
+- [ ] Decide which of the two real routes, or ship the art trick as a
+      deliberate "big word" feature and leave typing alone
+
 ## Open questions — yours
 
 1. **Where board admin lives** once the tab bar belongs to the sheets. Slug,

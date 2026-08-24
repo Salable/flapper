@@ -83,6 +83,20 @@ function tileSizeFor(width: number, height: number, maxTile: number) {
   return Math.max(5, Math.min(maxTile, Math.floor(Math.min(byWidth, byHeight))));
 }
 
+/**
+ * What the three starters look like doing their job.
+ *
+ * A board's type is the one thing about it that cannot be changed afterwards,
+ * and it was being chosen from a still picture. A live queue's whole character
+ * is that it keeps changing as things arrive; a clock board's is that it turns
+ * over when the time comes. Neither is visible in a frame.
+ */
+const DEMOS: Record<string, string[]> = {
+  'blank-live': ['NOW BOARDING', 'GATE 12 OPEN', 'FINAL CALL'],
+  'blank-scheduled': ['STANDUP 0900', 'LUNCH 1300', 'HOME TIME 1730'],
+  'blank-shared': ['EVERY SCREEN', 'IN STEP', 'ON THE CLOCK'],
+};
+
 export function NewBoardClient({
   userName,
   types,
@@ -193,11 +207,17 @@ export function NewBoardClient({
    */
   const poster = (template: TemplateMeta, width: number, height: number, maxTile: number) => {
     const pack = resolveTheme(template.config.theme);
+    // The three starters teach a behaviour, so they demonstrate it: a live
+    // board keeps changing, a clock board turns over. The nine examples hold
+    // still, because twelve permanent animation loops on one page is a lot of
+    // laptop fan for no extra information.
+    const demo = DEMOS[template.id];
     return (
       <span className="poster" aria-hidden="true">
         <ThemePreview
           pack={pack}
-          text={template.poster.join('\n')}
+          text={demo ?? template.poster.join('\n')}
+          loop={demo ? 2600 : 0}
           cols={DEFAULTS.cols}
           rows={DEFAULTS.rows}
           tilePx={tileSizeFor(width, height, maxTile)}
