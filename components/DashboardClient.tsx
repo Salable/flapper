@@ -6,6 +6,9 @@ import { AppBar } from '@/components/AppBar';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { Button, LinkButton } from '@/components/ui/Button';
 import { Chip, CopyButton, EmptyState } from '@/components/ui/bits';
+import { ThemePreview } from '@/components/flapper/ThemePreview';
+import { DEFAULTS } from '@/lib/board/flipboard.js';
+import type { ThemePack } from '@/lib/board/theme-pack.mjs';
 import type { TypeMeta } from '@/components/board-types/type-meta';
 import { UserMenu } from '@/components/UserMenu';
 import { ConnectedApps, useConnections } from '@/components/ConnectedApps';
@@ -19,6 +22,12 @@ type BoardRow = {
   status: string;
   private: boolean;
   createdAt: number;
+  /** The board's resolved design, so a card can be drawn in it. */
+  pack: ThemePack;
+  /** Up to three of the words on it. Empty means blank glass, which is honest. */
+  lines: string[];
+  cols?: number;
+  rows?: number;
 };
 
 export function DashboardClient({
@@ -124,8 +133,22 @@ export function DashboardClient({
             <div className="board-grid">
               {boards.map((board) => (
                 <article className="board-card" key={board.id}>
-                  {/* A card is a name, a type, and three doors. Everything else
-                      about a board lives in its settings. */}
+                  {/* The board itself, in its own design, showing what is on
+                      it - so telling two boards apart is looking at them
+                      rather than reading their names. A board with nothing
+                      queued shows the blank glass it actually is. */}
+                  <div className="board-card-board">
+                    <ThemePreview
+                      pack={board.pack}
+                      text={board.lines.length > 0 ? board.lines : ['']}
+                      cols={board.cols ?? DEFAULTS.cols}
+                      rows={board.rows ?? DEFAULTS.rows}
+                      tilePx={9}
+                      bar={false}
+                      fixed
+                      loop={board.lines.length > 1 ? 4200 : 0}
+                    />
+                  </div>
                   <div className="board-card-open">
                     <span className="board-card-name">{board.name || board.slug}</span>
                     <span className="board-card-meta">

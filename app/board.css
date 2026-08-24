@@ -1903,3 +1903,13 @@ main.landing .error {
   display: flex;
   gap: var(--space-2);
 }
+
+/* A board card leads with the board. Small, in its own design, showing what is
+   on it - so two boards are told apart by looking rather than by reading. */
+.board-card-board {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-4) var(--space-3);
+  background: var(--bg);
+  border-bottom: 1px solid var(--edge);
+}

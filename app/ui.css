@@ -455,39 +455,19 @@ a.ui-btn-danger {
   flex-wrap: wrap;
 }
 
-/*
- * A CSS tile: the server-renderable stand-in for a real card. Its three face
- * stops and its ink come from custom properties, so a MiniBoard given a design
- * sets them on its wrapper (lib/board/face.mjs) and any design works without a
- * rule of its own. Unset, they fall back to the tokens - which is Classic, and
- * what the wordmark wants.
- */
+/* A CSS tile: the server-renderable stand-in for a real card, in the tokens'
+   colours. Wearing a design is the canvas's job - see MiniBoard. */
 .ui-tile {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   background: linear-gradient(180deg, var(--tile-hi) 0%, var(--tile-mid) 49%, var(--tile-lo) 51%, var(--tile-mid) 100%);
-  border: 1px solid var(--tile-border, rgba(236, 231, 221, 0.14));
+  border: 1px solid rgba(236, 231, 221, 0.14);
   border-radius: 3px;
   font-family: var(--font-mono);
   font-weight: 600;
   color: var(--ink);
   position: relative;
-}
-
-/*
- * A cell of a wash. The colour multiplies over the face rather than replacing
- * it, so the tile keeps its hinge and its shading and only takes the hue -
- * the DOM equivalent of what the canvas does with `overlay`.
- */
-.ui-tile.has-wash::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: var(--tile-wash);
-  mix-blend-mode: multiply;
-  pointer-events: none;
 }
 
 .ui-tile::after {
@@ -496,7 +476,7 @@ a.ui-btn-danger {
   left: 0;
   right: 0;
   top: 50%;
-  border-top: 1px solid var(--tile-hinge, rgba(0, 0, 0, 0.55));
+  border-top: 1px solid rgba(0, 0, 0, 0.55);
 }
 
 .ui-miniboard-sm .ui-tile,

@@ -3,6 +3,8 @@ import { redirect } from 'next/navigation';
 import { sessionFromHeaders } from '@/lib/auth';
 import { getDb } from '@/lib/db/client.mjs';
 import { listByOwner } from '@/lib/db/boards.mjs';
+import { listQueue } from '@/lib/db/queue.mjs';
+import { resolveBoardTheme } from '@/lib/board/board-theme.mjs';
 import { BOARD_TYPES } from '@/lib/board-types/index.mjs';
 import { DashboardClient } from '@/components/DashboardClient';
 
@@ -24,17 +26,43 @@ export default async function DashboardPage() {
     loadError = true;
   }
 
-  // A card is a name, a type and three doors; the live state of a display is
-  // the settings page's business, so the dashboard asks the broker nothing.
-  const rows = boards.map((board: any) => ({
-    id: board.id,
-    slug: board.slug,
-    name: board.name,
-    type: board.type,
-    status: board.status,
-    private: board.private,
-    createdAt: board.createdAt.getTime(),
-  }));
+  /*
+   * Each card carries what its board looks like and what is on it, so the
+   * dashboard shows the boards rather than a list of their names. The pack is
+   * resolved here because resolveBoardTheme is pure and the config is already
+   * in hand; the words come from the queue, which is one query per board -
+   * acceptable for a page listing an account's own handful, and still no
+   * question asked of the broker, whose business is the live display.
+   */
+  const rows = await Promise.all(
+    boards.map(async (board: any) => {
+      let lines: string[] = [];
+      try {
+        const queue = await listQueue(db, board.id);
+        lines = (queue?.items ?? [])
+          .map((item: any) => item.payload?.text)
+          .filter((text: unknown): text is string => typeof text === 'string' && text.trim() !== '')
+          .slice(0, 3);
+      } catch (error) {
+        // A card without its words is still a card. Never fail the page for it.
+        console.error('dashboard: reading a queue failed', error);
+      }
+      const { pack } = resolveBoardTheme(board.config ?? {});
+      return {
+        id: board.id,
+        slug: board.slug,
+        name: board.name,
+        type: board.type,
+        status: board.status,
+        private: board.private,
+        createdAt: board.createdAt.getTime(),
+        pack,
+        lines,
+        cols: Number(board.config?.cols) || undefined,
+        rows: Number(board.config?.rows) || undefined,
+      };
+    }),
+  );
 
   const types = [...BOARD_TYPES.values()].map((type: any) => ({
     id: type.id,

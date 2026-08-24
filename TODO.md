@@ -101,6 +101,9 @@ done; what remains is the gallery and the designs themselves.
       once so something writing a pack can fix it in one go. A board stores the
       pack it was given rather than a link, so editing or deleting a design
       never reaches a wall.
+- [x] **A board card shows its board.** The dashboard leads each card with the
+      board itself, in its own design, showing what is on it - so two boards are
+      told apart by looking rather than by reading.
 - [ ] **Editing a design's pack from the gallery.** You can make, rename and
       delete one; changing its colours still means opening a board's Display
       tab. The editor is bound to a board's draft, not to a design.
@@ -220,13 +223,11 @@ eight art entries at 16 KB each. Enough for a demo or a logo, not for typing.
 
 ## Left by the code review
 
-- [ ] **`lib/board/face.mjs` has no production caller.** It turns a pack into the
-      custom properties a CSS tile reads, and it was written to fix the posters
-      on /new - which then moved to the real engine on a canvas, fixing it
-      better. Kept because the dashboard's board cards are the obvious next
-      caller (a card wearing its board's design tells you which board it is at a
-      glance), and that needs the theme in the board list response. Either wire
-      it up or delete it and its test.
+- [x] **`lib/board/face.mjs` had no production caller** — deleted, with its
+      test and the CSS-tile design plumbing. The dashboard's cards were the
+      candidate caller and they draw on a canvas instead, which shows a design's
+      behaviour as well as its colours. The canvas won on every surface, so a
+      CSS tile in a design has nowhere left to be wanted.
 
 ## Open questions — yours
 
