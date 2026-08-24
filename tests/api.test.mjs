@@ -135,6 +135,29 @@ test('a template seeds the queue and presets config; the body still wins', async
   assert.equal(mq.items.length, 2);
   assert.equal(mq.items[0].payload.text, 'ON THE BALL CITY');
 
+  // A template is a default, not a lock: name a design and it wins. This is
+  // how "make a board in this" works from the designs gallery, and it is the
+  // same door an agent asking for a theme by name comes through.
+  const chosen = await jsonOf(
+    call(createBoard, ctx(undefined, 'owner'), '/api/boards', {
+      method: 'POST',
+      body: { template: 'match-day', name: 'NCFC pastel', theme: 'sorbet' },
+    }),
+  );
+  assert.equal(chosen.status, 201, JSON.stringify(chosen.body));
+  const cq = (await jsonOf(call(getQueue, ctx(chosen.body.slug, 'owner'), '/queue'))).body;
+  assert.equal(cq.config.theme, 'sorbet', 'the named design beat the template');
+  assert.equal(cq.config.cols, 24, "the template's other config still applies");
+
+  // And a design this build does not ship is refused rather than defaulted.
+  const unknown = await jsonOf(
+    call(createBoard, ctx(undefined, 'owner'), '/api/boards', {
+      method: 'POST',
+      body: { template: 'match-day', name: 'Tartan', theme: 'tartan' },
+    }),
+  );
+  assert.equal(unknown.status, 422, JSON.stringify(unknown.body));
+
   // Every template creates cleanly - the content test checks shape, this
   // checks the whole path including ingest and the queue cap.
   for (const id of TEMPLATES.keys()) {

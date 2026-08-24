@@ -1779,3 +1779,82 @@ main.landing .error {
 .theme-preview-canvas.is-editable {
   cursor: text;
 }
+
+/* ---- /designs: every design a board can wear ---- */
+
+.design-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.design-card {
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* The board sits on the room's ground, not the card's, so a design is judged
+   against the wall it will hang on rather than against a panel. */
+.design-card-board {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: var(--space-5) var(--space-3);
+  background: var(--bg);
+  border-bottom: 1px solid var(--edge);
+}
+
+.design-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  background: var(--surface-1);
+  flex: 1 1 auto;
+}
+
+.design-card-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font: 600 var(--text-md) / 1.3 var(--font-mono);
+  letter-spacing: var(--track-wide);
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+.design-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+
+.design-card-pack {
+  margin: var(--space-2) 0 0;
+  padding: var(--space-3);
+  background: var(--shade);
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-sm);
+  font: 400 var(--text-meta) / 1.6 var(--font-mono);
+  color: var(--muted);
+  overflow-x: auto;
+  max-height: 320px;
+  overflow-y: auto;
+  user-select: text;
+  cursor: auto;
+}
+
+/* The heading's actions, kept together so space-between still puts the
+   heading at one end and the buttons at the other. */
+.dash-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}

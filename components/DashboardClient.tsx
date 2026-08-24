@@ -86,14 +86,17 @@ export function DashboardClient({
       {dialog}
       <AppBar right={<UserMenu userName={userName} current="dashboard" />} />
       <main className="dash">
-        {/* The page's heading and its one primary action share a row. */}
+        {/* The page's heading and the two things you come here to make. */}
         <header className="dash-head">
           <h1 className="dash-title">
             Boards{boards.length > 0 && <span className="dash-count">{boards.length}</span>}
           </h1>
-          <LinkButton variant="primary" href="/new">
-            New board
-          </LinkButton>
+          <div className="dash-head-actions">
+            <LinkButton href="/designs">Designs</LinkButton>
+            <LinkButton variant="primary" href="/new">
+              New board
+            </LinkButton>
+          </div>
         </header>
         {error !== '' && <p className="error">{error}</p>}
 

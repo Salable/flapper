@@ -19,7 +19,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { AppBar } from '@/components/AppBar';
 import { UserMenu } from '@/components/UserMenu';
 import { Button, LinkButton } from '@/components/ui/Button';
@@ -125,6 +125,8 @@ export function NewBoardClient({
     rail.scrollBy({ left: direction * rail.clientWidth * 0.8, behavior: 'smooth' });
   }
 
+  // ?theme=sorbet, from the designs gallery's "make a board in this".
+  const wantedTheme = useSearchParams().get('theme');
   const nameValue = String(values.name ?? '').trim();
 
   async function create(event: React.FormEvent) {
@@ -143,6 +145,9 @@ export function NewBoardClient({
         body: JSON.stringify({
           template: selected.template.id,
           ...(slug.trim() !== '' ? { slug: slug.trim() } : {}),
+          // Arrived from /designs wanting a particular look: the template
+          // still decides the type and the seeds, the design is yours.
+          ...(wantedTheme ? { theme: wantedTheme } : {}),
           ...values,
         }),
       });
