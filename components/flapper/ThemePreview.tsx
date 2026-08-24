@@ -22,6 +22,7 @@ export function ThemePreview({
   rows = 3,
   tilePx = 56,
   onText,
+  bar = true,
 }: {
   pack: ThemePack;
   /**
@@ -41,6 +42,12 @@ export function ThemePreview({
    * pangram tells you very little about whether your own words fit.
    */
   onText?: (text: string) => void;
+  /**
+   * Off for a board used as a picture - the posters on /new are twelve boards
+   * on one page and twelve Flip again buttons would be noise. They still flip
+   * once on arrival, which is the point of them being real.
+   */
+  bar?: boolean;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const boardRef = useRef<any>(null);
@@ -160,12 +167,14 @@ export function ThemePreview({
         }
         onKeyDown={onText ? type : undefined}
       />
-      <div className="theme-preview-bar">
-        <Button size="sm" variant="ghost" onClick={() => setReplays((n) => n + 1)}>
-          Flip again
-        </Button>
-        {error !== '' && <span className="error">{error}</span>}
-      </div>
+      {bar && (
+        <div className="theme-preview-bar">
+          <Button size="sm" variant="ghost" onClick={() => setReplays((n) => n + 1)}>
+            Flip again
+          </Button>
+          {error !== '' && <span className="error">{error}</span>}
+        </div>
+      )}
     </div>
   );
 }

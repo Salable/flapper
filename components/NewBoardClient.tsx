@@ -25,8 +25,9 @@ import { UserMenu } from '@/components/UserMenu';
 import { Button, LinkButton } from '@/components/ui/Button';
 import { Field, TextInput, Select, Checkbox } from '@/components/ui/Field';
 import { Chip } from '@/components/ui/bits';
-import { MiniBoard } from '@/components/ui/MiniBoard';
+import { ThemePreview } from '@/components/flapper/ThemePreview';
 import { resolveTheme } from '@/lib/board/themes.mjs';
+import { DEFAULTS } from '@/lib/board/flipboard.js';
 import type { TypeMeta } from '@/components/board-types/type-meta';
 import { nextFreeName } from '@/lib/board-types/names.mjs';
 
@@ -163,30 +164,31 @@ export function NewBoardClient({
   const set = (key: string, value: unknown) => setValues((prev) => ({ ...prev, [key]: value }));
 
   /**
-   * The poster: the board in CSS tiles, skinned by the template's theme.
-   * Tiles are sized so the longest line fits the width it has - a twelve-tile
-   * line and a seven-tile line both fill the card without spilling.
+   * The poster: the board this template actually makes.
+   *
+   * It used to be a row of CSS tiles floating in a big empty box - a shape no
+   * board has, in a stand-in that cannot flap. Now it is the real engine at the
+   * template's own grid and design, showing the words it will be seeded with,
+   * so what you pick is what you get. It flips once on arrival; the Flip again
+   * button is off, because twelve of them on one page is noise.
    */
   const poster = (template: TemplateMeta, width: number, maxTile: number) => {
-    const longest = Math.max(1, ...template.poster.map((line) => line.length));
-    const fit = Math.max(10, Math.min(maxTile, Math.floor(width / (longest + (longest - 1) * 0.08))));
-    // The card wears the template's own design, resolved from its config. This
-    // used to be `theme === 'canary' ? ' is-canary' : ''` with the colours
-    // restated in CSS, so any design but those two came out looking like
-    // Classic - which is what had happened to Sorbet.
     const pack = resolveTheme(template.config.theme);
+    const cols = Number(template.config.cols) || DEFAULTS.cols;
+    const rows = Number(template.config.rows) || DEFAULTS.rows;
+    // The gap the engine leaves between tiles is gapRatio of a tile, plus a
+    // little padding, so the whole board lands inside the width it has.
+    const tilePx = Math.max(5, Math.min(maxTile, Math.floor((width - 12) / (cols * (1 + DEFAULTS.gapRatio)))));
     return (
       <span className="poster" aria-hidden="true">
-        {template.poster.map((line, index) => (
-          <MiniBoard
-            key={index}
-            text={line}
-            fit={fit}
-            pack={pack}
-            cols={longest}
-            row={index}
-          />
-        ))}
+        <ThemePreview
+          pack={pack}
+          text={template.poster.join('\n')}
+          cols={cols}
+          rows={rows}
+          tilePx={tilePx}
+          bar={false}
+        />
       </span>
     );
   };
