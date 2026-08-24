@@ -74,8 +74,8 @@ test('fonts scale with the tile', () => {
   assert.equal(fontForSize('0.5em Georgia', 26), '13px Georgia');
 });
 
-test('the shipped themes are Classic and Canary, both valid packs', () => {
-  assert.deepEqual([...THEME_IDS], ['classic', 'canary']);
+test('the shipped themes are all valid packs', () => {
+  assert.deepEqual([...THEME_IDS], ['classic', 'canary', 'sorbet']);
   for (const id of THEME_IDS) {
     assert.equal(THEMES[id].id, id);
     assert.ok(validatePack(THEMES[id]).ok);

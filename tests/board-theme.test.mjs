@@ -117,6 +117,24 @@ test('publicConfig drops the pack and nothing else', () => {
   assert.equal(publicConfig(null), null);
 });
 
+test('a tint survives the round trip through a sparse override', () => {
+  // The bug this catches: tint was added to the pack but not to the list of
+  // things a board's override merges and stores, so a board's wash was
+  // silently dropped between saving it and drawing it.
+  const preset = THEMES.classic;
+  const wash = { gradient: { from: '#f7d6e3', to: '#cfe3f8', angle: 35 }, mode: 'multiply', strength: 0.85 };
+  const sparse = sparsify({ ...preset, tint: wash }, preset);
+  assert.deepEqual(sparse.tint, wash, 'a tint unlike the preset is stored');
+  assert.deepEqual(mergePack(preset, sparse).tint, wash, 'and comes back on merge');
+
+  // A preset that has one keeps it when a board overrides something else.
+  const merged = mergePack(THEMES.sorbet, { card: { fill: '#fff' } });
+  assert.deepEqual(merged.tint, THEMES.sorbet.tint, "a preset's own tint is not lost");
+
+  // And matching the preset stores nothing, as with every other field.
+  assert.equal(sparsify({ ...THEMES.sorbet }, THEMES.sorbet), null);
+});
+
 test('themeRev is stable across key order and an equivalent whole pack, and moves with content', async () => {
   const a = await themeRevOf({ theme: 'classic', themePack: { card: { fill: '#fff', radius: 0.1 } } });
   const b = await themeRevOf({ themePack: { card: { radius: 0.1, fill: '#fff' } }, theme: 'classic' });
@@ -135,7 +153,7 @@ test('themeRev is stable across key order and an equivalent whole pack, and move
 
 test('capabilities advertise presets, limits and ranges from one source', () => {
   const caps = themeCapabilities(RANGES);
-  assert.deepEqual(caps.presets.map((p) => p.id), ['classic', 'canary']);
+  assert.deepEqual(caps.presets.map((p) => p.id), ['classic', 'canary', 'sorbet']);
   assert.equal(caps.maxBytes, THEME_LIMITS.maxBytes);
   assert.deepEqual(caps.artTypes, ['image/png', 'image/webp']);
   assert.equal(caps.ranges, RANGES);
