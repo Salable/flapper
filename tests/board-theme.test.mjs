@@ -153,7 +153,7 @@ test('themeRev is stable across key order and an equivalent whole pack, and move
 
 test('capabilities advertise presets, limits and ranges from one source', () => {
   const caps = themeCapabilities(RANGES);
-  assert.deepEqual(caps.presets.map((p) => p.id), ['classic', 'canary', 'sorbet']);
+  assert.deepEqual(caps.presets.map((p) => p.id), ['classic', 'canary', 'sorbet', 'carnival']);
   assert.equal(caps.maxBytes, THEME_LIMITS.maxBytes);
   assert.deepEqual(caps.artTypes, ['image/png', 'image/webp']);
   assert.equal(caps.ranges, RANGES);

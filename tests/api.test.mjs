@@ -683,7 +683,7 @@ test('a board\'s own theme: stored sparse, kept out of /queue, served by /theme 
   assert.equal(fat.status, 413);
 
   const caps = (await jsonOf(call(capabilities, ctx(board.slug), '/capabilities'))).body;
-  assert.deepEqual(caps.themePack.presets.map((p) => p.id), ['classic', 'canary', 'sorbet']);
+  assert.deepEqual(caps.themePack.presets.map((p) => p.id), ['classic', 'canary', 'sorbet', 'carnival']);
   assert.equal(typeof caps.themePack.maxBytes, 'number');
 });
 

@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { validatePack, resolveStateStyle, fontForSize, DEFAULT_CYCLE, PACK_DEFAULTS } from '../lib/board/theme-pack.mjs';
 import { THEMES, THEME_IDS, DEFAULT_THEME, resolveTheme, isTheme } from '../lib/board/themes.mjs';
+import { flightColour } from '../lib/board/tint.mjs';
 import { RING, ringChars } from '../lib/board/ring.mjs';
 import { paintCard, ProceduralSkin } from '../lib/board/skins/procedural.mjs';
 
@@ -75,7 +76,7 @@ test('fonts scale with the tile', () => {
 });
 
 test('the shipped themes are all valid packs', () => {
-  assert.deepEqual([...THEME_IDS], ['classic', 'canary', 'sorbet']);
+  assert.deepEqual([...THEME_IDS], ['classic', 'canary', 'sorbet', 'carnival']);
   for (const id of THEME_IDS) {
     assert.equal(THEMES[id].id, id);
     assert.ok(validatePack(THEMES[id]).ok);
@@ -170,4 +171,37 @@ test('ProceduralSkin at rest draws both halves of the current card; in flight, t
   draws = log.filter((c) => c[0] === 'drawImage');
   assert.equal(draws[0][1], skin.cards[0], 'the ring wraps');
   assert.equal(draws[2][1], skin.cards[0], 'late in the flap the falling face is the next bottom');
+});
+
+test('Carnival colours the flight, not the letters', () => {
+  const pack = THEMES.carnival;
+  // Nothing per-state: a resting board is plain green, and the colour is
+  // something you only catch while a tile is moving.
+  assert.deepEqual(pack.states, {}, 'no letter carries a colour of its own');
+  assert.ok(Array.isArray(pack.flight));
+  // Uneven on purpose: an even pattern reads as a machine.
+  const gaps = [];
+  let since = 0;
+  for (const entry of pack.flight) {
+    if (entry === null) since += 1;
+    else { gaps.push(since); since = 0; }
+  }
+  assert.ok(new Set(gaps).size > 1, `the gaps are all the same: ${gaps}`);
+  assert.ok(pack.flight.length <= RING.length);
+});
+
+test('a flight colour repeats round the ring, and only where there is one', () => {
+  const flight = [null, null, '#ff0000'];
+  assert.equal(flightColour(flight, 0), null, 'a null step is the base card');
+  assert.deepEqual(flightColour(flight, 2), { r: 255, g: 0, b: 0 });
+  assert.deepEqual(flightColour(flight, 5), { r: 255, g: 0, b: 0 }, 'it repeats');
+  assert.equal(flightColour(flight, 39), null, '39 % 3 is 0, a null step');
+  assert.equal(flightColour(null, 3), null);
+  assert.equal(flightColour([], 3), null);
+});
+
+test('a flight of nothing but nulls is refused as pointless', () => {
+  const result = validatePack({ id: 'x', flight: [null, null] });
+  assert.equal(result.ok, false);
+  assert.match(result.errors.join(' '), /all nulls/);
 });

@@ -24,7 +24,14 @@ export function ThemePreview({
   onText,
 }: {
   pack: ThemePack;
-  text: string;
+  /**
+   * One message, or several to alternate between. Several is how the uneven
+   * travel becomes visible: a tile only moves forward round the ring, so going
+   * from A to B is one step and from Z to A is thirty-odd. Flipping the same
+   * text again sends every tile the same distance every time and shows none of
+   * that; flipping to a *different* message does.
+   */
+  text: string | string[];
   cols?: number;
   rows?: number;
   tilePx?: number;
@@ -39,6 +46,8 @@ export function ThemePreview({
   const boardRef = useRef<any>(null);
   const [error, setError] = useState('');
   const [replays, setReplays] = useState(0);
+  const messages = Array.isArray(text) ? text : [text];
+  const showing = messages[replays % messages.length] ?? '';
 
   // Build (or re-skin) after the pack has been still for a moment.
   useEffect(() => {
@@ -51,7 +60,7 @@ export function ThemePreview({
           if (cancelled) return;
           if (!boardRef.current) {
             boardRef.current = new Flipboard(canvas, skin, { cols, rows, padding: 6 });
-            boardRef.current.setText(text);
+            boardRef.current.setText(showing);
           } else {
             boardRef.current.setSkin(skin);
           }
@@ -65,7 +74,7 @@ export function ThemePreview({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [pack, cols, rows, text]);
+  }, [pack, cols, rows, showing]);
 
   useEffect(() => {
     boardRef.current?.setOptions({ cols, rows });
@@ -75,14 +84,17 @@ export function ThemePreview({
   useEffect(() => {
     const board = boardRef.current;
     if (!board) return;
-    if (replays === 0) {
-      board.setText(text);
+    // With more than one message, going straight to the next is the point:
+    // blanking first would send every tile from the blank and make the travel
+    // even again, which is the thing we are trying to show.
+    if (replays === 0 || messages.length > 1) {
+      board.setText(showing);
       return;
     }
     board.clear();
-    const timer = setTimeout(() => board.setText(text), 400);
+    const timer = setTimeout(() => board.setText(showing), 400);
     return () => clearTimeout(timer);
-  }, [text, replays]);
+  }, [showing, replays, messages.length]);
 
   // The canvas box settles after first paint and moves with the window.
   useEffect(() => {
@@ -99,7 +111,7 @@ export function ThemePreview({
      on the wall. Anything outside the ring is left to the layout engine, which
      substitutes and reports. */
   function type(event: React.KeyboardEvent<HTMLCanvasElement>) {
-    if (!onText) return;
+    if (!onText || Array.isArray(text)) return;
     const lines = text.split('\n');
     const last = () => lines[lines.length - 1] ?? '';
 
