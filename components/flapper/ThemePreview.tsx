@@ -128,10 +128,39 @@ export function ThemePreview({
     boardRef.current?.setOptions({ cols, rows });
   }, [cols, rows]);
 
-  // On the way out, for good. A board with anything left to draw - a wash that
-  // drifts, a runner going round the edge - otherwise keeps a frame loop alive
-  // on a canvas nobody can see, for the life of the tab, one per visit to the
-  // page. Nothing parks it now that a drift is a reason to keep drawing.
+  /*
+   * Stop drawing while off screen.
+   *
+   * A wash that moves - a drift, a runner going round the edge - is a reason to
+   * keep asking for frames, and that used to mean asking forever. On a page of
+   * designs, every card below the fold went on repainting for nobody; at the
+   * sixty-design limit that is sixty loops nobody is looking at, which is fan
+   * noise on a laptop and worse on the hardware a wall runs on.
+   *
+   * A board that is not visible is parked and picked up again on the way back.
+   * Nothing is lost by it: a drift and a runner are both functions of the
+   * clock, so they resume where they would have been rather than where they
+   * stopped.
+   */
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        const board = boardRef.current;
+        if (!board) return;
+        if (entry.isIntersecting) board.start?.();
+        else board.stop?.();
+      },
+      { rootMargin: '200px' },
+    );
+    observer.observe(canvas);
+    return () => observer.disconnect();
+  }, []);
+
+  // On the way out, for good. A board with anything left to draw otherwise
+  // keeps a frame loop alive on a canvas nobody can see, for the life of the
+  // tab, one per visit to the page.
   useEffect(
     () => () => {
       boardRef.current?.stop?.();
