@@ -7,7 +7,9 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Button } from '@/components/ui/Button';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
+import { Checkbox, Field, Select, TextInput } from '@/components/ui/Field';
 
 type QueueItem = {
   id: string;
@@ -159,14 +161,16 @@ export function QueueManager({ slug }: { slug: string }) {
                   {item.source}
                 </span>
                 <span className="queue-actions">
-                  <button title="Move up" onClick={() => reorder(item, -1)} disabled={item.id === playingId}>
+                  <button title="Move up" aria-label="Move up" onClick={() => reorder(item, -1)} disabled={item.id === playingId}>
                     ↑
                   </button>
-                  <button title="Move down" onClick={() => reorder(item, 1)} disabled={item.id === playingId}>
+                  <button title="Move down" aria-label="Move down" onClick={() => reorder(item, 1)} disabled={item.id === playingId}>
                     ↓
                   </button>
                   <button
                     title={item.loop ? 'Stop looping' : 'Loop'}
+                    aria-label={item.loop ? 'Stop looping' : 'Loop'}
+                    aria-pressed={item.loop}
                     className={item.loop ? 'is-on' : ''}
                     onClick={() => act(() => post(`/queue/items/${item.id}`, 'PATCH', { loop: !item.loop }))}
                   >
@@ -174,12 +178,13 @@ export function QueueManager({ slug }: { slug: string }) {
                   </button>
                   <button
                     title="Edit"
+                    aria-label="Edit message"
                     disabled={item.payload.text === undefined}
                     onClick={() => setEditing({ id: item.id, text: item.payload.text ?? '' })}
                   >
                     ✎
                   </button>
-                  <button title="Remove" onClick={() => act(() => post(`/queue/items/${item.id}`, 'DELETE'))}>
+                  <button title="Remove" aria-label="Remove from queue" onClick={() => act(() => post(`/queue/items/${item.id}`, 'DELETE'))}>
                     ✕
                   </button>
                 </span>
@@ -188,12 +193,10 @@ export function QueueManager({ slug }: { slug: string }) {
           </ol>
         )}
         <div className="compose" aria-label="Add a message">
-          <div className="field">
-            <label htmlFor="compose-text">Add a message</label>
-            <input
+          <Field label="Add a message" htmlFor="compose-text">
+            <TextInput
               id="compose-text"
-              className="as-board"
-              type="text"
+              className="ui-input as-board"
               placeholder="Type a message — Enter to queue it"
               autoComplete="off"
               spellCheck={false}
@@ -203,49 +206,43 @@ export function QueueManager({ slug }: { slug: string }) {
                 if (event.key === 'Enter') send();
               }}
             />
-        </div>
+          </Field>
           <div className="compose-options">
-            <div className="field">
-              <label htmlFor="compose-priority">Priority</label>
-              <select id="compose-priority" value={priority} onChange={(e) => setPriority(e.target.value)}>
+            <Field label="Priority" htmlFor="compose-priority">
+              <Select id="compose-priority" value={priority} onChange={(e) => setPriority(e.target.value)}>
                 <option value="normal">Queue it</option>
                 <option value="next">Play next</option>
                 <option value="now">Play now</option>
-              </select>
-            </div>
-            <div className="field">
-              <label htmlFor="compose-hold">Hold</label>
-              <select id="compose-hold" value={holdMs} onChange={(e) => setHoldMs(e.target.value)}>
+              </Select>
+            </Field>
+            <Field label="Hold" htmlFor="compose-hold">
+              <Select id="compose-hold" value={holdMs} onChange={(e) => setHoldMs(e.target.value)}>
                 <option value="">Board default</option>
                 <option value="1000">1s</option>
                 <option value="2000">2s</option>
                 <option value="5000">5s</option>
                 <option value="10000">10s</option>
                 <option value="30000">30s</option>
-              </select>
-            </div>
-            <div className="field checkbox">
-              <label htmlFor="compose-loop">
-                <input
-                  id="compose-loop"
-                  type="checkbox"
-                  checked={loop}
-                  onChange={(e) => setLoop(e.target.checked)}
-                />{' '}
-                Loop
-              </label>
-            </div>
-            <button className="primary" onClick={send}>
+              </Select>
+            </Field>
+            <Checkbox
+              id="compose-loop"
+              label="Loop"
+              checked={loop}
+              onChange={(e) => setLoop(e.target.checked)}
+            />
+            <Button variant="primary" size="sm" onClick={send}>
               Add to queue
-            </button>
-        </div>
+            </Button>
+          </div>
           <span className="muted">
             Loop sends a played message to the back of the queue instead of removing it. A band&apos;s
             only exit from a loop is removing the item or clearing.
           </span>
         </div>
         <div className="actions">
-          <button
+          <Button
+            size="sm"
             onClick={() => act(() => post('/queue', 'DELETE'))}
             disabled={pendingCount === 0}
             title={
@@ -255,8 +252,10 @@ export function QueueManager({ slug }: { slug: string }) {
             }
           >
             Flush pending
-          </button>
-          <button
+          </Button>
+          <Button
+            size="sm"
+            variant="danger"
             disabled={nothingOnBoard}
             onClick={async () => {
               if (
@@ -272,7 +271,7 @@ export function QueueManager({ slug }: { slug: string }) {
             title={nothingOnBoard ? 'The board is already blank' : 'Stop everything and blank the glass'}
           >
             Clear board
-          </button>
+          </Button>
         </div>
       </section>
     </>

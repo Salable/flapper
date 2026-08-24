@@ -351,6 +351,7 @@ export default function ScheduleEditor({ slug }: { slug: string }) {
                 <span className="queue-actions">
                   <button
                     title="Remove"
+                    aria-label="Remove from schedule"
                     onClick={() => act(() => post(`/queue/items/${item.id}`, 'DELETE'))}
                   >
                     ✕

@@ -8,6 +8,7 @@
  */
 
 import { useState } from 'react';
+import { Checkbox, Field, RangeSlider, Select } from '@/components/ui/Field';
 import { DEFAULTS } from '@/lib/board/flipboard.js';
 import { CONTROLLER_DEFAULTS } from '@/lib/board/controller.mjs';
 
@@ -59,34 +60,38 @@ export function DisplayConfig({ slug, initial }: { slug: string; initial: Config
     step: number,
     format: (value: number) => string,
   ) => (
-    <div className="field">
-      <label htmlFor={id}>
-        {labelText} <span className="muted">{format(Number(config[key]))}</span>
-      </label>
-      <input
+    <Field
+      label={
+        <>
+          {labelText} <span className="muted">{format(Number(config[key]))}</span>
+          <span className="field-range">
+            {format(min)}–{format(max)}
+          </span>
+        </>
+      }
+      htmlFor={id}
+    >
+      <RangeSlider
         id={id}
-        type="range"
         min={min}
         max={max}
         step={step}
         value={Number(config[key])}
         onChange={(event) => patch(key, Number(event.target.value))}
       />
-    </div>
+    </Field>
   );
 
   const select = (id: string, labelText: string, key: string, options: [string, string][], help?: string) => (
-    <div className="field">
-      <label htmlFor={id}>{labelText}</label>
-      <select id={id} value={String(config[key])} onChange={(event) => patch(key, event.target.value)}>
+    <Field label={labelText} htmlFor={id} hint={help}>
+      <Select id={id} value={String(config[key])} onChange={(event) => patch(key, event.target.value)}>
         {options.map(([value, name]) => (
           <option key={value} value={value}>
             {name}
           </option>
         ))}
-      </select>
-      {help && <span className="muted">{help}</span>}
-    </div>
+      </Select>
+    </Field>
   );
 
   return (
@@ -122,16 +127,13 @@ export function DisplayConfig({ slug, initial }: { slug: string; initial: Config
           ['random', 'Random'],
           ['none', 'None'],
         ])}
-        <div className="field checkbox">
-          <label htmlFor="cfg-always">
-            <input
-              id="cfg-always"
-              type="checkbox"
-              checked={Boolean(config.alwaysFlip)}
-              onChange={(event) => patch('alwaysFlip', event.target.checked)}
-            />{' '}
-            Always flip
-          </label>
+        <div className="ui-field">
+          <Checkbox
+            id="cfg-always"
+            label="Always flip"
+            checked={Boolean(config.alwaysFlip)}
+            onChange={(event) => patch('alwaysFlip', event.target.checked)}
+          />
         </div>
       </div>
       <span className="muted">Changes apply live to every open display.</span>

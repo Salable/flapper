@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { Button } from '@/components/ui/Button';
+import { Field, TextInput } from '@/components/ui/Field';
 import { authClient, signIn, signUp } from '@/lib/auth-client';
 import { TERMS_VERSION } from '@/lib/legal/documents.mjs';
 
@@ -90,14 +92,12 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
         </p>
       )}
       {mode === 'signup' && (
-        <div className="field">
-          <label htmlFor="name">Name</label>
-          <input id="name" type="text" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" />
-        </div>
+        <Field label="Name" htmlFor="name">
+          <TextInput id="name" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" />
+        </Field>
       )}
-      <div className="field">
-        <label htmlFor="email">Email</label>
-        <input
+      <Field label="Email" htmlFor="email">
+        <TextInput
           id="email"
           type="email"
           required
@@ -105,10 +105,9 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
           onChange={(e) => setEmail(e.target.value)}
           autoComplete="email"
         />
-      </div>
-      <div className="field">
-        <label htmlFor="password">Password</label>
-        <input
+      </Field>
+      <Field label="Password" htmlFor="password" hint={mode === 'signup' ? 'At least 8 characters.' : undefined}>
+        <TextInput
           id="password"
           type="password"
           required
@@ -117,7 +116,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
           onChange={(e) => setPassword(e.target.value)}
           autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
         />
-      </div>
+      </Field>
       {mode === 'signup' && (
         <>
           <label className="consent">
@@ -141,9 +140,9 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
         </>
       )}
       {error !== '' && <p className="error">{error}</p>}
-      <button className="primary wide" disabled={busy}>
+      <Button variant="primary" className="ui-btn-block" disabled={busy}>
         {busy ? '…' : mode === 'signup' ? 'Create account' : 'Sign in'}
-      </button>
+      </Button>
       <p className="muted">
         {mode === 'signup' ? (
           <>
