@@ -136,7 +136,15 @@ export function DashboardClient({
                   {/* The board itself, in its own design, showing what is on
                       it - so telling two boards apart is looking at them
                       rather than reading their names. A board with nothing
-                      queued shows the blank glass it actually is. */}
+                      queued shows the blank glass it actually is.
+
+                      Each at its own grid, unlike the posters on /new. There a
+                      card is an example and three widths in a row read as a
+                      mistake; here it is a board that exists, so a 24-column
+                      board being wider than a 20-column one is a true thing
+                      about it and worth seeing. The tile size is the same
+                      throughout, so the difference is the board's, not the
+                      drawing's. */}
                   <div className="board-card-board">
                     <ThemePreview
                       pack={board.pack}

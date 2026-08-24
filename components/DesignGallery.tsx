@@ -264,7 +264,10 @@ export function DesignGallery() {
                       aria-label={`Rename ${design.name}`}
                       onChange={(event) => setRenameTo(event.target.value)}
                       onKeyDown={(event) => {
-                        if (event.key === 'Enter') rename(design);
+                        // Guarded like its button, and like create - the same
+                        // bug was fixed two hundred lines from here and left
+                        // standing in this one.
+                        if (event.key === 'Enter' && !busy) rename(design);
                         if (event.key === 'Escape') setRenaming(null);
                       }}
                     />

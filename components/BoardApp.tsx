@@ -80,7 +80,7 @@ export function BoardApp({
     let cancelled = false;
     // Assigned once the board exists; the cleanup below has to be able to reach
     // it, and the board is built inside an async block.
-    let stopAmbient: () => void = () => {};
+    let stopAmbient: (restore?: boolean) => void = () => {};
     let source: EventSource | null = null;
     let boardObserver: ResizeObserver | null = null;
     let ratioQuery: MediaQueryList | null = null;
@@ -168,19 +168,25 @@ export function BoardApp({
       let ambientTick = 0;
       /** Put the words back, if a flicker is still showing. */
       let undoFlicker: (() => void) | null = null;
-      stopAmbient = () => {
+      /*
+       * `restore` is false on the way out.
+       *
+       * Doing the restore matters when the board carries on living - a sync
+       * nudge lands inside the flicker window and would otherwise strand the
+       * deliberately-wrong character. It is wrong when the board is being
+       * discarded: setPage on a board nobody owns any more starts a fresh frame
+       * loop against an orphaned canvas, and on the initialRev path a
+       * replacement board is already being built for the same element, so two
+       * boards would draw to one canvas.
+       */
+      stopAmbient = (restore = true) => {
         if (ambientTimer !== null) clearInterval(ambientTimer);
         if (restoreTimer !== null) clearTimeout(restoreTimer);
         ambientTimer = null;
         restoreTimer = null;
-        // Do the restore rather than drop it. startAmbient calls this, and it
-        // runs from onConfig - which fires on every sync nudge - so a sync
-        // landing inside the flicker window would otherwise leave the
-        // deliberately-wrong character on the glass with nothing coming to
-        // correct it.
         const undo = undoFlicker;
         undoFlicker = null;
-        undo?.();
+        if (restore) undo?.();
       };
       const startAmbient = (everyMs: number) => {
         stopAmbient();
@@ -363,7 +369,9 @@ export function BoardApp({
     return () => {
       cancelled = true;
       stopProgress();
-      stopAmbient();
+      // Not the restore: the board is going away, and painting it on the way
+      // out would arm a frame loop on a canvas nobody owns.
+      stopAmbient(false);
       source?.close();
       boardObserver?.disconnect();
       if (ratioQuery && onRatioChange) ratioQuery.removeEventListener('change', onRatioChange);

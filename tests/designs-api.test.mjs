@@ -174,7 +174,9 @@ test('the error that tells an agent where to look points somewhere real', async 
   assert.equal(result.status, 422);
   // There is no /api/designs/presets - it resolves to the [id] route and 404s.
   assert.doesNotMatch(result.body.error, /designs\/presets/);
-  assert.match(result.body.error, /GET \/api\/designs/);
+  // And it names the mechanism that works: GET /api/designs lists the presets
+  // by name only, so an agent told to copy a pack from there finds none.
+  assert.match(result.body.error, /from: "classic"/);
 });
 
 test('one account cannot read, change or delete another account\'s design', async () => {
