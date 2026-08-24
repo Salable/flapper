@@ -205,3 +205,48 @@ test('a flight of nothing but nulls is refused as pointless', () => {
   assert.equal(result.ok, false);
   assert.match(result.errors.join(' '), /all nulls/);
 });
+
+test('art and fonts cannot reach a third-party host', () => {
+  /*
+   * The rule the comment beside the check has always claimed: a board must not
+   * be able to make every viewer fetch a third party. A single leading slash
+   * is this app's own files; two is protocol-relative, which resolves to
+   * whatever host follows - so `//evil.example/x.png` passed a bare /^\// and
+   * a public board would have fetched it from every wall and every visitor,
+   * disclosing their IP and User-Agent. There is no CSP behind this to catch
+   * it, so the validator is the only thing standing there.
+   */
+  for (const src of ['//evil.example/x.png', '//evil.example/f.woff2', '///evil.example/x.png']) {
+    const art = validatePack({ art: { logo: src } });
+    assert.equal(art.ok, false, `art ${src} was accepted`);
+    assert.match(art.errors.join('; '), /art\.logo/);
+
+    const fonts = validatePack({ fonts: [{ family: 'X', src }] });
+    assert.equal(fonts.ok, false, `fonts ${src} was accepted`);
+    assert.match(fonts.errors.join('; '), /fonts\[0\]\.src/);
+  }
+
+  // And the two forms that are the point of the rule still work.
+  assert.equal(validatePack({ art: { logo: '/art/logo.png' } }).ok, true);
+  assert.equal(validatePack({ fonts: [{ family: 'X', src: '/fonts/x.woff2' }] }).ok, true);
+  assert.equal(
+    validatePack({ art: { logo: 'data:image/png;base64,iVBORw0KGgo=' } }).ok,
+    true,
+  );
+})
+
+test('a null where a tint kind should be is a 422, not a crash', () => {
+  /*
+   * typeof null === 'object', so these got past the shape guard and
+   * Object.keys(null) threw a TypeError out of validatePack. That meant a 500
+   * from PATCH /config and POST /api/designs, it broke resolveBoardTheme's
+   * "Never throws" contract, and in the theme editor it escaped during render
+   * and lost the draft. Every other bad value here is a clean 422; these are
+   * the ones that were not.
+   */
+  for (const tint of [{ corners: null }, { gradient: null }, { runner: null }]) {
+    const result = validatePack({ tint });
+    assert.equal(result.ok, false, `${JSON.stringify(tint)} was accepted`);
+    assert.equal(result.errors.length > 0, true);
+  }
+})

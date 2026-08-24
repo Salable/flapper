@@ -62,6 +62,16 @@ export function BoardApp({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const playerRef = useRef<any>(null);
   const soundRef = useRef<FlapSound | null>(null);
+  /*
+   * The board, held only so the cleanup can stop it. `board` itself is a
+   * const inside the async IIFE below, so without this the teardown had no
+   * way to reach it - and a design that drifts or runs a wash keeps its frame
+   * loop re-arming (tick re-arms while needsFrames() is true), so the loop
+   * outlived the effect. On the initialRev path a replacement board is built
+   * for the same canvas, which is where that actually bites: two live loops
+   * painting one element, the stale one drawing the old page over the new.
+   */
+  const boardRef = useRef<any>(null);
   const [toast, setToast] = useState('');
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -293,6 +303,8 @@ export function BoardApp({
       });
       playerRef.current = player;
 
+      boardRef.current = board;
+
       // Reachable from the devtools console for diagnosing an installation.
       (window as any).flipboard = board;
       (window as any).controller = controller;
@@ -380,6 +392,10 @@ export function BoardApp({
       playerRef.current = null;
       soundRef.current?.stop();
       soundRef.current = null;
+      // Last: the player and the ambient timer both paint, so stopping the
+      // board before them could let one of them arm it again on the way out.
+      boardRef.current?.stop?.();
+      boardRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug, apiBase, boardKey, displayToken, initialRev]);
