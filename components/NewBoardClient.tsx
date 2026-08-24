@@ -159,7 +159,12 @@ export function NewBoardClient({
   }
 
   // ?theme=sorbet, from the designs gallery's "make a board in this".
-  const wantedTheme = useSearchParams().get('theme');
+  const params = useSearchParams();
+  const wantedTheme = params.get('theme');
+  // ?design=<id>, from a design of your own. A shipped one arrives as ?theme=;
+  // both end up as the board's look, by different routes - a preset is a name
+  // the build knows, and yours is a pack the server reads off your account.
+  const wantedDesign = params.get('design');
   const nameValue = String(values.name ?? '').trim();
 
   async function create(event: React.FormEvent) {
@@ -181,6 +186,7 @@ export function NewBoardClient({
           // Arrived from /designs wanting a particular look: the template
           // still decides the type and the seeds, the design is yours.
           ...(wantedTheme ? { theme: wantedTheme } : {}),
+          ...(wantedDesign ? { designId: wantedDesign } : {}),
           ...values,
         }),
       });

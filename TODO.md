@@ -94,7 +94,16 @@ done; what remains is the gallery and the designs themselves.
 - [x] **The design gallery** — /designs, every design as real tiles, reachable
       from the dashboard; "make a board in this" carries the design through
       creation (`2cb9dc0`). Read-only until designs have somewhere to be saved.
-- [ ] **Authoring a design outside a board** — blocked on open question 2.
+- [x] **Authoring a design outside a board.** Designs live on the account:
+      `designs` table, `/api/designs` CRUD, and the gallery lists yours beside
+      the ones in the box. Made in the designer view or by an agent posting a
+      pack - the same door and the same validator, which names every problem at
+      once so something writing a pack can fix it in one go. A board stores the
+      pack it was given rather than a link, so editing or deleting a design
+      never reaches a wall.
+- [ ] **Editing a design's pack from the gallery.** You can make, rename and
+      delete one; changing its colours still means opening a board's Display
+      tab. The editor is bound to a board's draft, not to a design.
 - [ ] **Eight more designs.** A design is validated data, not code, so these are
       authoring. Split across the two ink families.
 - [x] **The poster keyed on the string `'canary'`** — now resolves the
