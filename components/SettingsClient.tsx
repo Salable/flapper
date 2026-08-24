@@ -13,7 +13,6 @@ import { AppBar } from '@/components/AppBar';
 import { QueueManager } from '@/components/QueueManager';
 import { BOARD_TYPE_CLIENTS } from '@/components/board-types/registry';
 import { DisplayConfig } from '@/components/DisplayConfig';
-import { LayoutPicker, type Layout } from '@/components/LayoutPicker';
 import { Tabs } from '@/components/ui/Tabs';
 import { Modal } from '@/components/ui/Modal';
 import { Button, LinkButton } from '@/components/ui/Button';
@@ -169,25 +168,7 @@ export function SettingsClient({ board: initial }: { board: Board }) {
     }
   }
 
-  async function saveLayout(layout: Layout) {
-    setBusy(true);
-    setError('');
-    try {
-      const response = await fetch(`/api/b/${board.slug}/config`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ layout }),
-      });
-      if (!response.ok) {
-        const payload = await response.json().catch(() => ({}));
-        throw new Error(payload.error || `HTTP ${response.status}`);
-      }
-      setNotice('Layout applied to every open display.');
-    } catch (err: any) {
-      setError(err.message);
-    }
-    setBusy(false);
-  }
+
 
   async function regenerate() {
     const ok = await confirm({
@@ -469,16 +450,6 @@ export function SettingsClient({ board: initial }: { board: Board }) {
                     </div>
                   </div>
                   <div className="design-controls">
-                    <section className="settings-block">
-                      <h2>Layout</h2>
-                      <LayoutPicker
-                        initial={(board.config.layout as Partial<Layout>) ?? null}
-                        onSave={saveLayout}
-                        busy={busy}
-                        screen={screen}
-                        grid={grid}
-                      />
-                    </section>
                     <ThemeSettings
                       slug={board.slug}
                       draft={themeDraft}

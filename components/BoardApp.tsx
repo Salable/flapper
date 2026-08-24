@@ -88,7 +88,6 @@ export function BoardApp({
   const [progress, setProgress] = useState(0);
   const [failure, setFailure] = useState('');
   const [note, setNote] = useState('');
-  const [layout, setLayout] = useState<{ xPct: number; yPct: number; wPct: number; hPct: number } | null>(null);
 
   /** Set by the state-publisher hook; called on every controller change. */
   const onStateRef = useRef<((state: any) => void) | null>(null);
@@ -300,7 +299,6 @@ export function BoardApp({
       const player = new Player(controller, board, api, {
         onConfig: (config: any, meta?: { themeRev?: string }) => {
           try {
-            setLayout(config?.layout ?? null);
             applyTheme(meta?.themeRev);
             controller.configure(sanitizeConfig(config));
             startAmbient(Number((config as any)?.ambientMs) || 0);
@@ -468,19 +466,8 @@ export function BoardApp({
   return (
     <>
       <main id="stage">
-        <div
-          className="board-frame"
-          style={
-            layout
-              ? {
-                  left: `${layout.xPct}%`,
-                  top: `${layout.yPct}%`,
-                  width: `${layout.wPct}%`,
-                  height: `${layout.hPct}%`,
-                }
-              : { inset: 0, width: '100%', height: '100%' }
-          }
-        >
+        {/* The board fills the window it is in - see .board-frame. */}
+        <div className="board-frame">
           <canvas id="board" ref={canvasRef} />
         </div>
         {phase === 'loading' && (
