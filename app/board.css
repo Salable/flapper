@@ -1993,3 +1993,20 @@ main.landing .error {
   font: 400 var(--text-md) / 1.5 var(--font-sans);
   color: var(--ink);
 }
+
+
+/* The two settings that shape a board, in the board's own panel. */
+.board-side-shape {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: var(--space-4) 0 0;
+  padding: var(--space-3) 0 0;
+  border-top: 1px solid var(--edge);
+}
+
+.board-side-grid {
+  margin: 0;
+  font: 400 var(--text-sm) / 1.4 var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}

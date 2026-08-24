@@ -1,7 +1,30 @@
 'use client';
 
 import { Chip, CopyButton } from '@/components/ui/bits';
-import { screenLabel, screenOf, gridForConfig } from '@/lib/board/geometry.mjs';
+import {
+  screenLabel,
+  screenOf,
+  gridForConfig,
+  cardSizeOf,
+  CARD_SIZE_IDS,
+} from '@/lib/board/geometry.mjs';
+import { Field, Select } from '@/components/ui/Field';
+
+/** The shapes offered by name; anything else is shown as its own ratio. */
+const SCREENS = [
+  { label: '16:9', w: 16, h: 9 },
+  { label: '4:3', w: 4, h: 3 },
+  { label: '9:16 portrait', w: 9, h: 16 },
+  { label: 'Square', w: 1, h: 1 },
+];
+
+const SIZE_LABELS: Record<string, string> = {
+  huge: 'Huge',
+  large: 'Large',
+  medium: 'Medium',
+  small: 'Small',
+  tiny: 'Tiny',
+};
 import { LinkButton } from '@/components/ui/Button';
 import { formatDay } from '@/lib/format';
 
@@ -21,6 +44,7 @@ export function BoardSidebar({
   createdAt,
   boardUrl,
   config,
+  onConfig,
 }: {
   name: string;
   slug: string;
@@ -32,6 +56,8 @@ export function BoardSidebar({
   boardUrl: string;
   /** The board's config, for the shape it is designed for. */
   config: Record<string, unknown>;
+  /** Save a change to the two settings that decide the board's shape. */
+  onConfig: (patch: Record<string, unknown>) => void;
 }) {
   /*
    * The screen, beside the type and the created date, because it is the fact
@@ -41,7 +67,8 @@ export function BoardSidebar({
    * somebody had picked it.
    */
   const chosen = (config?.screen ?? null) !== null;
-  const shape = screenLabel(screenOf(config));
+  const screen = screenOf(config);
+  const shape = screenLabel(screen);
   const grid = gridForConfig(config);
   return (
     <aside className="board-side" aria-label="This board">
@@ -55,15 +82,49 @@ export function BoardSidebar({
         {status !== 'active' ? <Chip tone="danger">paused</Chip> : <Chip tone="live">active</Chip>}
         {isPrivate && <Chip>private</Chip>}
       </div>
+      {/* The two settings that decide the board's shape, where the board's
+          facts are - reporting them here and making you go and find the
+          Display tab to act on them was the wrong half of the job. */}
+      <div className="board-side-shape">
+        <Field label="Screen" htmlFor="side-screen">
+          <Select
+            id="side-screen"
+            value={SCREENS.some((option) => option.w === screen.w && option.h === screen.h)
+              ? `${screen.w}:${screen.h}`
+              : 'other'}
+            onChange={(event) => {
+              const found = SCREENS.find((option) => `${option.w}:${option.h}` === event.target.value);
+              if (found) onConfig({ screen: { w: found.w, h: found.h } });
+            }}
+          >
+            {SCREENS.map((option) => (
+              <option key={option.label} value={`${option.w}:${option.h}`}>
+                {option.label}
+              </option>
+            ))}
+            {!SCREENS.some((option) => option.w === screen.w && option.h === screen.h) && (
+              <option value="other">{shape}</option>
+            )}
+          </Select>
+        </Field>
+        <Field label="Card size" htmlFor="side-cardsize">
+          <Select
+            id="side-cardsize"
+            value={cardSizeOf(config)}
+            onChange={(event) => onConfig({ cardSize: event.target.value })}
+          >
+            {CARD_SIZE_IDS.map((id: string) => (
+              <option key={id} value={id}>
+                {SIZE_LABELS[id] ?? id}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <p className="board-side-grid muted">
+          {grid.cols} × {grid.rows} cards{!chosen && ' · default screen'}
+        </p>
+      </div>
       <dl className="board-side-facts">
-        <dt>Screen</dt>
-        <dd>
-          {shape} {!chosen && <span className="muted">(default)</span>}
-        </dd>
-        <dt>Board</dt>
-        <dd>
-          {grid.cols} × {grid.rows} cards
-        </dd>
         <dt>Created</dt>
         <dd>{formatDay(createdAt)}</dd>
       </dl>

@@ -148,6 +148,27 @@ export function SettingsClient({ board: initial }: { board: Board }) {
     }
   }
 
+  /**
+   * The two settings that decide the board's shape, saved from the board's own
+   * panel. Sent as one PATCH because they belong together, and mirrored into
+   * `board` so the panel and the Display tab agree without a reload.
+   */
+  async function saveShape(patch: Record<string, unknown>) {
+    setError('');
+    try {
+      const response = await fetch(`/api/b/${board.slug}/config`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(patch),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+      setBoard((prev) => ({ ...prev, config: { ...prev.config, ...(payload.config ?? patch) } }));
+    } catch (err: any) {
+      setError(err.message);
+    }
+  }
+
   async function saveLayout(layout: Layout) {
     setBusy(true);
     setError('');
@@ -245,7 +266,12 @@ export function SettingsClient({ board: initial }: { board: Board }) {
       <TypeQueueEditor slug={board.slug} />
     </Suspense>
   ) : (
-    <QueueManager slug={board.slug} />
+    <QueueManager
+      slug={board.slug}
+      // A board that holds one message is a sign; the panel drops everything
+      // that only makes sense with a queue behind it.
+      cap={Number(board.config?.queueCap) || Infinity}
+    />
   );
 
   const generalTab = (
@@ -392,6 +418,7 @@ export function SettingsClient({ board: initial }: { board: Board }) {
               createdAt={board.createdAt}
               boardUrl={origin === '' ? '' : boardUrl}
               config={board.config}
+              onConfig={saveShape}
             />
           }
           after={

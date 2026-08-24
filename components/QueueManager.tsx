@@ -27,8 +27,23 @@ type Snapshot = {
 
 const POLL_MS = 3000;
 
-export function QueueManager({ slug }: { slug: string }) {
+export function QueueManager({ slug, cap = Infinity }: { slug: string; cap?: number }) {
   const apiBase = `/api/b/${slug}`;
+  /*
+   * A board that holds one message is a sign, and a sign has no queue.
+   *
+   * Everything a queue panel offers exists to arrange things that are waiting:
+   * ordering them, jumping one ahead, holding one longer, looping round them,
+   * dropping the ones that have not shown yet. At a cap of one there is
+   * nothing waiting and never can be, so all of it is furniture - and the one
+   * thing you actually want, changing what it says, was the hardest thing on
+   * the panel to find.
+   *
+   * Derived from the cap rather than the template id, so a board is whatever
+   * its settings say: raise the cap and the queue appears, drop it to one and
+   * it becomes a sign again.
+   */
+  const isSign = cap === 1;
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [text, setText] = useState('');
   const [priority, setPriority] = useState('normal');
@@ -81,6 +96,21 @@ export function QueueManager({ slug }: { slug: string }) {
 
   function send() {
     if (text.trim() === '') return;
+    if (isSign) {
+      /*
+       * Replace, not add. A queue of one is full the moment it says anything,
+       * and the roll rule will not evict the message on the glass - so posting
+       * to a sign would be refused with "none can be rolled off". Clearing
+       * first is what changing a sign means anyway.
+       */
+      act(async () => {
+        const cleared = await post('/clear', 'POST', {});
+        if (!cleared.ok) return cleared;
+        return post('/queue/items', 'POST', { text, loop: true });
+      });
+      setText('');
+      return;
+    }
     const body: Record<string, unknown> = { text };
     if (priority !== 'normal') body.priority = priority;
     if (holdMs !== '') body.dwellMs = Number(holdMs);
@@ -121,13 +151,15 @@ export function QueueManager({ slug }: { slug: string }) {
     <>
       {dialog}
       <section className="settings-block">
-        <h2>Queue</h2>
+        <h2>{isSign ? 'What it says' : 'Queue'}</h2>
         {error !== '' && <p className="error">{error}</p>}
         {items.length === 0 ? (
           <p className="muted">
-            {snapshot?.currentState === 'holding'
-              ? 'The queue has drained; the last message is standing on the glass.'
-              : 'Nothing queued. The board is blank until something is.'}
+            {isSign
+              ? 'The board is blank. Type below to put something on it.'
+              : snapshot?.currentState === 'holding'
+                ? 'The queue has drained; the last message is standing on the glass.'
+                : 'Nothing queued. The board is blank until something is.'}
           </p>
         ) : (
           <ol className="queue-list">
@@ -157,25 +189,29 @@ export function QueueManager({ slug }: { slug: string }) {
                   </span>
                 )}
                 <span className="queue-meta muted">
-                  {item.loop ? 'loop · ' : ''}
-                  {item.source}
+                  {isSign ? '' : item.loop ? 'loop · ' : ''}
+                  {isSign ? 'on the glass' : item.source}
                 </span>
                 <span className="queue-actions">
-                  <button title="Move up" aria-label="Move up" onClick={() => reorder(item, -1)} disabled={item.id === playingId}>
-                    ↑
-                  </button>
-                  <button title="Move down" aria-label="Move down" onClick={() => reorder(item, 1)} disabled={item.id === playingId}>
-                    ↓
-                  </button>
-                  <button
-                    title={item.loop ? 'Stop looping' : 'Loop'}
-                    aria-label={item.loop ? 'Stop looping' : 'Loop'}
-                    aria-pressed={item.loop}
-                    className={item.loop ? 'is-on' : ''}
-                    onClick={() => act(() => post(`/queue/items/${item.id}`, 'PATCH', { loop: !item.loop }))}
-                  >
-                    ↻
-                  </button>
+                  {!isSign && (
+                    <>
+                      <button title="Move up" aria-label="Move up" onClick={() => reorder(item, -1)} disabled={item.id === playingId}>
+                        ↑
+                      </button>
+                      <button title="Move down" aria-label="Move down" onClick={() => reorder(item, 1)} disabled={item.id === playingId}>
+                        ↓
+                      </button>
+                      <button
+                        title={item.loop ? 'Stop looping' : 'Loop'}
+                        aria-label={item.loop ? 'Stop looping' : 'Loop'}
+                        aria-pressed={item.loop}
+                        className={item.loop ? 'is-on' : ''}
+                        onClick={() => act(() => post(`/queue/items/${item.id}`, 'PATCH', { loop: !item.loop }))}
+                      >
+                        ↻
+                      </button>
+                    </>
+                  )}
                   <button
                     title="Edit"
                     aria-label="Edit message"
@@ -193,11 +229,13 @@ export function QueueManager({ slug }: { slug: string }) {
           </ol>
         )}
         <div className="compose" aria-label="Add a message">
-          <Field label="Add a message" htmlFor="compose-text">
+          <Field label={isSign ? 'Change what it says' : 'Add a message'} htmlFor="compose-text">
             <TextInput
               id="compose-text"
               className="ui-input as-board"
-              placeholder="Type a message — Enter to queue it"
+              placeholder={
+                isSign ? 'Type what it should say — Enter to change it' : 'Type a message — Enter to queue it'
+              }
               autoComplete="off"
               spellCheck={false}
               value={text}
@@ -208,6 +246,15 @@ export function QueueManager({ slug }: { slug: string }) {
             />
           </Field>
           <div className="compose-options">
+            {/* Priority, hold and loop all arrange things that are waiting.
+                On a sign nothing waits, so there is one button and it does
+                the one thing: replace what is on the glass. */}
+            {isSign ? (
+              <Button variant="primary" size="sm" onClick={send} disabled={text.trim() === ''}>
+                Change it
+              </Button>
+            ) : (
+              <>
             <Field label="Priority" htmlFor="compose-priority">
               <Select id="compose-priority" value={priority} onChange={(e) => setPriority(e.target.value)}>
                 <option value="normal">Queue it</option>
@@ -234,13 +281,18 @@ export function QueueManager({ slug }: { slug: string }) {
             <Button variant="primary" size="sm" onClick={send}>
               Add to queue
             </Button>
+              </>
+            )}
           </div>
-          <span className="muted">
-            Loop sends a played message to the back of the queue instead of removing it. A band&apos;s
-            only exit from a loop is removing the item or clearing.
-          </span>
+          {!isSign && (
+            <span className="muted">
+              Loop sends a played message to the back of the queue instead of removing it. A
+              band&apos;s only exit from a loop is removing the item or clearing.
+            </span>
+          )}
         </div>
         <div className="actions">
+          {!isSign && (
           <Button
             size="sm"
             onClick={() => act(() => post('/queue', 'DELETE'))}
@@ -253,6 +305,7 @@ export function QueueManager({ slug }: { slug: string }) {
           >
             Flush pending
           </Button>
+          )}
           <Button
             size="sm"
             variant="danger"
@@ -260,8 +313,8 @@ export function QueueManager({ slug }: { slug: string }) {
             onClick={async () => {
               if (
                 await confirm({
-                  title: 'Clear the queue and blank the board?',
-                  confirmLabel: 'Clear board',
+                  title: isSign ? 'Blank the board?' : 'Clear the queue and blank the board?',
+                  confirmLabel: isSign ? 'Blank it' : 'Clear board',
                   danger: true,
                 })
               ) {
@@ -270,7 +323,7 @@ export function QueueManager({ slug }: { slug: string }) {
             }}
             title={nothingOnBoard ? 'The board is already blank' : 'Stop everything and blank the glass'}
           >
-            Clear board
+            {isSign ? 'Blank it' : 'Clear board'}
           </Button>
         </div>
       </section>
