@@ -188,6 +188,7 @@ export function NewBoardClient({
           rows={rows}
           tilePx={tilePx}
           bar={false}
+          fixed
         />
       </span>
     );

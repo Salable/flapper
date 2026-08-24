@@ -23,6 +23,7 @@ export function ThemePreview({
   tilePx = 56,
   onText,
   bar = true,
+  fixed = false,
 }: {
   pack: ThemePack;
   /**
@@ -48,6 +49,17 @@ export function ThemePreview({
    * once on arrival, which is the point of them being real.
    */
   bar?: boolean;
+  /**
+   * Fixed sizing rather than fluid.
+   *
+   * Fluid is right where the board should follow its column: `width: 100%` up
+   * to a cap, measured back by a ResizeObserver. But a row of posters that all
+   * ask for the same size must *get* the same size, and measurement is a race -
+   * one card in a rail came out 205px wide where its neighbours were 212, for
+   * no reason anybody could see except that it was measured a moment earlier.
+   * Given an exact tile size there is nothing to measure, so don't.
+   */
+  fixed?: boolean;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const boardRef = useRef<any>(null);
@@ -156,7 +168,18 @@ export function ThemePreview({
       <canvas
         ref={canvasRef}
         className={onText ? 'theme-preview-canvas is-editable' : 'theme-preview-canvas'}
-        style={{ width: '100%', maxWidth: width, aspectRatio: `${width} / ${height}`, display: 'block', background: '#0a0a0b', borderRadius: 6 }}
+        style={
+          fixed
+            ? { width, height, display: 'block', background: '#0a0a0b', borderRadius: 6 }
+            : {
+                width: '100%',
+                maxWidth: width,
+                aspectRatio: `${width} / ${height}`,
+                display: 'block',
+                background: '#0a0a0b',
+                borderRadius: 6,
+              }
+        }
         tabIndex={onText ? 0 : undefined}
         role={onText ? 'textbox' : 'img'}
         aria-multiline={onText ? true : undefined}
