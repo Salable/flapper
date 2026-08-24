@@ -13,6 +13,9 @@ import { loadProcedural } from '@/components/flapper/assets';
 import type { ThemePack } from '@/lib/board/theme-pack.mjs';
 import { Button } from '@/components/ui/Button';
 
+/** Frames to keep re-measuring for while the page settles - about a second. */
+const SETTLE_FRAMES = 60;
+
 const DEBOUNCE_MS = 120;
 
 export function ThemePreview({
@@ -71,6 +74,18 @@ export function ThemePreview({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const boardRef = useRef<any>(null);
   const [error, setError] = useState('');
+  /*
+   * Whether the board exists yet, so the size effect below can wait for it.
+   *
+   * A ResizeObserver calls back the moment it starts observing - and this
+   * board is built late, behind a debounce and an async skin load, so that
+   * first call landed on a null ref and did nothing. The box does not change
+   * afterwards (the preview column is a fixed width), so the observer never
+   * fired again and the board kept the size it measured before the canvas's
+   * aspect-ratio had resolved: a 494x182 buffer stretched into a 487x270 box,
+   * which drew square cards half again as tall as they were wide.
+   */
+  const [ready, setReady] = useState(false);
   const [replays, setReplays] = useState(0);
   const messages = Array.isArray(text) ? text : [text];
   const showing = messages[replays % messages.length] ?? '';
@@ -80,8 +95,18 @@ export function ThemePreview({
   const firstText = useRef(showing);
   firstText.current = showing;
 
-  // The box this board wants, in CSS pixels. Declared here because the effects
-  // below hand it to Flipboard rather than have it measured.
+  /*
+   * The shape of the board, which is the shape of the box.
+   *
+   * Cards are square, so a board of cols x rows is exactly that ratio and the
+   * box can simply be told it - no tile size involved. It used to be worked
+   * out from a `tilePx` each caller passed (56 here, 30 there, 26, 9), which
+   * was four magic numbers deciding a shape that the grid already knows, and
+   * meant the box and the cards could disagree about what square meant.
+   *
+   * A fixed board still wants real pixels, so tilePx stays for that - it is a
+   * size then, not a shape.
+   */
   const gap = Math.round(tilePx * 0.035);
   const width = cols * tilePx + (cols - 1) * gap + 12;
   const height = rows * tilePx + (rows - 1) * gap + 12;
@@ -109,6 +134,7 @@ export function ThemePreview({
             // again if the box does not change afterwards.
             if (!fixed) requestAnimationFrame(() => boardRef.current?.resize());
             boardRef.current.setText(firstText.current);
+            setReady(true);
           } else {
             boardRef.current.setSkin(skin);
           }
@@ -197,15 +223,48 @@ export function ThemePreview({
     const canvas = canvasRef.current;
     // A board that was told its size has nothing to watch for.
     if (fixed || !canvas || typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(() => boardRef.current?.resize());
-    // And once the board arrives, whenever that is.
-    const settle = requestAnimationFrame(() => boardRef.current?.resize());
+    // Keyed on `ready`, so observing starts once there is a board to resize -
+    // and the observer's own first callback becomes the measurement that
+    // matters rather than one thrown away on an empty ref.
+    if (!ready) return;
+    /*
+     * Keep the drawing buffer on the box, and keep checking until it settles.
+     *
+     * A ResizeObserver alone was not enough: it calls back when it starts
+     * observing, which for this board was before it existed, and the preview
+     * column never changes width afterwards so it never fired again. The board
+     * kept whatever it measured mid-layout - a 492x215 buffer inside a 487x270
+     * box on one load, 199 tall on the next - and everything painted was
+     * stretched by the difference, which is what made square cards look tall.
+     *
+     */
+    const sync = () => {
+      boardRef.current?.resize();
+    };
+    const observer = new ResizeObserver(sync);
     observer.observe(canvas);
+    /*
+     * And keep re-measuring while the page settles, rather than stopping the
+     * moment the buffer agrees with the box.
+     *
+     * That was the mistake in the first attempt at this: during layout the two
+     * agree constantly, at the wrong size each time. This board measured a box
+     * of 494x181, matched it, declared itself finished - and the box then
+     * became 487x268 without the observer firing again, so everything painted
+     * was stretched by the difference and square cards came out half again as
+     * tall as they were wide. Agreement is not the same as having settled.
+     */
+    let frame = 0;
+    let raf = requestAnimationFrame(function settle() {
+      sync();
+      frame += 1;
+      if (frame < SETTLE_FRAMES) raf = requestAnimationFrame(settle);
+    });
     return () => {
-      cancelAnimationFrame(settle);
+      cancelAnimationFrame(raf);
       observer.disconnect();
     };
-  }, []);
+  }, [fixed, ready]);
 
   /* The board is the input. Rows are lines and columns are characters, so the
      grid is also the limit - you cannot type more than the board can hold, and
@@ -254,7 +313,8 @@ export function ThemePreview({
             : {
                 width: '100%',
                 maxWidth: width,
-                aspectRatio: `${width} / ${height}`,
+                // The grid's ratio, so square cards land square.
+                aspectRatio: `${cols} / ${rows}`,
                 display: 'block',
                 background: '#0a0a0b',
                 borderRadius: 6,
