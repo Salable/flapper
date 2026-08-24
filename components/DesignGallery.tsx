@@ -275,7 +275,10 @@ export function DesignGallery() {
                   </div>
                 ) : (
                   <>
-                    <LinkButton size="sm" variant="primary" href={`/new?design=${design.id}`}>
+                    <LinkButton size="sm" variant="primary" href={`/designs/${design.id}`}>
+                      Edit
+                    </LinkButton>
+                    <LinkButton size="sm" href={`/new?design=${design.id}`}>
                       Make a board in this
                     </LinkButton>
                     <Button

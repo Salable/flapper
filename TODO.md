@@ -104,9 +104,12 @@ done; what remains is the gallery and the designs themselves.
 - [x] **A board card shows its board.** The dashboard leads each card with the
       board itself, in its own design, showing what is on it - so two boards are
       told apart by looking rather than by reading.
-- [ ] **Editing a design's pack from the gallery.** You can make, rename and
-      delete one; changing its colours still means opening a board's Display
-      tab. The editor is bound to a board's draft, not to a design.
+- [x] **Editing a design's pack.** `/designs/[id]` opens the same editor that
+      dresses a board, saving the whole pack to the design instead of a sparse
+      diff to a board. Same job, different destination.
+- [x] **Applying a design to a board you already have** — Start from lists
+      yours beside the ones in the box.
+- [x] **Renaming one** — inline on its card.
 - [ ] **Eight more designs.** A design is validated data, not code, so these are
       authoring. Split across the two ink families.
 - [x] **The poster keyed on the string `'canary'`** — now resolves the

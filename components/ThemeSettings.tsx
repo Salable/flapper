@@ -89,6 +89,7 @@ export function ThemeSettings({
   onDraft,
   config,
   onSaved,
+  saveTo,
 }: {
   slug: string;
   draft: ThemeDraft;
@@ -96,6 +97,20 @@ export function ThemeSettings({
   /** The board's saved config, for the dirty check and the saved state after a save. */
   config: Record<string, unknown>;
   onSaved: (config: Record<string, unknown>) => void;
+  /**
+   * Where a save goes, if not to a board's config.
+   *
+   * The editor is the same whether you are dressing one board or authoring a
+   * design; only the destination differs, and the dirty check with it. A board
+   * saves a sparse diff against a preset, because that is what a board's
+   * override is; a design saves its whole pack, because a design is a thing in
+   * its own right.
+   */
+  saveTo?: {
+    label: string;
+    dirty: boolean;
+    save: (draft: ThemeDraft) => Promise<void>;
+  };
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -124,11 +139,12 @@ export function ThemeSettings({
   const fileRef = useRef<HTMLInputElement>(null);
 
   const patch = useMemo(() => draftToPatch(draft), [draft]);
-  const dirty = useMemo(() => {
+  const boardDirty = useMemo(() => {
     if (!patch.ok) return true;
     const was = savedPatch(config);
     return stableStringify({ theme: patch.theme, themePack: patch.themePack }) !== stableStringify(was);
   }, [patch, config]);
+  const dirty = saveTo ? saveTo.dirty : boardDirty;
 
   const update = (next: ThemeDraft) => {
     setSaved(false);
@@ -166,6 +182,11 @@ export function ThemeSettings({
     setBusy(true);
     setError('');
     try {
+      if (saveTo) {
+        await saveTo.save(draft);
+        setSaved(true);
+        return;
+      }
       const response = await fetch(`/api/b/${slug}/config`, {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
@@ -213,7 +234,11 @@ export function ThemeSettings({
 
       <Field
         label="Start from"
-        hint="Replaces this board's look with the one you pick. Your own designs are copied in - editing here afterwards changes the board, never the design."
+        hint={
+          saveTo
+            ? 'Replaces this design with the one you pick. A starting point, copied in - nothing stays linked.'
+            : "Replaces this board's look with the one you pick. Your own designs are copied in - editing here afterwards changes the board, never the design."
+        }
       >
         <Select
           id="th-start-from"
@@ -517,7 +542,7 @@ export function ThemeSettings({
       {error !== '' && <p className="error">{error}</p>}
       <div className="actions">
         <Button variant="primary" onClick={save} disabled={busy || !dirty || !patch.ok}>
-          Save theme
+          {saveTo ? saveTo.label : 'Save theme'}
         </Button>
         <Button variant="ghost" onClick={() => update(presetDraft(draft.theme))} disabled={busy}>
           Reset to {themes[draft.theme].name}
