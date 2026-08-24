@@ -17,6 +17,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Flipboard } from '@/lib/board/flipboard.js';
 import { Controller } from '@/lib/board/controller.mjs';
+import { idleAction, withFlicker } from '@/lib/board/idle.mjs';
 import { Player } from '@/lib/board/player.mjs';
 import { useStatePublisher } from '@/hooks/useStatePublisher';
 import { loadBoardSkin, onAssetProgress } from '@/components/flapper/assets';
@@ -77,6 +78,9 @@ export function BoardApp({
     const canvas = canvasRef.current;
     if (!canvas) return;
     let cancelled = false;
+    // Assigned once the board exists; the cleanup below has to be able to reach
+    // it, and the board is built inside an async block.
+    let stopAmbient: () => void = () => {};
     let source: EventSource | null = null;
     let boardObserver: ResizeObserver | null = null;
     let ratioQuery: MediaQueryList | null = null;
@@ -141,6 +145,61 @@ export function BoardApp({
             console.warn(`flapper: theme ${wanted} failed to load, keeping ${previous} - ${error.message}`);
           });
       };
+      /*
+       * Ambient motion while the glass is holding.
+       *
+       * A board standing on one message is dead in a way a real installation
+       * never is: idle.mjs already models the alternative - mostly stillness,
+       * the occasional tile misfiring to a wrong character and correcting
+       * itself all the way round, and now and then a whole sweep - and until
+       * now it only ran on the wordmark, which is not what it was written for.
+       *
+       * It works on what is physically on the glass (`board.page`) and puts it
+       * back afterwards, and it only ever runs when nothing else is moving.
+       * The restore is guarded: if anything else painted the board in the
+       * meantime the flicker is abandoned rather than stamped over the top of
+       * whatever arrived, which is the one way this could have hurt.
+       *
+       * Off unless a board asks for it. A wall in an office should not clack
+       * once a minute all night because a default said so.
+       */
+      let ambientTimer: ReturnType<typeof setInterval> | null = null;
+      let restoreTimer: ReturnType<typeof setTimeout> | null = null;
+      let ambientTick = 0;
+      stopAmbient = () => {
+        if (ambientTimer !== null) clearInterval(ambientTimer);
+        if (restoreTimer !== null) clearTimeout(restoreTimer);
+        ambientTimer = null;
+        restoreTimer = null;
+      };
+      const startAmbient = (everyMs: number) => {
+        stopAmbient();
+        if (!Number.isFinite(everyMs) || everyMs < 5000) return;
+        ambientTimer = setInterval(() => {
+          if (board.isAnimating() || restoreTimer !== null) return;
+          const page = board.page;
+          if (!page || page.every((line: string) => line.trim() === '')) return;
+          ambientTick += 1;
+          const action = idleAction(page.join('\n'), board.charset, ambientTick);
+          if (action.kind === 'sweep') {
+            board.setOptions({ alwaysFlip: true });
+            board.setPage(page);
+            board.setOptions({ alwaysFlip: false });
+            return;
+          }
+          if (action.kind !== 'flicker') return;
+          const flickered = withFlicker(page.join('\n'), action).split('\n');
+          board.setPage(flickered);
+          restoreTimer = setTimeout(() => {
+            restoreTimer = null;
+            // Only if nothing else has painted since. A message that arrived
+            // mid-flicker must not be replaced by the words it interrupted.
+            const now = board.page;
+            if (now && now.join('\n') === flickered.join('\n')) board.setPage(page);
+          }, 900);
+        }, everyMs);
+      };
+
       const controller = new Controller(board, {});
       controller.onChange = (state: any) => {
         onStateRef.current?.({
@@ -181,6 +240,7 @@ export function BoardApp({
             setLayout(config?.layout ?? null);
             applyTheme(meta?.themeRev);
             controller.configure(sanitizeConfig(config));
+            startAmbient(Number((config as any)?.ambientMs) || 0);
           } catch (error: any) {
             console.warn(`flapper: stored config refused - ${error.message}`);
           }
@@ -265,6 +325,7 @@ export function BoardApp({
     return () => {
       cancelled = true;
       stopProgress();
+      stopAmbient();
       source?.close();
       boardObserver?.disconnect();
       if (ratioQuery && onRatioChange) ratioQuery.removeEventListener('change', onRatioChange);

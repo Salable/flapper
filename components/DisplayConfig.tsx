@@ -56,6 +56,7 @@ export function DisplayConfig({
     sweepMs: DEFAULTS.sweepMs,
     staggerMode: DEFAULTS.staggerMode,
     alwaysFlip: DEFAULTS.alwaysFlip,
+    ambientMs: 0,
   };
   const [config, setConfig] = useState<Config>({ ...defaults, ...initial });
   const [error, setError] = useState('');
@@ -276,6 +277,30 @@ export function DisplayConfig({
             onChange={(event) => patch('alwaysFlip', event.target.checked)}
           />
         </div>
+        <Field
+          label={
+            <>
+              Fidget{' '}
+              <span className="muted">
+                {Number(config.ambientMs) > 0 ? `every ${Math.round(Number(config.ambientMs) / 1000)}s` : 'off'}
+              </span>
+            </>
+          }
+          htmlFor="cfg-ambient"
+          hint="A board holding one message sits perfectly still, which a real one never does. On, it twitches a tile now and then and corrects itself, and sweeps about once in twelve. Off by default - a wall should not clack all night unless you asked it to."
+        >
+          <Select
+            id="cfg-ambient"
+            value={String(Number(config.ambientMs) || 0)}
+            onChange={(event) => patch('ambientMs', Number(event.target.value))}
+          >
+            <option value="0">Off - perfectly still</option>
+            <option value="15000">Every 15 seconds</option>
+            <option value="30000">Every 30 seconds</option>
+            <option value="60000">Every minute</option>
+            <option value="300000">Every 5 minutes</option>
+          </Select>
+        </Field>
       </div>
       <span className="muted">Changes apply live to every open display.</span>
     </section>

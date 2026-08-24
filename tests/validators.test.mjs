@@ -102,6 +102,16 @@ test('screen is a shape, or null, and typos are refused', () => {
   refused(() => validateConfigPatch({ screen: [16, 9] }), /screen must be an object/);
 });
 
+test('ambient fidgeting is off, or slow enough to be ambient', () => {
+  assert.deepEqual(validateConfigPatch({ ambientMs: 0 }), { ambientMs: 0 }, '0 is off');
+  assert.deepEqual(validateConfigPatch({ ambientMs: 45000 }), { ambientMs: 45000 });
+  // Fast enough to be a nuisance, or slow enough to be pointless, are both
+  // refused: this is a board twitching now and then, not an animation.
+  for (const bad of [100, 4999, 600001, null, 'often']) {
+    refused(() => validateConfigPatch({ ambientMs: bad }), /ambientMs must be 0/);
+  }
+});
+
 test('theme must be one this build ships', () => {
   refused(() => validateConfigPatch({ theme: 'tartan' }), new RegExp(`theme must be one of ${THEME_IDS.join(', ')}`));
   refused(() => validateConfigPatch({ theme: null }), /theme must be one of/);

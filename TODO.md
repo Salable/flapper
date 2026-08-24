@@ -42,6 +42,9 @@ somewhere is a property of the sheet, not a mode of the board:
 | Fetched | Flapper calling a URL | its own project — see Open questions |
 | Clock | the time, re-rendered as it ticks | parked, its own design |
 
+Ambient motion while a board holds is **done**: `config.ambientMs`, off by
+default, wired in the display rather than the player.
+
 A board of typed sheets is manual. A board of one pushed sheet is what "driven
 by the API" means, and it needs no mode flag. A mixed board alternates, and
 per-sheet dwell is what makes "a minute of each" work — no new machinery.
