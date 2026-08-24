@@ -166,36 +166,74 @@ export function BoardApp({
       let ambientTimer: ReturnType<typeof setInterval> | null = null;
       let restoreTimer: ReturnType<typeof setTimeout> | null = null;
       let ambientTick = 0;
+      /** Put the words back, if a flicker is still showing. */
+      let undoFlicker: (() => void) | null = null;
       stopAmbient = () => {
         if (ambientTimer !== null) clearInterval(ambientTimer);
         if (restoreTimer !== null) clearTimeout(restoreTimer);
         ambientTimer = null;
         restoreTimer = null;
+        // Do the restore rather than drop it. startAmbient calls this, and it
+        // runs from onConfig - which fires on every sync nudge - so a sync
+        // landing inside the flicker window would otherwise leave the
+        // deliberately-wrong character on the glass with nothing coming to
+        // correct it.
+        const undo = undoFlicker;
+        undoFlicker = null;
+        undo?.();
       };
       const startAmbient = (everyMs: number) => {
         stopAmbient();
+        // onConfig can land after the effect has been torn down - the queue
+        // fetch that triggers it may still be in flight - and an interval
+        // started then would tick against a detached canvas for ever.
+        if (cancelled) return;
         if (!Number.isFinite(everyMs) || everyMs < 5000) return;
         ambientTimer = setInterval(() => {
           if (board.isAnimating() || restoreTimer !== null) return;
           const page = board.page;
           if (!page || page.every((line: string) => line.trim() === '')) return;
           ambientTick += 1;
-          const action = idleAction(page.join('\n'), board.charset, ambientTick);
+          /*
+           * Flat, not newline-joined. A page is rows of exactly `cols`
+           * characters, so index/cols and index%cols put a character back where
+           * it came from - whereas joining on newlines puts separators into the
+           * pool idleAction picks from, and it only skips spaces. On a board
+           * holding a short message the separators outnumber the letters, so
+           * more than half of all flickers landed on one, `split` came back a
+           * row short, and the restore guard could not match a page with the
+           * wrong number of rows. The board simply shifted up and stayed there.
+           */
+          const width = page[0]?.length ?? 0;
+          if (width === 0 || page.some((line: string) => line.length !== width)) return;
+          const flat = page.join('');
+          const action = idleAction(flat, board.charset, ambientTick);
           if (action.kind === 'sweep') {
+            // Restore whatever the board was set to, not a hard-coded false: a
+            // board configured to always flip would have quietly lost it.
+            const wasAlwaysFlip = board.opts.alwaysFlip;
             board.setOptions({ alwaysFlip: true });
             board.setPage(page);
-            board.setOptions({ alwaysFlip: false });
+            board.setOptions({ alwaysFlip: wasAlwaysFlip });
             return;
           }
           if (action.kind !== 'flicker') return;
-          const flickered = withFlicker(page.join('\n'), action).split('\n');
+          const changed = withFlicker(flat, action);
+          const flickered = page.map((_: string, row: number) =>
+            changed.slice(row * width, (row + 1) * width),
+          );
           board.setPage(flickered);
-          restoreTimer = setTimeout(() => {
-            restoreTimer = null;
+          const restore = () => {
             // Only if nothing else has painted since. A message that arrived
             // mid-flicker must not be replaced by the words it interrupted.
             const now = board.page;
-            if (now && now.join('\n') === flickered.join('\n')) board.setPage(page);
+            if (now && now.join('\u0000') === flickered.join('\u0000')) board.setPage(page);
+          };
+          undoFlicker = restore;
+          restoreTimer = setTimeout(() => {
+            restoreTimer = null;
+            undoFlicker = null;
+            restore();
           }, 900);
         }, everyMs);
       };

@@ -149,6 +149,34 @@ test('a name is required, trimmed, and bounded', async () => {
   assert.equal(trimmed.body.design.name, 'Spaced');
 });
 
+test('a name must be text, not something coerced into it', async () => {
+  // String(null) is "null" and String({}) is "[object Object]": a caller with
+  // the wrong shape would have got a design named after its own mistake.
+  for (const name of [null, {}, ['a', 'b'], 42, true]) {
+    const result = await jsonOf(
+      call(createDesignHandler, as('mine'), '/api/designs', {
+        method: 'POST',
+        body: { name, from: 'classic' },
+      }),
+    );
+    assert.equal(result.status, 422, `${JSON.stringify(name)} was accepted`);
+    assert.match(result.body.error, /name/);
+  }
+});
+
+test('the error that tells an agent where to look points somewhere real', async () => {
+  const result = await jsonOf(
+    call(createDesignHandler, as('mine'), '/api/designs', {
+      method: 'POST',
+      body: { name: 'No pack', pack: 'not an object' },
+    }),
+  );
+  assert.equal(result.status, 422);
+  // There is no /api/designs/presets - it resolves to the [id] route and 404s.
+  assert.doesNotMatch(result.body.error, /designs\/presets/);
+  assert.match(result.body.error, /GET \/api\/designs/);
+});
+
 test('one account cannot read, change or delete another account\'s design', async () => {
   const mine = await jsonOf(
     call(createDesignHandler, as('mine'), '/api/designs', {

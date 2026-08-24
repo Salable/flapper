@@ -37,10 +37,19 @@ export function DesignEditor({ design }: { design: Design }) {
   });
   const [error, setError] = useState('');
 
-  // What the board's editor computes from a config, computed from a pack: this
-  // one is dirty when its pack differs from the one on the server, full stop.
+  /*
+   * Dirty when the pack differs from the one on the server - but compared as
+   * the server will store it, not as it happens to be held here.
+   *
+   * validatePack fills the gaps: a pack with no `description` comes back with
+   * `description: ''`, and switching Start from puts an `id` on the draft that
+   * the server strips. Comparing raw, a design was dirty for ever the moment it
+   * was saved once - the caption said "unsaved changes" permanently and leaving
+   * the page always warned. Comparing what will actually be stored is the
+   * comparison that means anything.
+   */
   const dirty = useMemo(
-    () => stableStringify(draft.pack) !== stableStringify(saved),
+    () => forComparison(draft.pack) !== forComparison(saved),
     [draft.pack, saved],
   );
 
@@ -130,4 +139,15 @@ export function DesignEditor({ design }: { design: Design }) {
       </div>
     </div>
   );
+}
+
+/**
+ * A pack as the server will hold it: run through the same validator, with the
+ * identity stripped the same way the create and update handlers strip it. Two
+ * packs that stringify the same here are the same design.
+ */
+function forComparison(pack: ThemePack) {
+  const checked = validatePack({ ...pack, id: undefined });
+  const settled = checked.ok ? checked.pack : pack;
+  return stableStringify({ ...settled, id: undefined, name: undefined, description: undefined });
 }

@@ -158,6 +158,28 @@ test('a template seeds the queue and presets config; the body still wins', async
   );
   assert.equal(unknown.status, 422, JSON.stringify(unknown.body));
 
+  // A design too big for a board to wear is refused at creation, not accepted
+  // and then quietly rendered as the preset on every display. A design may be
+  // 256 KB; a board's override is capped at 64 KB with eight arts.
+  const { createDesign } = await import('../lib/db/designs.mjs');
+  const { validatePack } = await import('../lib/board/theme-pack.mjs');
+  const art = `data:image/png;base64,iVBORw0KGgo${'A'.repeat(30_000)}`;
+  const heavy = validatePack({
+    id: 'heavy',
+    art: { 'art-1': art, 'art-2': art, 'art-3': art },
+    states: { A: { art: 'art-1' }, B: { art: 'art-2' }, C: { art: 'art-3' } },
+  });
+  assert.equal(heavy.ok, true, 'legal as a design');
+  const big = await createDesign(db, { ownerId: 'owner', name: 'Too big', pack: heavy.pack });
+  const refused = await jsonOf(
+    call(createBoard, ctx(undefined, 'owner'), '/api/boards', {
+      method: 'POST',
+      body: { template: 'sign', name: 'Heavy', designId: big.id },
+    }),
+  );
+  assert.ok(refused.status === 413 || refused.status === 422, `got ${refused.status}`);
+  assert.match(refused.body.error, /too large for a board to wear/);
+
   // Every template creates cleanly - the content test checks shape, this
   // checks the whole path including ingest and the queue cap.
   for (const id of TEMPLATES.keys()) {

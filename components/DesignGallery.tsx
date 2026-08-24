@@ -208,7 +208,9 @@ export function DesignGallery() {
                 placeholder="Carrow Road"
                 onChange={(event) => setNewName(event.target.value)}
                 onKeyDown={(event) => {
-                  if (event.key === 'Enter') create();
+                  // Guarded like the button is: two quick Enters fired two
+                  // POSTs before the form closed, and made two designs.
+                  if (event.key === 'Enter' && !busy) create();
                   if (event.key === 'Escape') setMaking(false);
                 }}
               />
