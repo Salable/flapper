@@ -68,6 +68,12 @@ export function ThemePreview({
   const messages = Array.isArray(text) ? text : [text];
   const showing = messages[replays % messages.length] ?? '';
 
+  // The box this board wants, in CSS pixels. Declared here because the effects
+  // below hand it to Flipboard rather than have it measured.
+  const gap = Math.round(tilePx * 0.035);
+  const width = cols * tilePx + (cols - 1) * gap + 12;
+  const height = rows * tilePx + (rows - 1) * gap + 12;
+
   // Build (or re-skin) after the pack has been still for a moment.
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -78,7 +84,18 @@ export function ThemePreview({
         .then((skin) => {
           if (cancelled) return;
           if (!boardRef.current) {
-            boardRef.current = new Flipboard(canvas, skin, { cols, rows, padding: 6 });
+            boardRef.current = new Flipboard(canvas, skin, {
+              cols,
+              rows,
+              padding: 6,
+              // Told, not measured - see Flipboard.resize.
+              ...(fixed ? { cssSize: { width, height } } : {}),
+            });
+            // Fluid boards still have to measure, and the box may still be
+            // settling: the ResizeObserver below cannot help, because it fires
+            // when it starts observing - before this board exists - and never
+            // again if the box does not change afterwards.
+            if (!fixed) requestAnimationFrame(() => boardRef.current?.resize());
             boardRef.current.setText(showing);
           } else {
             boardRef.current.setSkin(skin);
@@ -118,10 +135,16 @@ export function ThemePreview({
   // The canvas box settles after first paint and moves with the window.
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || typeof ResizeObserver === 'undefined') return;
+    // A board that was told its size has nothing to watch for.
+    if (fixed || !canvas || typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(() => boardRef.current?.resize());
+    // And once the board arrives, whenever that is.
+    const settle = requestAnimationFrame(() => boardRef.current?.resize());
     observer.observe(canvas);
-    return () => observer.disconnect();
+    return () => {
+      cancelAnimationFrame(settle);
+      observer.disconnect();
+    };
   }, []);
 
   /* The board is the input. Rows are lines and columns are characters, so the
@@ -160,9 +183,6 @@ export function ThemePreview({
     onText(text + event.key.toUpperCase());
   }
 
-  const gap = Math.round(tilePx * 0.035);
-  const width = cols * tilePx + (cols - 1) * gap + 12;
-  const height = rows * tilePx + (rows - 1) * gap + 12;
   return (
     <div className="theme-preview">
       <canvas
