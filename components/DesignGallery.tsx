@@ -19,13 +19,20 @@ import { ThemePreview } from '@/components/flapper/ThemePreview';
 import { LinkButton } from '@/components/ui/Button';
 import { Chip } from '@/components/ui/bits';
 import { THEMES, THEME_IDS, DEFAULT_THEME } from '@/lib/board/themes.mjs';
+import { DEFAULTS } from '@/lib/board/flipboard.js';
 
 const themes: Record<string, any> = THEMES;
 
 /** Letters, digits and the punctuation that has a card of its own. */
 const SAMPLE = 'NOW BOARDING\nGATE 12 .,!()';
-const COLS = 13;
-const ROWS = 2;
+
+/**
+ * The mock is the system's own geometry, not a shape chosen to suit a card.
+ * DEFAULTS is what a new board actually gets, so a design seen here is a design
+ * seen at the proportions it will be used at - and if that default ever
+ * changes, this follows it rather than drifting away from it.
+ */
+const { cols: COLS, rows: ROWS } = DEFAULTS;
 
 export function DesignGallery() {
   const [open, setOpen] = useState<string | null>(null);
@@ -38,7 +45,7 @@ export function DesignGallery() {
         return (
           <article key={id} className="design-card">
             <div className="design-card-board">
-              <ThemePreview pack={pack} text={SAMPLE} cols={COLS} rows={ROWS} tilePx={34} />
+              <ThemePreview pack={pack} text={SAMPLE} cols={COLS} rows={ROWS} tilePx={26} />
             </div>
             <div className="design-card-body">
               <h3 className="design-card-name">

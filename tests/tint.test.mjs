@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  cornersGrid,
   parseHex,
   axisPosition,
   gradientGrid,
@@ -82,4 +83,43 @@ test('strength is a fraction, and a missing one is full', () => {
   assert.equal(tintStrength({ strength: -3 }), 0);
   assert.equal(tintStrength({ strength: 99 }), 1);
   assert.equal(tintStrength({ strength: 'lots' }), 1);
+});
+
+test('four corners blend across the grid in both directions', () => {
+  // Each corner is itself, and the middle is the average of all four.
+  const grid = cornersGrid(
+    { tl: '#ff0000', tr: '#00ff00', bl: '#0000ff', br: '#ffffff' },
+    3,
+    3,
+  );
+  assert.deepEqual(grid[0], { r: 255, g: 0, b: 0 }, 'top left');
+  assert.deepEqual(grid[2], { r: 0, g: 255, b: 0 }, 'top right');
+  assert.deepEqual(grid[6], { r: 0, g: 0, b: 255 }, 'bottom left');
+  assert.deepEqual(grid[8], { r: 255, g: 255, b: 255 }, 'bottom right');
+  assert.deepEqual(grid[4], { r: 128, g: 128, b: 128 }, 'the middle is all four');
+});
+
+test('corners do what a single axis cannot', () => {
+  // The point of corners: two cells on a line square to a gradient's axis are
+  // the same colour, and with four corners they are not.
+  const grid = cornersGrid({ tl: '#ff0000', tr: '#ff0000', bl: '#0000ff', br: '#00ff00' }, 3, 3);
+  assert.notDeepEqual(grid[6], grid[8], 'the bottom corners differ');
+  assert.deepEqual(grid[0], grid[2], 'the top ones were told to match');
+});
+
+test('a one-row board of corners sits in the middle of its axis', () => {
+  const grid = cornersGrid({ tl: '#000000', tr: '#000000', bl: '#ffffff', br: '#ffffff' }, 2, 1);
+  // Not simply the top edge: halfway between top and bottom.
+  assert.deepEqual(grid[0], { r: 128, g: 128, b: 128 });
+});
+
+test('corners need all four, and take precedence over a gradient', () => {
+  assert.equal(cornersGrid({ tl: '#fff', tr: '#fff', bl: '#fff' }, 3, 3), null);
+  assert.equal(cornersGrid(null, 3, 3), null);
+  const both = tintGrid(
+    { corners: { tl: '#ffffff', tr: '#ffffff', bl: '#ffffff', br: '#ffffff' }, gradient: { from: '#000000', to: '#000000' } },
+    2,
+    1,
+  );
+  assert.deepEqual(both[0], { r: 255, g: 255, b: 255 }, 'corners win');
 });
