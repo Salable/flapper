@@ -14,10 +14,17 @@ import { Segmented } from '@/components/ui/bits';
 import { MAX_COLS, MAX_ROWS, rowsThatFit } from '@/lib/board/geometry.mjs';
 import { DEFAULTS } from '@/lib/board/flipboard.js';
 import { CONTROLLER_DEFAULTS } from '@/lib/board/controller.mjs';
+import { TEMPLATES } from '@/lib/board-types/templates.mjs';
 
 type Config = Record<string, unknown>;
 
 const ms = (value: number) => `${value}ms`;
+
+/** The human name of the template a board was made from, if it remembers one. */
+function templateName(id: unknown) {
+  if (typeof id !== 'string') return '';
+  return TEMPLATES.get(id)?.name ?? '';
+}
 
 /**
  * The screens a board actually gets put on. A shape is what turns a column
@@ -27,8 +34,9 @@ const ms = (value: number) => `${value}ms`;
  * choosing 20x8 and finding out on the wall that it letterboxes.
  */
 const SCREENS = [
-  { value: '16:9', label: 'Landscape', w: 16, h: 9 },
-  { value: '9:16', label: 'Portrait', w: 9, h: 16 },
+  { value: '16:9', label: '16:9', w: 16, h: 9 },
+  { value: '4:3', label: '4:3', w: 4, h: 3 },
+  { value: '9:16', label: '9:16', w: 9, h: 16 },
   { value: '1:1', label: 'Square', w: 1, h: 1 },
   { value: 'custom', label: 'Custom', w: 0, h: 0 },
 ] as const;
@@ -62,6 +70,9 @@ export function DisplayConfig({
   const [error, setError] = useState('');
   const stored = (initial.screen ?? null) as { w: number; h: number } | null;
   const [screen, setScreenState] = useState<{ w: number; h: number }>(stored ?? { w: 16, h: 9 });
+  // Where this board's shape came from, so the numbers below can be accounted
+  // for rather than just found.
+  const fromTemplate = templateName(initial.template);
   const [custom, setCustom] = useState(false);
   const preset = SCREENS.find((s) => s.value !== 'custom' && s.w === screen.w && s.h === screen.h);
   const screenKey = custom || !preset ? 'custom' : preset.value;
@@ -79,6 +90,34 @@ export function DisplayConfig({
     : `${cols} × ${config.rows} on a ${screen.w}:${screen.h} screen leaves a band ` +
       `${Number(config.rows) > suggestedRows ? 'left and right' : 'top and bottom'}.`;
 
+  /*
+   * Cards down follows the screen and the cards across, rather than being a
+   * third thing to keep in step by hand.
+   *
+   * It was a slider with a "Fit to screen" button beside it, which is the app
+   * knowing the answer and making you ask for it. It is worked out now, and
+   * taking it over is the deliberate act - for a board that is meant to
+   * letterbox, or a band across the top of a wall.
+   */
+  const [ownRows, setOwnRows] = useState(() => {
+    // A board whose rows already disagree with its screen was set by hand -
+    // saying "worked out" over a number that is not the worked-out one would be
+    // a straight contradiction, and every board made before this existed is in
+    // exactly that position.
+    const startCols = Number(initial.cols) || DEFAULTS.cols;
+    const startRows = Number(initial.rows) || DEFAULTS.rows;
+    const shape = (initial.screen as { w: number; h: number } | undefined) ?? { w: 16, h: 9 };
+    return startRows !== rowsThatFit(startCols, shape.w, shape.h);
+  });
+  const auto = !ownRows;
+  const fitRows = (next: { cols?: number; screen?: { w: number; h: number } }) => {
+    if (ownRows) return;
+    const across = next.cols ?? cols;
+    const shape = next.screen ?? screen;
+    const rows = rowsThatFit(across, shape.w, shape.h);
+    if (rows !== Number(config.rows)) patch('rows', rows);
+  };
+
   /**
    * Tell the parent what the config is now, after a commit rather than during
    * one. This used to be called from inside a setConfig updater, and an updater
@@ -93,6 +132,7 @@ export function DisplayConfig({
     setScreenState(next);
     setCustom(false);
     patch('screen', next);
+    fitRows({ screen: next });
   }
 
   function pickScreen(value: string) {
@@ -175,6 +215,13 @@ export function DisplayConfig({
       <h2>Shape &amp; size</h2>
       {error !== '' && <p className="error">{error}</p>}
       <div className="geometry">
+        {fromTemplate !== '' && (
+          <p className="ui-hint">
+            This board was made from the <strong>{fromTemplate}</strong> template, which is where
+            its {String(config.cols)} × {String(config.rows)} grid came from. Nothing here is fixed
+            - change any of it.
+          </p>
+        )}
         <Field
           label="Screen it goes on"
           hint="The shape of the wall or panel you are designing for. The display always fills its own window; this is what the row count is worked out against."
@@ -215,31 +262,74 @@ export function DisplayConfig({
             </Field>
           </div>
         )}
-        {range('cfg-cols', 'Cards across', 'cols', 1, MAX_COLS, 1, String)}
+        <Field
+          label={
+            <>
+              Cards across <span className="muted">{String(config.cols)}</span>
+              <span className="field-range">1–{MAX_COLS}</span>
+            </>
+          }
+          htmlFor="cfg-cols"
+          hint="How big a card is: fewer across means bigger cards. The rest follows from this and the screen."
+        >
+          <RangeSlider
+            id="cfg-cols"
+            min={1}
+            max={MAX_COLS}
+            step={1}
+            value={cols}
+            onChange={(event) => {
+              const across = Number(event.target.value);
+              patch('cols', across);
+              fitRows({ cols: across });
+            }}
+          />
+        </Field>
         <Field
           label={
             <>
               Cards down <span className="muted">{String(config.rows)}</span>
-              <span className="field-range">{fitsExactly ? 'fills the screen' : 'set by hand'}</span>
+              <span className="field-range">{auto ? 'worked out' : 'set by hand'}</span>
             </>
           }
+          htmlFor={auto ? undefined : 'cfg-rows'}
           hint={fitLine}
         >
-          <div className="geometry-rows">
-            <RangeSlider
-              id="cfg-rows"
-              min={1}
-              max={MAX_ROWS}
-              step={1}
-              value={Number(config.rows)}
-              onChange={(event) => patch('rows', Number(event.target.value))}
-            />
-            {!fitsExactly && (
-              <Button size="sm" onClick={() => patch('rows', suggestedRows)}>
-                Fit to screen ({suggestedRows})
+          {auto ? (
+            <div className="geometry-rows">
+              <p className="geometry-derived">
+                {cols} across on a {screen.w}:{screen.h} screen is {suggestedRows} down.
+              </p>
+              <Button
+                size="sm"
+                onClick={() => {
+                  setOwnRows(true);
+                }}
+              >
+                Set it myself
               </Button>
-            )}
-          </div>
+            </div>
+          ) : (
+            <div className="geometry-rows">
+              <RangeSlider
+                id="cfg-rows"
+                min={1}
+                max={MAX_ROWS}
+                step={1}
+                value={Number(config.rows)}
+                onChange={(event) => patch('rows', Number(event.target.value))}
+              />
+              <Button
+                size="sm"
+                onClick={() => {
+                  setOwnRows(false);
+                  if (Number(config.rows) !== suggestedRows) patch('rows', suggestedRows);
+                }}
+              >
+                Fit to the screen
+              </Button>
+            </div>
+          )}
         </Field>
       </div>
       <div className="config-grid">

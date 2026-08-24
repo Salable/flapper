@@ -1926,3 +1926,11 @@ main.landing .error {
   flex: 1 1 140px;
   min-width: 0;
 }
+
+/* A number the app worked out, in the place a control would be. */
+.geometry-derived {
+  flex: 1 1 auto;
+  margin: 0;
+  font: 400 var(--text-md) / 1.5 var(--font-sans);
+  color: var(--ink);
+}
