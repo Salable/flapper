@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { gridForConfig } from '../lib/board/geometry.mjs';
 import assert from 'node:assert/strict';
 import { TEMPLATE_FAMILIES, TEMPLATES, getTemplate } from '../lib/board-types/templates.mjs';
 import { BOARD_TYPES } from '../lib/board-types/index.mjs';
@@ -93,7 +94,8 @@ test('params, config and seeds pass the validators the API applies', () => {
       }
       // Literal rows must fit the grid they are seeded into.
       if (seed.rows) {
-        const cols = template.config.cols ?? 20;
+        // The grid this template's card size makes - a template stores none.
+        const { cols } = gridForConfig(template.config);
         for (const row of seed.rows) assert.ok(row.length <= cols, `${template.id}: row "${row}" is wider than ${cols}`);
       }
     }

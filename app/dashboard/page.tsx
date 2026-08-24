@@ -1,4 +1,5 @@
 import { headers } from 'next/headers';
+import { screenOf, cardSizeOf } from '@/lib/board/geometry.mjs';
 import { redirect } from 'next/navigation';
 import { sessionFromHeaders } from '@/lib/auth';
 import { getDb } from '@/lib/db/client.mjs';
@@ -58,8 +59,10 @@ export default async function DashboardPage() {
         createdAt: board.createdAt.getTime(),
         pack,
         lines,
-        cols: Number(board.config?.cols) || undefined,
-        rows: Number(board.config?.rows) || undefined,
+        // The two facts a board is shaped by. Not a grid: it does not have one
+        // to send, and the card works it out the same way everything else does.
+        screen: screenOf(board.config ?? {}),
+        cardSize: cardSizeOf(board.config ?? {}),
       };
     }),
   );

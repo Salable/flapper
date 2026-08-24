@@ -7,6 +7,7 @@
  */
 
 import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
+import { gridForConfig } from '@/lib/board/geometry.mjs';
 import { useRouter } from 'next/navigation';
 import { AppBar } from '@/components/AppBar';
 import { QueueManager } from '@/components/QueueManager';
@@ -64,8 +65,7 @@ export function SettingsClient({ board: initial }: { board: Board }) {
   // used to sit 1,900px below the layout stage, which meant the two decisions
   // that together make the board's shape could never be seen at once.
   const [grid, setGrid] = useState<{ cols: number; rows: number }>(() => ({
-    cols: Number(initial.config.cols) || 20,
-    rows: Number(initial.config.rows) || 8,
+    ...gridForConfig(initial.config),
   }));
   // The shape of the screen the board is being designed for, mirrored up for
   // the same reason: the layout stage was a hard-coded 16:9 rectangle, so a
@@ -463,8 +463,7 @@ export function SettingsClient({ board: initial }: { board: Board }) {
                       initial={board.config}
                       onChange={(config) => {
                         setGrid({
-                          cols: Number(config.cols) || 20,
-                          rows: Number(config.rows) || 8,
+                          ...gridForConfig(config),
                         });
                         const next = config.screen as { w: number; h: number } | undefined;
                         if (next) setScreen(next);

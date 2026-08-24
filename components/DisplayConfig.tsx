@@ -248,8 +248,7 @@ export function DisplayConfig({
         {fromTemplate !== '' && (
           <p className="ui-hint">
             This board was made from the <strong>{fromTemplate}</strong> template, which is where
-            its {String(config.cols)} × {String(config.rows)} grid came from. Nothing here is fixed
-            - change any of it.
+            its card size came from. Nothing here is fixed - change any of it.
           </p>
         )}
         <Field

@@ -16,6 +16,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Flipboard } from '@/lib/board/flipboard.js';
+import { gridForConfig } from '@/lib/board/geometry.mjs';
 import { Controller } from '@/lib/board/controller.mjs';
 import { idleAction, withFlicker } from '@/lib/board/idle.mjs';
 import { Player } from '@/lib/board/player.mjs';
@@ -36,9 +37,17 @@ import {
 const TOAST_MS = 1800;
 
 /** Board config is trusted but bands are deferred: never let a footer in. */
+/*
+ * The config the renderer wants, with the grid worked out.
+ *
+ * A board's config carries a screen and a card size, never a grid - so the
+ * grid is computed at the moment of use, here, and the display is the only
+ * thing that ever holds a cols/rows pair. It cannot go stale because it is
+ * never stored.
+ */
 function sanitizeConfig(config: any) {
   const { regions: _regions, footerRows: _footerRows, ...rest } = config ?? {};
-  return { ...rest, footerRows: 0 };
+  return { ...rest, ...gridForConfig(rest), footerRows: 0 };
 }
 
 export function BoardApp({

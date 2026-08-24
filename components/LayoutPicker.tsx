@@ -11,7 +11,7 @@
 import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Field, TextInput } from '@/components/ui/Field';
-import { fitInRegion } from '@/lib/board/geometry.mjs';
+import { fitInRegion, gridFor } from '@/lib/board/geometry.mjs';
 
 export type Layout = { xPct: number; yPct: number; wPct: number; hPct: number };
 
@@ -25,7 +25,7 @@ export function LayoutPicker({
   onSave,
   busy = false,
   screen = { w: 16, h: 9 },
-  grid = { cols: 20, rows: 8 },
+  grid = gridFor(),
 }: {
   initial?: Partial<Layout> | null;
   onSave: (layout: Layout) => void;

@@ -8,6 +8,7 @@ import { Button, LinkButton } from '@/components/ui/Button';
 import { Chip, CopyButton, EmptyState } from '@/components/ui/bits';
 import { ThemePreview } from '@/components/flapper/ThemePreview';
 import { DEFAULTS } from '@/lib/board/flipboard.js';
+import { gridForConfig, screenLabel, screenOf } from '@/lib/board/geometry.mjs';
 import type { ThemePack } from '@/lib/board/theme-pack.mjs';
 import type { TypeMeta } from '@/components/board-types/type-meta';
 import { UserMenu } from '@/components/UserMenu';
@@ -26,8 +27,9 @@ type BoardRow = {
   pack: ThemePack;
   /** Up to three of the words on it. Empty means blank glass, which is honest. */
   lines: string[];
-  cols?: number;
-  rows?: number;
+  /** What the board is designed for; its grid follows from these two. */
+  screen: { w: number; h: number; diagonalIn: number };
+  cardSize: string;
 };
 
 export function DashboardClient({
@@ -149,8 +151,8 @@ export function DashboardClient({
                     <ThemePreview
                       pack={board.pack}
                       text={board.lines.length > 0 ? board.lines : ['']}
-                      cols={board.cols ?? DEFAULTS.cols}
-                      rows={board.rows ?? DEFAULTS.rows}
+                      cols={gridForConfig(board).cols}
+                      rows={gridForConfig(board).rows}
                       tilePx={9}
                       bar={false}
                       fixed
@@ -160,7 +162,14 @@ export function DashboardClient({
                   <div className="board-card-open">
                     <span className="board-card-name">{board.name || board.slug}</span>
                     <span className="board-card-meta">
-                      <Chip>{typeName(board.type)}</Chip>
+                      <Chip>{typeName(board.type)}</Chip>{' '}
+                      {/* The screen it is for, and what that comes to - the two
+                          facts a board is shaped by, said where you can see it
+                          without opening anything. */}
+                      <Chip>
+                        {screenLabel(screenOf(board))} ·{' '}
+                        {gridForConfig(board).cols} × {gridForConfig(board).rows}
+                      </Chip>
                     </span>
                   </div>
                   <div className="board-card-actions">

@@ -125,8 +125,8 @@ test('themePack: validated against the board\'s theme, stored sparse, sized as 4
   assert.deepEqual(validateConfigPatch({ themePack: { card: { fill: '#2b2b2b' } } }, { theme: 'classic' }), { themePack: null });
   // A real difference comes back sparse, other keys untouched.
   assert.deepEqual(
-    validateConfigPatch({ cols: 12, themePack: { card: { fill: '#ffffff', edge: '#000000' }, id: 'ignored' } }, { theme: 'classic' }),
-    { cols: 12, themePack: { card: { fill: '#ffffff' } } },
+    validateConfigPatch({ cardSize: 'large', themePack: { card: { fill: '#ffffff', edge: '#000000' }, id: 'ignored' } }, { theme: 'classic' }),
+    { cardSize: 'large', themePack: { card: { fill: '#ffffff' } } },
   );
   // Validated against the theme named in the same patch when there is one.
   assert.deepEqual(
@@ -161,3 +161,24 @@ test('per-band settings are shape-checked', () => {
   validateConfigPatch({ regions: { footer: { dwellMs: 8000 } } });
   validateConfigPatch({ regions: { footer: { dwellMs: null } } });
 });
+
+test('a grid is not a board setting, and saying so is the point', () => {
+  /*
+   * A board records the screen it is for and how big its cards are; how many
+   * fit is worked out from those. Sending a grid is refused rather than
+   * quietly dropped, so a caller that still thinks a board has one is told,
+   * and told what to send instead.
+   */
+  refused(() => validateConfigPatch({ cols: 24 }), /cols is not a board setting/);
+  refused(() => validateConfigPatch({ rows: 8 }), /rows is not a board setting/);
+  refused(() => validateConfigPatch({ cols: 24 }), /screen.*cardSize/s);
+
+  // And the two that are real.
+  assert.deepEqual(validateConfigPatch({ cardSize: 'huge' }), { cardSize: 'huge' });
+  refused(() => validateConfigPatch({ cardSize: 'enormous' }), /cardSize must be one of/);
+  assert.deepEqual(
+    validateConfigPatch({ screen: { w: 16, h: 9, diagonalIn: 98 } }),
+    { screen: { w: 16, h: 9, diagonalIn: 98 } },
+  );
+  refused(() => validateConfigPatch({ screen: { w: 16, h: 9, diagonalIn: 0 } }), /diagonalIn/);
+})

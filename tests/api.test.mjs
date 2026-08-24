@@ -1,5 +1,5 @@
 import test, { before, beforeEach } from 'node:test';
-import { gridFor } from '../lib/board/geometry.mjs';
+import { gridFor, gridForConfig } from '../lib/board/geometry.mjs';
 import assert from 'node:assert/strict';
 import { MemoryBroker } from '../lib/broker/memory.mjs';
 import { makeTestDb, resetTestDb, makeTestUser } from '../lib/db/testing.mjs';
@@ -132,12 +132,13 @@ test('a template seeds the queue and presets config; the body still wins', async
   assert.equal(match.body.type, 'live');
   const mq = (await jsonOf(call(getQueue, ctx(match.body.slug, 'owner'), '/queue'))).body;
   assert.equal(mq.config.theme, 'canary');
-  // The grid the template's card size produces, not a number typed here: a
-  // board asks for a size and the scale answers, so there is one place a
-  // column count is decided and this asserts the board went through it.
+  // A card size is what the template sets; the grid is not stored at all, so
+  // the board has no cols/rows of its own and answers with what its screen
+  // and its card size come to.
   assert.equal(mq.config.cardSize, 'small');
-  assert.equal(mq.config.cols, gridFor('small').cols);
-  assert.equal(mq.config.rows, gridFor('small').rows);
+  assert.equal(mq.config.cols, undefined, 'a board does not store a grid');
+  assert.equal(mq.config.rows, undefined, 'a board does not store a grid');
+  assert.deepEqual(gridForConfig(mq.config), gridFor('small'));
   assert.equal(mq.items.length, 2);
   assert.equal(mq.items[0].payload.text, 'ON THE BALL CITY');
 
@@ -153,7 +154,7 @@ test('a template seeds the queue and presets config; the body still wins', async
   assert.equal(chosen.status, 201, JSON.stringify(chosen.body));
   const cq = (await jsonOf(call(getQueue, ctx(chosen.body.slug, 'owner'), '/queue'))).body;
   assert.equal(cq.config.theme, 'sorbet', 'the named design beat the template');
-  assert.equal(cq.config.cols, gridFor('small').cols, "the template's other config still applies");
+  assert.equal(cq.config.cardSize, 'small', "the template's other config still applies");
 
   // And a design this build does not ship is refused rather than defaulted.
   const unknown = await jsonOf(
@@ -343,7 +344,7 @@ test('writes need the API key or the owner session; strangers get nothing', asyn
     401,
   );
   assert.equal(
-    (await call(patchConfig, ctx(board.slug, 'owner'), '/x', { method: 'PATCH', body: { cols: 30 } }))
+    (await call(patchConfig, ctx(board.slug, 'owner'), '/x', { method: 'PATCH', body: { cardSize: 'small' } }))
       .status,
     200,
   );
@@ -630,14 +631,15 @@ test('capabilities and config round-trip through Postgres, and nudge displays', 
   const patched = await jsonOf(
     call(patchConfig, ctx(board.slug), '/config', {
       method: 'PATCH',
-      body: { cols: 30, dwellMs: 1500 },
+      body: { cardSize: 'small', dwellMs: 1500 },
       key: board.apiKey,
     }),
   );
   assert.equal(patched.status, 200);
 
   const after = (await jsonOf(call(capabilities, ctx(board.slug), '/capabilities'))).body;
-  assert.equal(after.grid.cols, 30);
+  // The grid the card size makes, because a board no longer stores one.
+  assert.equal(after.grid.cols, gridFor('small').cols);
 
   const commands = await broker.commandsAfter(board.boardId, '0', 10);
   assert.equal(commands[0].cmd.method, 'sync');
@@ -1212,7 +1214,7 @@ test('a dead broker never fails a write: the message queues, the nudge is logged
   assert.equal(posted.status, 202, JSON.stringify(posted.body));
   const queued = (await jsonOf(call(getQueue, ctx(board.slug), '/queue'))).body;
   assert.equal(queued.items.some((item) => item.payload.text === 'STILL HERE'), true);
-  const configured = await jsonOf(call(patchConfig, dead, '/config', { method: 'PATCH', body: { cols: 12 }, key: board.apiKey }));
+  const configured = await jsonOf(call(patchConfig, dead, '/config', { method: 'PATCH', body: { cardSize: 'large' }, key: board.apiKey }));
   assert.equal(configured.status, 200);
   const created = await jsonOf(
     call(createBoard, { ...ctx(undefined, 'owner'), broker: brokenBroker() }, '/api/boards', { method: 'POST', body: { slug: 'born-offline', template: 'match-day' } }),
