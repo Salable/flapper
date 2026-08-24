@@ -28,6 +28,7 @@ import { Chip } from '@/components/ui/bits';
 import { ThemePreview } from '@/components/flapper/ThemePreview';
 import { resolveTheme } from '@/lib/board/themes.mjs';
 import { DEFAULTS } from '@/lib/board/flipboard.js';
+import { TEMPLATES } from '@/lib/board-types/templates.mjs';
 import type { TypeMeta } from '@/components/board-types/type-meta';
 import { nextFreeName } from '@/lib/board-types/names.mjs';
 
@@ -66,6 +67,32 @@ function localTimezone() {
 /** Creation asks for the minimum: a name, and what the type genuinely needs. */
 function creationParams(type: TypeMeta) {
   return type.createParams.filter((param) => !param.advanced && param.key !== 'name');
+}
+
+/**
+ * The biggest grid any template asks for. Every poster is drawn at a tile size
+ * that makes this one fit, so all of them share a scale.
+ */
+const WIDEST = (() => {
+  let cols = DEFAULTS.cols;
+  let rows = DEFAULTS.rows;
+  for (const template of TEMPLATES.values()) {
+    cols = Math.max(cols, Number(template.config?.cols) || DEFAULTS.cols);
+    rows = Math.max(rows, Number(template.config?.rows) || DEFAULTS.rows);
+  }
+  return { cols, rows };
+})();
+
+/**
+ * The one tile size every poster is drawn at: whatever makes the widest and
+ * tallest grid fit the box a poster has. `height` is the room the card gives a
+ * board, so a ten-row template is not clipped by an eight-row assumption.
+ */
+function tileSizeFor(width: number, height: number, maxTile: number) {
+  const perTile = 1 + DEFAULTS.gapRatio;
+  const byWidth = (width - 12) / (WIDEST.cols * perTile);
+  const byHeight = (height - 12) / (WIDEST.rows * perTile);
+  return Math.max(5, Math.min(maxTile, Math.floor(Math.min(byWidth, byHeight))));
 }
 
 export function NewBoardClient({
@@ -166,19 +193,20 @@ export function NewBoardClient({
   /**
    * The poster: the board this template actually makes.
    *
-   * It used to be a row of CSS tiles floating in a big empty box - a shape no
-   * board has, in a stand-in that cannot flap. Now it is the real engine at the
-   * template's own grid and design, showing the words it will be seeded with,
-   * so what you pick is what you get. It flips once on arrival; the Flip again
-   * button is off, because twelve of them on one page is noise.
+   * One tile size for the whole page, deliberately. Sizing each board to fill
+   * its card instead gave a 24-column template 8px tiles and a 20-column one
+   * 10px, so every poster was drawn at a different scale and they read as
+   * arbitrarily different when the only real difference was how many cards they
+   * have. With one scale, a 24x10 board is simply bigger than a 20x8 one, which
+   * is true and looks it.
+   *
+   * The size is whatever makes the widest and tallest grid any template uses
+   * fit the space, so nothing is clipped and nothing has to be measured.
    */
-  const poster = (template: TemplateMeta, width: number, maxTile: number) => {
+  const poster = (template: TemplateMeta, width: number, height: number, maxTile: number) => {
     const pack = resolveTheme(template.config.theme);
     const cols = Number(template.config.cols) || DEFAULTS.cols;
     const rows = Number(template.config.rows) || DEFAULTS.rows;
-    // The gap the engine leaves between tiles is gapRatio of a tile, plus a
-    // little padding, so the whole board lands inside the width it has.
-    const tilePx = Math.max(5, Math.min(maxTile, Math.floor((width - 12) / (cols * (1 + DEFAULTS.gapRatio)))));
     return (
       <span className="poster" aria-hidden="true">
         <ThemePreview
@@ -186,7 +214,7 @@ export function NewBoardClient({
           text={template.poster.join('\n')}
           cols={cols}
           rows={rows}
-          tilePx={tilePx}
+          tilePx={tileSizeFor(width, height, maxTile)}
           bar={false}
           fixed
         />
@@ -199,7 +227,7 @@ export function NewBoardClient({
     const type = typeOf(template);
     return (
       <div className="rail-detail flap-in" ref={detailRef} key={template.id}>
-        <div className="rail-detail-poster">{poster(template, 300, 40)}</div>
+        <div className="rail-detail-poster">{poster(template, 300, 150, 40)}</div>
         <div className="rail-detail-about">
           <div className="rail-detail-head">
             <h3>{template.name}</h3>
@@ -343,7 +371,7 @@ export function NewBoardClient({
                       aria-label={`${template.name}${template.recommended ? ', recommended' : ''}. ${template.tagline}`}
                       onClick={() => (active ? close() : choose(family.id, template))}
                     >
-                      <span className="rail-card-poster">{poster(template, 226, 28)}</span>
+                      <span className="rail-card-poster">{poster(template, 226, 112, 28)}</span>
                       <span className="rail-card-body">
                         <span className="rail-card-head">
                           <span className="rail-card-name">{template.name}</span>
