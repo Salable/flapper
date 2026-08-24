@@ -1913,3 +1913,16 @@ main.landing .error {
   background: var(--bg);
   border-bottom: 1px solid var(--edge);
 }
+
+/* Renaming a design in place, where its buttons were. */
+.design-rename {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.design-rename .ui-input {
+  flex: 1 1 140px;
+  min-width: 0;
+}

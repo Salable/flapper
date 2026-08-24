@@ -60,6 +60,8 @@ export function DesignGallery() {
   const [making, setMaking] = useState(false);
   const [newName, setNewName] = useState('');
   const [newFrom, setNewFrom] = useState<string>(DEFAULT_THEME);
+  const [renaming, setRenaming] = useState<string | null>(null);
+  const [renameTo, setRenameTo] = useState('');
 
   const load = useCallback(async () => {
     try {
@@ -91,6 +93,30 @@ export function DesignGallery() {
       if (!response.ok) throw new Error(body.error || `HTTP ${response.status}`);
       setMaking(false);
       setNewName('');
+      await load();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function rename(design: Design) {
+    const name = renameTo.trim();
+    if (name === '' || name === design.name) {
+      setRenaming(null);
+      return;
+    }
+    setBusy(true);
+    setError('');
+    try {
+      const response = await fetch(`/api/designs/${design.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+      if (!response.ok) throw new Error((await response.json()).error || `HTTP ${response.status}`);
+      setRenaming(null);
       await load();
     } catch (err: any) {
       setError(err.message);
@@ -228,15 +254,45 @@ export function DesignGallery() {
                 design.basedOn
                   ? `Started from ${themes[design.basedOn]?.name ?? design.basedOn}.`
                   : 'Made from a pack.',
-                <>
-                  <LinkButton size="sm" variant="primary" href={`/new?design=${design.id}`}>
-                    Make a board in this
-                  </LinkButton>
-                  {packButton(design.id)}
-                  <Button size="sm" variant="ghost" disabled={busy} onClick={() => remove(design)}>
-                    Delete
-                  </Button>
-                </>,
+                renaming === design.id ? (
+                  <div className="design-rename">
+                    <TextInput
+                      value={renameTo}
+                      autoFocus
+                      aria-label={`Rename ${design.name}`}
+                      onChange={(event) => setRenameTo(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') rename(design);
+                        if (event.key === 'Escape') setRenaming(null);
+                      }}
+                    />
+                    <Button size="sm" variant="primary" disabled={busy} onClick={() => rename(design)}>
+                      Rename
+                    </Button>
+                    <Button size="sm" variant="ghost" disabled={busy} onClick={() => setRenaming(null)}>
+                      Cancel
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <LinkButton size="sm" variant="primary" href={`/new?design=${design.id}`}>
+                      Make a board in this
+                    </LinkButton>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        setRenameTo(design.name);
+                        setRenaming(design.id);
+                      }}
+                    >
+                      Rename
+                    </Button>
+                    {packButton(design.id)}
+                    <Button size="sm" variant="ghost" disabled={busy} onClick={() => remove(design)}>
+                      Delete
+                    </Button>
+                  </>
+                ),
                 <Chip tone="amber">yours</Chip>,
               ),
             )}

@@ -13,13 +13,13 @@
  * and reset are draft operations like any other.
  */
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Field, Select, RangeSlider } from '@/components/ui/Field';
 import { Segmented } from '@/components/ui/bits';
 import { ColorInput } from '@/components/ui/ColorInput';
 import { fileToArt } from '@/components/flapper/rasterize';
-import { THEMES, THEME_IDS } from '@/lib/board/themes.mjs';
+import { THEMES, THEME_IDS, DEFAULT_THEME } from '@/lib/board/themes.mjs';
 import { RANGES, type ThemePack } from '@/lib/board/theme-pack.mjs';
 import { THEME_LIMITS, stableStringify } from '@/lib/board/board-theme.mjs';
 import { RING } from '@/lib/board/ring.mjs';
@@ -102,6 +102,25 @@ export function ThemeSettings({
   const [saved, setSaved] = useState(false);
   const [selected, setSelected] = useState<string>('A');
   const [json, setJson] = useState<string | null>(null);
+  /**
+   * Your own designs, so a board you already have can wear one. Without this a
+   * design was applicable exactly once, at the moment a board was created.
+   * They are copied in, not linked: the board stores what it was given, so
+   * editing the design later never reaches a wall.
+   */
+  const [own, setOwn] = useState<{ id: string; name: string; pack: any; basedOn: string | null }[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/designs')
+      .then((response) => (response.ok ? response.json() : { designs: [] }))
+      .then((body) => {
+        if (!cancelled) setOwn(body.designs ?? []);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const patch = useMemo(() => draftToPatch(draft), [draft]);
@@ -192,15 +211,37 @@ export function ThemeSettings({
     <section className="settings-block theme-settings">
       <h2>Theme</h2>
 
-      <Field label="Start from" hint="Switching presets replaces your edits with the preset.">
-        <Segmented
-          options={THEME_IDS.map((id) => ({ value: id, label: themes[id].name }))}
+      <Field
+        label="Start from"
+        hint="Replaces this board's look with the one you pick. Your own designs are copied in - editing here afterwards changes the board, never the design."
+      >
+        <Select
+          id="th-start-from"
           value={draft.theme}
-          onChange={(id) => {
+          onChange={(event) => {
+            const value = event.target.value;
             setJson(null);
-            update(presetDraft(id));
+            const chosen = own.find((design) => `design:${design.id}` === value);
+            update(chosen ? { theme: chosen.basedOn ?? DEFAULT_THEME, pack: chosen.pack } : presetDraft(value));
           }}
-        />
+        >
+          <optgroup label="In the box">
+            {THEME_IDS.map((id: string) => (
+              <option key={id} value={id}>
+                {themes[id].name}
+              </option>
+            ))}
+          </optgroup>
+          {own.length > 0 && (
+            <optgroup label="Yours">
+              {own.map((design) => (
+                <option key={design.id} value={`design:${design.id}`}>
+                  {design.name}
+                </option>
+              ))}
+            </optgroup>
+          )}
+        </Select>
       </Field>
 
       <div className="theme-groups">
