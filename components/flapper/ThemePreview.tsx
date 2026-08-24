@@ -74,6 +74,11 @@ export function ThemePreview({
   const [replays, setReplays] = useState(0);
   const messages = Array.isArray(text) ? text : [text];
   const showing = messages[replays % messages.length] ?? '';
+  // What to paint the moment the board exists. Held in a ref so the effect that
+  // builds the board does not depend on the text: a message change should flip
+  // the tiles, not rebuild a skin and its forty-two cards.
+  const firstText = useRef(showing);
+  firstText.current = showing;
 
   // The box this board wants, in CSS pixels. Declared here because the effects
   // below hand it to Flipboard rather than have it measured.
@@ -103,7 +108,7 @@ export function ThemePreview({
             // when it starts observing - before this board exists - and never
             // again if the box does not change afterwards.
             if (!fixed) requestAnimationFrame(() => boardRef.current?.resize());
-            boardRef.current.setText(showing);
+            boardRef.current.setText(firstText.current);
           } else {
             boardRef.current.setSkin(skin);
           }
@@ -117,11 +122,23 @@ export function ThemePreview({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [pack, cols, rows, showing]);
+  }, [pack, cols, rows, fixed, width, height]);
 
   useEffect(() => {
     boardRef.current?.setOptions({ cols, rows });
   }, [cols, rows]);
+
+  // On the way out, for good. A board with anything left to draw - a wash that
+  // drifts, a runner going round the edge - otherwise keeps a frame loop alive
+  // on a canvas nobody can see, for the life of the tab, one per visit to the
+  // page. Nothing parks it now that a drift is a reason to keep drawing.
+  useEffect(
+    () => () => {
+      boardRef.current?.stop?.();
+      boardRef.current = null;
+    },
+    [],
+  );
 
   // Flip the text in again: blank, then the text, so the motion can be judged.
   useEffect(() => {
@@ -224,13 +241,18 @@ export function ThemePreview({
         }
         onKeyDown={onText ? type : undefined}
       />
-      {bar && (
+      {bar ? (
         <div className="theme-preview-bar">
           <Button size="sm" variant="ghost" onClick={() => setReplays((n) => n + 1)}>
             Flip again
           </Button>
           {error !== '' && <span className="error">{error}</span>}
         </div>
+      ) : (
+        // No bar, but a failed skin load must still say so somewhere - without
+        // this a poster whose design would not build is just a blank rectangle
+        // with no signal anywhere on the page.
+        error !== '' && <span className="error">{error}</span>
       )}
     </div>
   );

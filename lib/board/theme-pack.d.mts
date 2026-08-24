@@ -60,12 +60,39 @@ export interface TintGradient {
   angle?: number;
 }
 
+/** A colour in each corner, blended across the grid in both directions. */
+export interface TintCorners {
+  tl: string;
+  tr: string;
+  bl: string;
+  br: string;
+}
+
+/** A light travelling round the perimeter, with a fading tail. */
+export interface TintRunner {
+  colour: string;
+  /** Cards lit behind the head. */
+  length?: number;
+  /** One lap, in milliseconds. At least 1000. */
+  periodMs?: number;
+}
+
+/**
+ * A wash: exactly one of `gradient`, `corners` or `runner`. The renderer
+ * prefers them in that reverse order (runner, corners, gradient), and the
+ * editor writes one kind at a time - so a spec carrying two is a bug, not a
+ * blend.
+ */
 export interface Tint {
-  gradient: TintGradient;
+  gradient?: TintGradient;
+  corners?: TintCorners;
+  runner?: TintRunner;
   /** How the colour lands on the card. `overlay` protects black and white glyphs. */
   mode?: 'overlay' | 'wash' | 'multiply' | 'screen';
   /** 0 to 1. */
   strength?: number;
+  /** The whole wash rotating in hue. One turn per `periodMs`, at least 1000. */
+  drift?: { periodMs: number } | null;
 }
 
 /** A validated, fully-defaulted pack. */
@@ -81,6 +108,13 @@ export interface ThemePack {
   art: Record<string, string>;
   fonts: PackFont[];
   tint: Tint | null;
+  /**
+   * Colours a tile passes through on its way, by ring position, applied only
+   * while it is moving. `null` in the sequence means the base card.
+   */
+  flight: (string | null)[] | null;
+  /** How strongly the flight colours apply, 0 to 1. */
+  flightStrength: number;
 }
 
 /** What validatePack accepts: any subset, plus per-state overrides. */

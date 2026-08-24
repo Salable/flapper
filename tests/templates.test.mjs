@@ -53,7 +53,7 @@ test('the first rail names three intentions, not the type registry', () => {
   assert.ok(byId.get('cycle').seed.length > 1);
   for (const id of ['sign', 'cycle']) {
     for (const seed of byId.get(id).seed) {
-      assert.equal(seed.options?.repeat, true, `${id} seeds must loop or the board runs dry`);
+      assert.equal(seed.loop, true, `${id} seeds must loop or the board runs dry`);
     }
   }
 

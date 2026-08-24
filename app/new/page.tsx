@@ -49,7 +49,7 @@ export default async function NewBoardPage() {
       what: template.what,
       recommended: template.recommended,
       tier: template.tier,
-      blank: template.blank,
+      starter: template.starter,
       params: template.params,
       config: template.config,
       seedCount: template.seed.length,

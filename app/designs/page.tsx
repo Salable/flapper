@@ -18,10 +18,10 @@ export const metadata: Metadata = { title: 'Designs — Flapper' };
  * board and switching that board to it. A design is a thing in its own right,
  * so it gets a page of its own.
  *
- * The cards are the real tiles - `MiniBoard` draws each design's own faces,
- * ink and wash from its pack (lib/board/face.mjs) - so this page is also the
- * check that nothing about a design is hard-coded anywhere. If a design ever
- * comes out looking like Classic here, something is keyed on an id again.
+ * The cards are real boards - the engine on a canvas, drawing from each
+ * design's own pack - so this page is also the check that nothing about a
+ * design is hard-coded anywhere. If a design ever comes out looking like
+ * Classic here, something is keyed on an id again.
  */
 export default async function DesignsPage() {
   const session = await sessionFromHeaders(await headers());

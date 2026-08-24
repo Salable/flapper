@@ -7,7 +7,7 @@
  * truth, so a fresh display always looks like the last one.
  */
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Checkbox, Field, RangeSlider, Select, TextInput } from '@/components/ui/Field';
 import { Segmented } from '@/components/ui/bits';
@@ -61,8 +61,14 @@ export function DisplayConfig({
   const [error, setError] = useState('');
   const stored = (initial.screen ?? null) as { w: number; h: number } | null;
   const [screen, setScreenState] = useState<{ w: number; h: number }>(stored ?? { w: 16, h: 9 });
-  const screenKey =
-    SCREENS.find((s) => s.value !== 'custom' && s.w === screen.w && s.h === screen.h)?.value ?? 'custom';
+  const [custom, setCustom] = useState(false);
+  const preset = SCREENS.find((s) => s.value !== 'custom' && s.w === screen.w && s.h === screen.h);
+  const screenKey = custom || !preset ? 'custom' : preset.value;
+
+  // A ref so the effect below does not re-run every time the parent hands down
+  // a fresh closure, which is every render.
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
 
   const cols = Number(config.cols) || 1;
   const suggestedRows = rowsThatFit(cols, screen.w, screen.h);
@@ -72,23 +78,38 @@ export function DisplayConfig({
     : `${cols} × ${config.rows} on a ${screen.w}:${screen.h} screen leaves a band ` +
       `${Number(config.rows) > suggestedRows ? 'left and right' : 'top and bottom'}.`;
 
+  /**
+   * Tell the parent what the config is now, after a commit rather than during
+   * one. This used to be called from inside a setConfig updater, and an updater
+   * runs in the render phase - so it was a setState on a different component
+   * mid-render, which React warns about and StrictMode runs twice.
+   */
+  useEffect(() => {
+    onChangeRef.current?.(config);
+  }, [config]);
+
   function setScreen(next: { w: number; h: number }) {
     setScreenState(next);
+    setCustom(false);
     patch('screen', next);
   }
 
   function pickScreen(value: string) {
+    // Custom was unreachable: it returned early, and the width and height
+    // fields only rendered when the stored shape happened not to match a
+    // preset - which nothing could bring about. Choosing it is now a state of
+    // its own, so the fields appear and you can type any shape you like.
+    if (value === 'custom') {
+      setCustom(true);
+      return;
+    }
     const found = SCREENS.find((s) => s.value === value);
-    if (!found || found.value === 'custom') return;
+    if (!found) return;
     setScreen({ w: found.w, h: found.h });
   }
 
   async function patch(key: string, value: unknown) {
-    setConfig((prev) => {
-      const next = { ...prev, [key]: value };
-      onChange?.(next);
-      return next;
-    });
+    setConfig((prev) => ({ ...prev, [key]: value }));
     setError('');
     try {
       const response = await fetch(`/api/b/${slug}/config`, {
@@ -99,11 +120,7 @@ export function DisplayConfig({
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || `HTTP ${response.status}`);
       // Mirror what the server stored - clamps included.
-      setConfig((prev) => {
-        const next = { ...prev, ...body.config };
-        onChange?.(next);
-        return next;
-      });
+      setConfig((prev) => ({ ...prev, ...body.config }));
     } catch (err: any) {
       setError(err.message);
     }
@@ -175,7 +192,11 @@ export function DisplayConfig({
                 type="number"
                 min={1}
                 value={String(screen.w)}
-                onChange={(event) => setScreen({ ...screen, w: Math.max(1, Number(event.target.value) || 1) })}
+                onChange={(event) => {
+                  const w = Math.max(1, Number(event.target.value) || 1);
+                  setScreenState({ ...screen, w });
+                  patch('screen', { ...screen, w });
+                }}
               />
             </Field>
             <Field label="Screen height" htmlFor="cfg-screen-h">
@@ -184,7 +205,11 @@ export function DisplayConfig({
                 type="number"
                 min={1}
                 value={String(screen.h)}
-                onChange={(event) => setScreen({ ...screen, h: Math.max(1, Number(event.target.value) || 1) })}
+                onChange={(event) => {
+                  const h = Math.max(1, Number(event.target.value) || 1);
+                  setScreenState({ ...screen, h });
+                  patch('screen', { ...screen, h });
+                }}
               />
             </Field>
           </div>

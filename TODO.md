@@ -209,6 +209,16 @@ eight art entries at 16 KB each. Enough for a demo or a logo, not for typing.
 - [ ] Decide which of the two real routes, or ship the art trick as a
       deliberate "big word" feature and leave typing alone
 
+## Left by the code review
+
+- [ ] **`lib/board/face.mjs` has no production caller.** It turns a pack into the
+      custom properties a CSS tile reads, and it was written to fix the posters
+      on /new - which then moved to the real engine on a canvas, fixing it
+      better. Kept because the dashboard's board cards are the obvious next
+      caller (a card wearing its board's design tells you which board it is at a
+      glance), and that needs the theme in the board list response. Either wire
+      it up or delete it and its test.
+
 ## Open questions — yours
 
 1. **Where board admin lives** once the tab bar belongs to the sheets. Slug,

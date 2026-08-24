@@ -42,14 +42,30 @@ import type { ThemeDraft } from '@/lib/board/theme-editor.mjs';
 export type { ThemeDraft };
 
 /**
- * Switching a wash on sets the whole thing at once: a tint with one stop and no
- * other is not a valid pack, so there is no field-by-field way in.
+ * A whole wash per kind, because a half-built one is not a valid pack: a
+ * gradient with one stop, or a runner with no colour, is refused by
+ * validatePack - so there is no field-by-field way in. Switching kind replaces
+ * the spec rather than adding to it, which also stops a `gradient` being
+ * written onto a spec that already has `corners` and quietly doing nothing.
  */
-const DEFAULT_TINT = Object.freeze({
-  gradient: Object.freeze({ from: '#f7d6e3', to: '#cfe3f8', angle: 35 }),
-  mode: 'overlay',
-  strength: 0.85,
-});
+const WASHES: Record<string, Record<string, unknown>> = {
+  gradient: { gradient: { from: '#f7d6e3', to: '#cfe3f8', angle: 35 }, mode: 'overlay', strength: 0.85 },
+  corners: {
+    corners: { tl: '#7af0e0', tr: '#8ecff5', bl: '#f7ee79', br: '#f4738d' },
+    mode: 'multiply',
+    strength: 0.9,
+  },
+  runner: { runner: { colour: '#f2b134', length: 5, periodMs: 9000 }, mode: 'screen', strength: 0.9 },
+};
+
+/** Which kind of wash a pack has. The editor showed "Gradient" for all of them. */
+function washKind(tint: Record<string, unknown> | null | undefined) {
+  if (!tint) return 'none';
+  if (tint.runner) return 'runner';
+  if (tint.corners) return 'corners';
+  if (tint.gradient) return 'gradient';
+  return 'none';
+}
 
 const TINT_MODE_LABELS: [string, string][] = [
   ['overlay', 'Colour the face'],
@@ -57,6 +73,12 @@ const TINT_MODE_LABELS: [string, string][] = [
   ['screen', 'Lighten'],
   ['wash', 'Wash over everything'],
 ];
+
+/** `Number(undefined)` is NaN, which is not nullish - so `?? 1` never fired. */
+function strengthOf(tint: { strength?: number } | null | undefined) {
+  const value = Number(tint?.strength);
+  return Number.isFinite(value) ? value : 1;
+}
 
 const themes: Record<string, any> = THEMES;
 const ranges: Readonly<Record<string, readonly number[]>> = RANGES;
@@ -99,10 +121,8 @@ export function ThemeSettings({
   const font = parseFont(draft.pack.glyph.font);
   const setFont = (change: Partial<typeof font>) => field('glyph.font')(buildFont({ ...font, ...change }));
 
-  const tint = (draft.pack as any).tint as
-    | { gradient?: { from?: string; to?: string; angle?: number }; mode?: string; strength?: number }
-    | null
-    | undefined;
+  const tint = (draft.pack as any).tint as Record<string, any> | null | undefined;
+  const kind = washKind(tint);
   const state = draft.pack.states?.[selected] || {};
   const artKey = state.art as string | undefined;
 
@@ -245,19 +265,21 @@ export function ThemeSettings({
               options={[
                 { value: 'none', label: 'None' },
                 { value: 'gradient', label: 'Gradient' },
+                { value: 'corners', label: 'Corners' },
+                { value: 'runner', label: 'Runner' },
               ]}
-              value={tint ? 'gradient' : 'none'}
-              onChange={(value) => field('tint')(value === 'gradient' ? { ...DEFAULT_TINT } : null)}
+              value={kind}
+              onChange={(next) => field('tint')(next === 'none' ? null : { ...WASHES[next] })}
             />
           </Field>
-          {tint && (
+          {kind === 'gradient' && (
             <>
               {colour('From', 'tint.gradient.from')}
               {colour('To', 'tint.gradient.to')}
               <Field
                 label={
                   <>
-                    Angle <span className="muted">{Math.round(Number(tint.gradient?.angle) || 0)}°</span>
+                    Angle <span className="muted">{Math.round(Number(tint?.gradient?.angle) || 0)}°</span>
                     <span className="field-range">0–360</span>
                   </>
                 }
@@ -268,15 +290,68 @@ export function ThemeSettings({
                   min={0}
                   max={360}
                   step={5}
-                  value={Number(tint.gradient?.angle) || 0}
+                  value={Number(tint?.gradient?.angle) || 0}
                   onChange={(e) => field('tint.gradient.angle')(Number(e.target.value))}
+                />
+              </Field>
+            </>
+          )}
+          {kind === 'corners' && (
+            <>
+              {colour('Top left', 'tint.corners.tl')}
+              {colour('Top right', 'tint.corners.tr')}
+              {colour('Bottom left', 'tint.corners.bl')}
+              {colour('Bottom right', 'tint.corners.br')}
+            </>
+          )}
+          {kind === 'runner' && (
+            <>
+              {colour('The light', 'tint.runner.colour')}
+              <Field
+                label={
+                  <>
+                    Tail <span className="muted">{Number(tint?.runner?.length) || 1}</span>
+                    <span className="field-range">1–20 cards</span>
+                  </>
+                }
+                htmlFor="th-runner-length"
+              >
+                <RangeSlider
+                  id="th-runner-length"
+                  min={1}
+                  max={20}
+                  step={1}
+                  value={Number(tint?.runner?.length) || 1}
+                  onChange={(e) => field('tint.runner.length')(Number(e.target.value))}
                 />
               </Field>
               <Field
                 label={
                   <>
+                    One lap <span className="muted">{Math.round((Number(tint?.runner?.periodMs) || 9000) / 1000)}s</span>
+                    <span className="field-range">1–60s</span>
+                  </>
+                }
+                htmlFor="th-runner-period"
+              >
+                <RangeSlider
+                  id="th-runner-period"
+                  min={1000}
+                  max={60000}
+                  step={500}
+                  value={Number(tint?.runner?.periodMs) || 9000}
+                  onChange={(e) => field('tint.runner.periodMs')(Number(e.target.value))}
+                />
+              </Field>
+            </>
+          )}
+          {kind !== 'none' && (
+            <>
+              <Field
+                label={
+                  <>
                     Strength{' '}
-                    <span className="muted">{(Number(tint.strength) ?? 1).toFixed(2)}</span>
+                    <span className="muted">{strengthOf(tint).toFixed(2)}</span>
                     <span className="field-range">0–1</span>
                   </>
                 }
@@ -287,7 +362,7 @@ export function ThemeSettings({
                   min={0}
                   max={1}
                   step={0.05}
-                  value={Number(tint.strength) ?? 1}
+                  value={strengthOf(tint)}
                   onChange={(e) => field('tint.strength')(Number(e.target.value))}
                 />
               </Field>
@@ -298,7 +373,7 @@ export function ThemeSettings({
               >
                 <Select
                   id="th-tint-mode"
-                  value={String(tint.mode ?? 'overlay')}
+                  value={String(tint?.mode ?? 'overlay')}
                   onChange={(e) => field('tint.mode')(e.target.value)}
                 >
                   {TINT_MODE_LABELS.map(([value, label]) => (
