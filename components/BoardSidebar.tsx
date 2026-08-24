@@ -8,7 +8,8 @@ import {
   cardSizeOf,
   CARD_SIZE_IDS,
 } from '@/lib/board/geometry.mjs';
-import { Field, Select } from '@/components/ui/Field';
+import { useState } from 'react';
+import { Field, Select, TextInput } from '@/components/ui/Field';
 
 /** The shapes offered by name; anything else is shown as its own ratio. */
 const SCREENS = [
@@ -70,6 +71,19 @@ export function BoardSidebar({
   const screen = screenOf(config);
   const shape = screenLabel(screen);
   const grid = gridForConfig(config);
+  const onList = SCREENS.some((option) => option.w === screen.w && option.h === screen.h);
+  const [custom, setCustom] = useState(false);
+  // The pair being typed, so neither half is saved on its own.
+  const [draftW, setDraftW] = useState(String(screen.w));
+  const [draftH, setDraftH] = useState(String(screen.h));
+
+  function commitCustom() {
+    const w = Number(draftW);
+    const h = Number(draftH);
+    if (!Number.isFinite(w) || w <= 0 || !Number.isFinite(h) || h <= 0) return;
+    if (w === screen.w && h === screen.h) return;
+    onConfig({ screen: { w, h } });
+  }
   return (
     <aside className="board-side" aria-label="This board">
       <h1 className="board-side-name">{name || slug}</h1>
@@ -89,10 +103,13 @@ export function BoardSidebar({
         <Field label="Screen" htmlFor="side-screen">
           <Select
             id="side-screen"
-            value={SCREENS.some((option) => option.w === screen.w && option.h === screen.h)
-              ? `${screen.w}:${screen.h}`
-              : 'other'}
+            value={custom || !onList ? 'custom' : `${screen.w}:${screen.h}`}
             onChange={(event) => {
+              if (event.target.value === 'custom') {
+                setCustom(true);
+                return;
+              }
+              setCustom(false);
               const found = SCREENS.find((option) => `${option.w}:${option.h}` === event.target.value);
               if (found) onConfig({ screen: { w: found.w, h: found.h } });
             }}
@@ -102,11 +119,47 @@ export function BoardSidebar({
                 {option.label}
               </option>
             ))}
-            {!SCREENS.some((option) => option.w === screen.w && option.h === screen.h) && (
-              <option value="other">{shape}</option>
-            )}
+            <option value="custom">Custom{!onList ? ` (${shape})` : ''}</option>
           </Select>
         </Field>
+        {(custom || !onList) && (
+          /* Committed together, on Enter or on leaving the pair - a shape is
+             two numbers and saving after the first one means saving a shape
+             nobody asked for. Typing 300 into the width of a 16:9 board was
+             briefly a 100:3 screen, and it saved. */
+          <div className="board-side-custom">
+            <Field label="Width" htmlFor="side-screen-w">
+              <TextInput
+                id="side-screen-w"
+                type="number"
+                min={1}
+                value={draftW}
+                onChange={(event) => setDraftW(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') commitCustom();
+                }}
+                onBlur={commitCustom}
+              />
+            </Field>
+            <Field
+              label="Height"
+              htmlFor="side-screen-h"
+              hint="Any units - centimetres, pixels, or proportions. Only the ratio matters."
+            >
+              <TextInput
+                id="side-screen-h"
+                type="number"
+                min={1}
+                value={draftH}
+                onChange={(event) => setDraftH(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') commitCustom();
+                }}
+                onBlur={commitCustom}
+              />
+            </Field>
+          </div>
+        )}
         <Field label="Card size" htmlFor="side-cardsize">
           <Select
             id="side-cardsize"

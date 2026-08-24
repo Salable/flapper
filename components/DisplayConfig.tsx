@@ -126,6 +126,25 @@ export function DisplayConfig({
     patch({ cardSize: size, cols: next.cols, rows: next.rows });
   }
 
+  /*
+   * The custom pair, held while it is typed.
+   *
+   * These used to save on every keystroke, one field at a time - so typing
+   * 300 into the width of a 16:9 board saved a 100:3 screen on the way past,
+   * and the board briefly became one row tall. A shape is two numbers and is
+   * committed as two numbers, on Enter or on leaving the field.
+   */
+  const [draftW, setDraftW] = useState(String(screen.w));
+  const [draftH, setDraftH] = useState(String(screen.h));
+
+  function commitCustom() {
+    const w = Number(draftW);
+    const h = Number(draftH);
+    if (!Number.isFinite(w) || w <= 0 || !Number.isFinite(h) || h <= 0) return;
+    if (w === screen.w && h === screen.h) return;
+    applyScreen({ w, h });
+  }
+
   /** A screen, and the grid it makes at this card size - one write. */
   function applyScreen(next: Screen) {
     setScreenState(next);
@@ -270,11 +289,12 @@ export function DisplayConfig({
                 id="cfg-screen-w"
                 type="number"
                 min={1}
-                value={String(screen.w)}
-                onChange={(event) => {
-                  const w = Math.max(1, Number(event.target.value) || 1);
-                  applyScreen({ ...screen, w });
+                value={draftW}
+                onChange={(event) => setDraftW(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') commitCustom();
                 }}
+                onBlur={commitCustom}
               />
             </Field>
             <Field label="Screen height" htmlFor="cfg-screen-h">
@@ -282,11 +302,12 @@ export function DisplayConfig({
                 id="cfg-screen-h"
                 type="number"
                 min={1}
-                value={String(screen.h)}
-                onChange={(event) => {
-                  const h = Math.max(1, Number(event.target.value) || 1);
-                  applyScreen({ ...screen, h });
+                value={draftH}
+                onChange={(event) => setDraftH(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') commitCustom();
                 }}
+                onBlur={commitCustom}
               />
             </Field>
           </div>

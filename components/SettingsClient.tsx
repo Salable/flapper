@@ -495,6 +495,14 @@ export function SettingsClient({ board: initial }: { board: Board }) {
                         });
                         const next = config.screen as { w: number; h: number } | undefined;
                         if (next) setScreen(next);
+                        /*
+                         * And into the board itself, because the panel beside
+                         * this reads the board's config for the shape. Without
+                         * it the two disagreed: the Display tab would say 20x1
+                         * on a 100:3 screen while the panel still said 20x11
+                         * on the default.
+                         */
+                        setBoard((prev) => ({ ...prev, config: { ...prev.config, ...config } }));
                       }}
                     />
                   </div>

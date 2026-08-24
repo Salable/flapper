@@ -2010,3 +2010,15 @@ main.landing .error {
   font: 400 var(--text-sm) / 1.4 var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
+
+
+/* The two halves of a custom shape, side by side. */
+.board-side-custom {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.board-side-custom .ui-field {
+  flex: 1 1 0;
+  min-width: 0;
+}
