@@ -32,18 +32,35 @@ test('every template names a registered type and a unique id', () => {
   assert.equal(getTemplate('nope'), null);
 });
 
-test('the first rail is the registry, blank, one card per type', () => {
+test('the first rail names three intentions, not the type registry', () => {
   const [start] = TEMPLATE_FAMILIES;
   assert.equal(start.id, 'start');
-  assert.deepEqual(
-    start.templates.map((t) => t.type),
-    [...BOARD_TYPES.keys()],
-  );
-  for (const template of start.templates) {
-    assert.equal(template.blank, true);
-    assert.equal(template.seed.length, 0);
+  assert.deepEqual(start.templates.map((t) => t.id), ['sign', 'cycle', 'timetable']);
+  for (const template of start.templates) assert.equal(template.starter, true);
+  assert.ok(start.templates.some((t) => t.recommended), 'one starter is the recommended start');
+
+  // A sign and a cycle are the same machine, so moving between them later is
+  // free; only a timetable is the choice that cannot be undone. That is the
+  // whole reason these are named for intentions rather than for types.
+  const byId = new Map(start.templates.map((t) => [t.id, t]));
+  assert.equal(byId.get('sign').type, 'live');
+  assert.equal(byId.get('cycle').type, 'live');
+  assert.equal(byId.get('timetable').type, 'scheduled');
+
+  // A sign is one looping message and a cycle is several - the difference is
+  // content, not machinery.
+  assert.equal(byId.get('sign').seed.length, 1);
+  assert.ok(byId.get('cycle').seed.length > 1);
+  for (const id of ['sign', 'cycle']) {
+    for (const seed of byId.get(id).seed) {
+      assert.equal(seed.options?.repeat, true, `${id} seeds must loop or the board runs dry`);
+    }
   }
-  assert.ok(start.templates.some((t) => t.recommended), 'one blank card is the recommended start');
+
+  // `shared` is still a registered type so existing boards keep working, and is
+  // no longer offered, because it was {...scheduled} with a different name.
+  assert.ok(BOARD_TYPES.has('shared'), 'the type stays for boards that already use it');
+  assert.ok(!start.templates.some((t) => t.type === 'shared'), 'and is not offered');
 });
 
 test('poster lines fit a card and use only glyphs the tiles have', () => {

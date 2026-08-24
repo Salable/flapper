@@ -41,7 +41,8 @@ export type TemplateMeta = {
   what: string[];
   recommended: boolean;
   tier?: string;
-  blank: boolean;
+  /** One of the three Start here cards, which name an intention rather than a template. */
+  starter: boolean;
   params: Record<string, unknown>;
   config: Record<string, unknown>;
   seedCount: number;
@@ -92,9 +93,11 @@ function tileSizeFor(width: number, height: number, maxTile: number) {
  * over when the time comes. Neither is visible in a frame.
  */
 const DEMOS: Record<string, string[]> = {
-  'blank-live': ['NOW BOARDING', 'GATE 12 OPEN', 'FINAL CALL'],
-  'blank-scheduled': ['STANDUP 0900', 'LUNCH 1300', 'HOME TIME 1730'],
-  'blank-shared': ['EVERY SCREEN', 'IN STEP', 'ON THE CLOCK'],
+  // A sign holds. Two messages so Flip again has somewhere to go, but the
+  // point of it is that it stays - so it does not cycle on its own.
+  sign: ['WELCOME'],
+  cycle: ['NOW BOARDING', 'GATE 12 OPEN', 'FINAL CALL'],
+  timetable: ['STANDUP 0900', 'LUNCH 1300', 'HOME TIME 1730'],
 };
 
 export function NewBoardClient({
@@ -212,12 +215,14 @@ export function NewBoardClient({
     // still, because twelve permanent animation loops on one page is a lot of
     // laptop fan for no extra information.
     const demo = DEMOS[template.id];
+    // A sign's character is that it does not change, so it does not.
+    const cycles = demo !== undefined && demo.length > 1;
     return (
       <span className="poster" aria-hidden="true">
         <ThemePreview
           pack={pack}
           text={demo ?? template.poster.join('\n')}
-          loop={demo ? 2600 : 0}
+          loop={cycles ? 4200 : 0}
           cols={DEFAULTS.cols}
           rows={DEFAULTS.rows}
           tilePx={tileSizeFor(width, height, maxTile)}
@@ -237,7 +242,7 @@ export function NewBoardClient({
         <div className="rail-detail-about">
           <div className="rail-detail-head">
             <h3>{template.name}</h3>
-            {type && !template.blank && <Chip>{type.name}</Chip>}
+            {type && !template.starter && <Chip>{type.name}</Chip>}
             {template.recommended && <Chip tone="amber">Start here</Chip>}
             {template.tier && <Chip>{template.tier}</Chip>}
           </div>
@@ -385,7 +390,7 @@ export function NewBoardClient({
                           {template.tier && <Chip>{template.tier}</Chip>}
                         </span>
                         <span className="rail-card-tagline">{template.tagline}</span>
-                        {!template.blank && (
+                        {!template.starter && (
                           <span className="rail-card-type">{typeOf(template)?.name ?? template.type}</span>
                         )}
                       </span>
