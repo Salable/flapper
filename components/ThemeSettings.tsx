@@ -41,6 +41,23 @@ import {
 import type { ThemeDraft } from '@/lib/board/theme-editor.mjs';
 export type { ThemeDraft };
 
+/**
+ * Switching a wash on sets the whole thing at once: a tint with one stop and no
+ * other is not a valid pack, so there is no field-by-field way in.
+ */
+const DEFAULT_TINT = Object.freeze({
+  gradient: Object.freeze({ from: '#f7d6e3', to: '#cfe3f8', angle: 35 }),
+  mode: 'overlay',
+  strength: 0.85,
+});
+
+const TINT_MODE_LABELS: [string, string][] = [
+  ['overlay', 'Colour the face'],
+  ['multiply', 'Darken'],
+  ['screen', 'Lighten'],
+  ['wash', 'Wash over everything'],
+];
+
 const themes: Record<string, any> = THEMES;
 const ranges: Readonly<Record<string, readonly number[]>> = RANGES;
 
@@ -82,6 +99,10 @@ export function ThemeSettings({
   const font = parseFont(draft.pack.glyph.font);
   const setFont = (change: Partial<typeof font>) => field('glyph.font')(buildFont({ ...font, ...change }));
 
+  const tint = (draft.pack as any).tint as
+    | { gradient?: { from?: string; to?: string; angle?: number }; mode?: string; strength?: number }
+    | null
+    | undefined;
   const state = draft.pack.states?.[selected] || {};
   const artKey = state.art as string | undefined;
 
@@ -213,6 +234,82 @@ export function ThemeSettings({
           {slider('Shading', 'motion.shading')}
           {slider('Shadow', 'motion.shadow')}
           {slider('Highlight', 'motion.highlight')}
+        </fieldset>
+        <fieldset className="theme-group">
+          <legend>Wash</legend>
+          <Field
+            label="Across the grid"
+            hint="A colour per card, so the board carries a gradient. Real boards have identical tiles, so this is deliberately not one."
+          >
+            <Segmented
+              options={[
+                { value: 'none', label: 'None' },
+                { value: 'gradient', label: 'Gradient' },
+              ]}
+              value={tint ? 'gradient' : 'none'}
+              onChange={(value) => field('tint')(value === 'gradient' ? { ...DEFAULT_TINT } : null)}
+            />
+          </Field>
+          {tint && (
+            <>
+              {colour('From', 'tint.gradient.from')}
+              {colour('To', 'tint.gradient.to')}
+              <Field
+                label={
+                  <>
+                    Angle <span className="muted">{Math.round(Number(tint.gradient?.angle) || 0)}°</span>
+                    <span className="field-range">0–360</span>
+                  </>
+                }
+                htmlFor="th-tint-angle"
+              >
+                <RangeSlider
+                  id="th-tint-angle"
+                  min={0}
+                  max={360}
+                  step={5}
+                  value={Number(tint.gradient?.angle) || 0}
+                  onChange={(e) => field('tint.gradient.angle')(Number(e.target.value))}
+                />
+              </Field>
+              <Field
+                label={
+                  <>
+                    Strength{' '}
+                    <span className="muted">{(Number(tint.strength) ?? 1).toFixed(2)}</span>
+                    <span className="field-range">0–1</span>
+                  </>
+                }
+                htmlFor="th-tint-strength"
+              >
+                <RangeSlider
+                  id="th-tint-strength"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={Number(tint.strength) ?? 1}
+                  onChange={(e) => field('tint.strength')(Number(e.target.value))}
+                />
+              </Field>
+              <Field
+                label="How it applies"
+                htmlFor="th-tint-mode"
+                hint="Colour the face leaves a pure black or white glyph alone, so the letters stay readable."
+              >
+                <Select
+                  id="th-tint-mode"
+                  value={String(tint.mode ?? 'overlay')}
+                  onChange={(e) => field('tint.mode')(e.target.value)}
+                >
+                  {TINT_MODE_LABELS.map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            </>
+          )}
         </fieldset>
       </div>
 
