@@ -144,6 +144,49 @@ done; what remains is the gallery and the designs themselves.
 
 ---
 
+## Named for the mechanism, not the thing
+
+A board's type is `live` or `clock`, surfaced as three cards - Live queue,
+Scheduled, Shared screens - and the whole thing is confusing. Shared screens is
+`{...scheduled}` with a different name and no behaviour of its own, so a third
+of the choice is noise. And both real names describe how the machine works
+rather than what you end up with.
+
+The commonest wall in the world is a **standing sign**, and it is not an option:
+you get it by making a live queue and letting it drain. So the list should
+probably be three intentions rather than two mechanisms, which is also exactly
+what sheets give:
+
+| | What it is | Underneath |
+| --- | --- | --- |
+| A sign | Says one thing until you change it | live, one looping sheet |
+| A cycle | Rotates through a few things | live, several looping sheets |
+| A timetable | Shows things at times of day | clock |
+
+Sync stops being a type and becomes a sentence about timetables.
+
+- [ ] Fold Shared screens into Scheduled, or give it something Scheduled has
+      not got - per-screen layouts off one schedule was the thing it was
+      assumed to mean, and would be worth having
+- [ ] Rename the types for intention, and make a standing sign a first-class
+      choice rather than a drained queue
+- [ ] `match-day`'s config sets `rows: 8`, which is already the default - a
+      line that reads as a decision and is not one
+
+## Transitions and washes
+
+Half of this exists: `sweepMs` and `staggerMode` (diagonal, column, row,
+random, none) already shape the wave as tiles flip, per board, in Display
+settings. A rainbow or an explosion wash is the colour version of the same
+idea, riding the tint grid - recompute it per frame with the wave moving
+through it, which is the same mechanism as a moving tint.
+
+- [ ] **Washes as transitions.** Procedural ones (a rainbow along an axis, an
+      explosion from the centre) work at any cols x rows, because the grid is
+      always known. A hand-authored effect, tuned for one geometry, is the case
+      that would need a fixed screen ratio - so that constraint applies to
+      authored transitions, not generated ones.
+
 ## Open questions — yours
 
 1. **Where board admin lives** once the tab bar belongs to the sheets. Slug,
