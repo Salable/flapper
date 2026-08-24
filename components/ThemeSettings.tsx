@@ -18,7 +18,6 @@ import { Button } from '@/components/ui/Button';
 import { Field, Select, RangeSlider } from '@/components/ui/Field';
 import { Segmented } from '@/components/ui/bits';
 import { ColorInput } from '@/components/ui/ColorInput';
-import { ThemePreview } from '@/components/flapper/ThemePreview';
 import { fileToArt } from '@/components/flapper/rasterize';
 import { THEMES, THEME_IDS } from '@/lib/board/themes.mjs';
 import { RANGES, type ThemePack } from '@/lib/board/theme-pack.mjs';
@@ -41,8 +40,6 @@ import {
 
 import type { ThemeDraft } from '@/lib/board/theme-editor.mjs';
 export type { ThemeDraft };
-
-const SAMPLE = 'FLAPPER 2026!\nTHE QUICK BROWN\nFOX .,!()';
 
 const themes: Record<string, any> = THEMES;
 const ranges: Readonly<Record<string, readonly number[]>> = RANGES;
@@ -164,8 +161,6 @@ export function ThemeSettings({
           }}
         />
       </Field>
-
-      <ThemePreview pack={draft.pack} text={SAMPLE} cols={14} rows={3} />
 
       <div className="theme-groups">
         <fieldset className="theme-group">

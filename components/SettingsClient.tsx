@@ -21,6 +21,7 @@ import { Chip, CopyButton, KeyReveal } from '@/components/ui/bits';
 import { BoardSidebar } from '@/components/BoardSidebar';
 import { TypeSettings } from '@/components/TypeSettings';
 import { ThemeSettings, type ThemeDraft } from '@/components/ThemeSettings';
+import { ThemePreview } from '@/components/flapper/ThemePreview';
 import { draftFromConfig } from '@/lib/board/theme-editor.mjs';
 import type { TypeMeta } from '@/components/board-types/type-meta';
 import { maskSecret } from '@/lib/api/mask.mjs';
@@ -41,6 +42,10 @@ type Board = {
   createdAt: number;
 };
 
+/* Enough of the ring to judge a pack: letters, digits, and the punctuation
+   that has its own card. */
+const PREVIEW_TEXT = 'FLAPPER 2026!\nTHE QUICK BROWN\nFOX .,!()';
+
 export function SettingsClient({ board: initial }: { board: Board }) {
   const router = useRouter();
   const { confirm, dialog } = useConfirm();
@@ -54,6 +59,23 @@ export function SettingsClient({ board: initial }: { board: Board }) {
   // The theme draft lives here, above the tabs: Tabs remounts its panel on a
   // switch, and a half-edited theme (an uploaded logo) must survive one.
   const [themeDraft, setThemeDraft] = useState<ThemeDraft>(() => draftFromConfig(initial.config));
+  // The grid, mirrored up out of DisplayConfig so the preview beside the
+  // controls can show the board at the size it actually is. Columns and rows
+  // used to sit 1,900px below the layout stage, which meant the two decisions
+  // that together make the board's shape could never be seen at once.
+  const [grid, setGrid] = useState<{ cols: number; rows: number }>(() => ({
+    cols: Number(initial.config.cols) || 20,
+    rows: Number(initial.config.rows) || 8,
+  }));
+  // The shape of the screen the board is being designed for, mirrored up for
+  // the same reason: the layout stage was a hard-coded 16:9 rectangle, so a
+  // portrait wall could not be designed against at all.
+  const [screen, setScreen] = useState<{ w: number; h: number }>(
+    () => (initial.config.screen as { w: number; h: number } | undefined) ?? { w: 16, h: 9 },
+  );
+  // What the preview board is showing. It starts as enough of the ring to judge
+  // a pack and becomes whatever the designer types onto the board itself.
+  const [previewText, setPreviewText] = useState(PREVIEW_TEXT);
 
   // Resolved after mount: the server does not know the public origin, and
   // rendering it there would make hydration disagree with the glass.
@@ -101,6 +123,29 @@ export function SettingsClient({ board: initial }: { board: Board }) {
       setError(err.message);
     }
     setBusy(false);
+  }
+
+  /* The design surface's way out: what you typed onto the preview goes to the
+     real board, through the same endpoint the compose box uses. */
+  async function sendPreviewToBoard() {
+    setBusy(true);
+    setError('');
+    try {
+      const response = await fetch(`/api/b/${board.slug}/message`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ rows: previewText.split('\n'), priority: 'now' }),
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.error || `HTTP ${response.status}`);
+      }
+      setNotice('On the board.');
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function saveLayout(layout: Layout) {
@@ -362,24 +407,71 @@ export function SettingsClient({ board: initial }: { board: Board }) {
               id: 'display',
               label: 'Display',
               content: (
-                <>
-                  <section className="settings-block">
-                    <h2>Layout</h2>
-                    <LayoutPicker
-                      initial={(board.config.layout as Partial<Layout>) ?? null}
-                      onSave={saveLayout}
-                      busy={busy}
+                <div className="design-surface">
+                  <div className="design-preview">
+                    <ThemePreview
+                      pack={themeDraft.pack}
+                      text={previewText}
+                      cols={grid.cols}
+                      rows={grid.rows}
+                      tilePx={56}
+                      onText={setPreviewText}
                     />
-                  </section>
-                  <ThemeSettings
-                    slug={board.slug}
-                    draft={themeDraft}
-                    onDraft={setThemeDraft}
-                    config={board.config}
-                    onSaved={(config) => setBoard((prev) => ({ ...prev, config }))}
-                  />
-                  <DisplayConfig slug={board.slug} initial={board.config} />
-                </>
+                    <div className="design-preview-bar">
+                      <p className="design-preview-caption">
+                        {grid.cols} × {grid.rows} cards · click the board and type
+                      </p>
+                      <div className="design-preview-actions">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setPreviewText(PREVIEW_TEXT)}
+                          disabled={previewText === PREVIEW_TEXT}
+                        >
+                          Reset words
+                        </Button>
+                        <Button
+                          size="sm"
+                          disabled={busy || previewText.trim() === ''}
+                          onClick={() => sendPreviewToBoard()}
+                        >
+                          Put this on the board
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="design-controls">
+                    <section className="settings-block">
+                      <h2>Layout</h2>
+                      <LayoutPicker
+                        initial={(board.config.layout as Partial<Layout>) ?? null}
+                        onSave={saveLayout}
+                        busy={busy}
+                        screen={screen}
+                        grid={grid}
+                      />
+                    </section>
+                    <ThemeSettings
+                      slug={board.slug}
+                      draft={themeDraft}
+                      onDraft={setThemeDraft}
+                      config={board.config}
+                      onSaved={(config) => setBoard((prev) => ({ ...prev, config }))}
+                    />
+                    <DisplayConfig
+                      slug={board.slug}
+                      initial={board.config}
+                      onChange={(config) => {
+                        setGrid({
+                          cols: Number(config.cols) || 20,
+                          rows: Number(config.rows) || 8,
+                        });
+                        const next = config.screen as { w: number; h: number } | undefined;
+                        if (next) setScreen(next);
+                      }}
+                    />
+                  </div>
+                </div>
               ),
             },
             { id: 'general', label: 'General', content: generalTab },

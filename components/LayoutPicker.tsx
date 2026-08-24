@@ -11,6 +11,7 @@
 import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Field, TextInput } from '@/components/ui/Field';
+import { fitInRegion } from '@/lib/board/geometry.mjs';
 
 export type Layout = { xPct: number; yPct: number; wPct: number; hPct: number };
 
@@ -23,10 +24,16 @@ export function LayoutPicker({
   initial,
   onSave,
   busy = false,
+  screen = { w: 16, h: 9 },
+  grid = { cols: 20, rows: 8 },
 }: {
   initial?: Partial<Layout> | null;
   onSave: (layout: Layout) => void;
   busy?: boolean;
+  /** The screen being designed for. The stage takes its shape. */
+  screen?: { w: number; h: number };
+  /** The board's own grid, drawn inside the region so a letterbox is visible. */
+  grid?: { cols: number; rows: number };
 }) {
   const [layout, setLayout] = useState<Layout>({ ...FULL, ...(initial ?? {}) });
   const [dirty, setDirty] = useState(false);
@@ -123,6 +130,17 @@ export function LayoutPicker({
     setDirty(true);
   }
 
+  /* What the region actually does to the board. A 20x8 board is 2.5:1; drop it
+     in a region that is not 2.5:1 and it letterboxes, which nothing on this
+     screen used to say. */
+  const fit = {
+    exact: 'The board fills this region exactly.',
+    'bands-sides':
+      'The board is taller than this region: it will fit the height and leave bands left and right.',
+    'bands-top-bottom':
+      'The board is wider than this region: it will fit the width and leave bands top and bottom.',
+  }[fitInRegion(grid.cols, grid.rows, screen.w * layout.wPct, screen.h * layout.hPct)];
+
   const number = (key: keyof Layout, label: string) => (
     <Field label={label} htmlFor={`layout-${key}`}>
       <TextInput
@@ -141,7 +159,11 @@ export function LayoutPicker({
   return (
     <div className="ui-field">
       <span className="ui-label">Position on the screen</span>
-      <div className="layout-stage" ref={stageRef}>
+      <div
+        className="layout-stage"
+        ref={stageRef}
+        style={{ aspectRatio: `${screen.w} / ${screen.h}` }}
+      >
         <div
           className="layout-region"
           role="group"
@@ -159,7 +181,14 @@ export function LayoutPicker({
           onPointerUp={end}
           onPointerCancel={end}
         >
-          <span className="layout-region-label">BOARD</span>
+          <span
+            className="layout-board"
+            style={{ aspectRatio: `${grid.cols} / ${grid.rows}` }}
+          >
+            <span className="layout-region-label">
+              {grid.cols} × {grid.rows}
+            </span>
+          </span>
           <span
             className="layout-handle"
             onPointerDown={(event) => {
@@ -172,6 +201,7 @@ export function LayoutPicker({
           />
         </div>
       </div>
+      <p className="layout-fit">{fit}</p>
       <div className="layout-numbers">
         {number('xPct', 'From left %')}
         {number('yPct', 'From top %')}

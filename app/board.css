@@ -670,9 +670,17 @@ main.landing .error {
 }
 
 /* Settings shares the shell; its column reads better narrower. */
-/* Settings: sidebar (220px) + panel (up to 680px, as before). */
+/* Settings: sidebar (220px) + panel. The shell is wide enough for the Display
+   tab's two columns (preview beside controls); Queue and General keep their
+   old measure via the cap below, because prose and a queue do not want 1,100px
+   of line. */
 .dash.settings {
-  max-width: 960px;
+  max-width: 1420px;
+}
+
+.ui-tabpanel > .settings-block,
+.ui-tabpanel > .queue-panel {
+  max-width: 680px;
 }
 
 /* ---- the board sidebar (components/BoardSidebar.tsx) ---- */
@@ -1282,6 +1290,8 @@ main.landing .error {
   position: relative;
   width: 100%;
   max-width: 420px;
+  /* The shape comes from the board's screen setting now; this is the fallback
+     for a board that has never been told what it is going on. */
   aspect-ratio: 16 / 9;
   background: var(--bg);
   border: 1px solid var(--edge-strong);
@@ -1290,14 +1300,26 @@ main.landing .error {
   touch-action: none;
 }
 
+.layout-board {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  background: linear-gradient(180deg, var(--tile-hi), var(--tile-lo));
+  border: 1px solid var(--edge-strong);
+  border-radius: 2px;
+}
+
 .layout-region {
   position: absolute;
-  background: linear-gradient(180deg, var(--tile-hi), var(--tile-lo));
+  background: rgba(216, 178, 90, 0.06);
   border: 1px solid var(--amber-dim);
   border-radius: 3px;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 1px;
   cursor: grab;
   user-select: none;
 }
@@ -1411,6 +1433,58 @@ main.landing .error {
 }
 .auth-form .auth-context strong {
   color: var(--ink);
+}
+
+/*
+ * The design surface: the Display tab is where somebody designs a board, and a
+ * design screen wants the thing being designed in view. The preview sits
+ * sticky in the left column while the controls scroll past it on the right, so
+ * the grid, the layout and every pack field are judged against the board
+ * rather than remembered. Below 1000px it stacks, preview first and still
+ * sticky to the top of the viewport.
+ */
+.design-surface {
+  display: grid;
+  grid-template-columns: minmax(300px, 4fr) minmax(340px, 5fr);
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.design-preview {
+  position: sticky;
+  top: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.design-preview-caption {
+  margin: 0;
+  font: 400 var(--text-xs) / 1.4 var(--font-mono);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.design-controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+@media (max-width: 1000px) {
+  .design-surface {
+    grid-template-columns: 1fr;
+  }
+
+  .design-preview {
+    top: 0;
+    background: var(--bg);
+    padding-bottom: var(--space-2);
+    z-index: 1;
+  }
 }
 
 /* ---- Theme settings: the board's look, edited on a live board ---- */
@@ -1672,4 +1746,59 @@ main.landing .error {
 
 .layout-number {
   font-variant-numeric: tabular-nums;
+}
+
+/* Shape & size: the screen, the cards across, and the cards down that follow
+   from them. A column of fields rather than the auto-fit grid the rest of the
+   display settings use - these three read as one sentence and shouldn't wrap
+   into an arbitrary number of columns. */
+.geometry {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  align-self: stretch;
+}
+
+.geometry-custom {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: var(--space-3);
+}
+
+.geometry-rows {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.geometry-rows .ui-range {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* What the region does to the board, in a sentence, under the stage. */
+.layout-fit {
+  margin: var(--space-2) 0 0;
+  font: 400 var(--text-sm) / 1.5 var(--font-sans);
+  color: var(--muted);
+}
+
+/* The preview's own bar: what the board is, and the two things you can do with
+   what you typed on it. */
+.design-preview-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-3);
+}
+
+.design-preview-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+/* The board is an input, so it says so on focus and invites the pointer. */
+.theme-preview-canvas.is-editable {
+  cursor: text;
 }

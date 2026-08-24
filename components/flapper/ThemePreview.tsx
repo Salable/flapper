@@ -21,12 +21,19 @@ export function ThemePreview({
   cols = 14,
   rows = 3,
   tilePx = 56,
+  onText,
 }: {
   pack: ThemePack;
   text: string;
   cols?: number;
   rows?: number;
   tilePx?: number;
+  /**
+   * Given, the board becomes the typing panel: click it and type, and what
+   * you type is what the glass shows. Judging a design against a fixed
+   * pangram tells you very little about whether your own words fit.
+   */
+  onText?: (text: string) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const boardRef = useRef<any>(null);
@@ -86,6 +93,42 @@ export function ThemePreview({
     return () => observer.disconnect();
   }, []);
 
+  /* The board is the input. Rows are lines and columns are characters, so the
+     grid is also the limit - you cannot type more than the board can hold, and
+     running out of room is something you should feel here rather than discover
+     on the wall. Anything outside the ring is left to the layout engine, which
+     substitutes and reports. */
+  function type(event: React.KeyboardEvent<HTMLCanvasElement>) {
+    if (!onText) return;
+    const lines = text.split('\n');
+    const last = () => lines[lines.length - 1] ?? '';
+
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      if (lines.length >= rows) return;
+      onText(`${text}\n`);
+      return;
+    }
+    if (event.key === 'Backspace') {
+      event.preventDefault();
+      onText(text.slice(0, -1));
+      return;
+    }
+    if (event.key === 'Escape') {
+      event.currentTarget.blur();
+      return;
+    }
+    // One printable character, and no modifier combination we should swallow.
+    if (event.key.length !== 1 || event.metaKey || event.ctrlKey || event.altKey) return;
+    event.preventDefault();
+    if (last().length >= cols) {
+      if (lines.length >= rows) return;
+      onText(`${text}\n${event.key.toUpperCase()}`);
+      return;
+    }
+    onText(text + event.key.toUpperCase());
+  }
+
   const gap = Math.round(tilePx * 0.035);
   const width = cols * tilePx + (cols - 1) * gap + 12;
   const height = rows * tilePx + (rows - 1) * gap + 12;
@@ -93,8 +136,17 @@ export function ThemePreview({
     <div className="theme-preview">
       <canvas
         ref={canvasRef}
+        className={onText ? 'theme-preview-canvas is-editable' : 'theme-preview-canvas'}
         style={{ width: '100%', maxWidth: width, aspectRatio: `${width} / ${height}`, display: 'block', background: '#0a0a0b', borderRadius: 6 }}
-        aria-label="Theme preview"
+        tabIndex={onText ? 0 : undefined}
+        role={onText ? 'textbox' : 'img'}
+        aria-multiline={onText ? true : undefined}
+        aria-label={
+          onText
+            ? `The board, ${cols} by ${rows} cards. Click and type to put words on it; Enter starts a new row.`
+            : 'Theme preview'
+        }
+        onKeyDown={onText ? type : undefined}
       />
       <div className="theme-preview-bar">
         <Button size="sm" variant="ghost" onClick={() => setReplays((n) => n + 1)}>
