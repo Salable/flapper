@@ -6,10 +6,11 @@ import { UserMenu } from '@/components/UserMenu';
 import { ConnectedApps, useConnections } from '@/components/ConnectedApps';
 import { EmptyState, CopyButton } from '@/components/ui/bits';
 import { Checkbox } from '@/components/ui/Field';
-import { LinkButton } from '@/components/ui/Button';
+import { Button } from '@/components/ui/Button';
 import { authClient } from '@/lib/auth-client';
 import { PRIVACY_CONTACT } from '@/lib/legal/documents.mjs';
 import { SiteFooter } from '@/components/SiteFooter';
+import { formatDay } from '@/lib/format';
 
 export function AccountClient({
   user,
@@ -52,7 +53,7 @@ export function AccountClient({
             <dt>Email</dt>
             <dd>{user.email}</dd>
             <dt>Member since</dt>
-            <dd>{new Date(user.createdAt).toLocaleDateString(undefined, { dateStyle: 'medium' })}</dd>
+            <dd>{formatDay(user.createdAt)}</dd>
           </dl>
         </section>
 
@@ -89,13 +90,21 @@ export function AccountClient({
             <code>{PRIVACY_CONTACT}</code>.
           </p>
           <div className="actions">
-            <LinkButton size="sm" href={`mailto:${PRIVACY_CONTACT}?subject=Data%20export%20request`}>
-              Download your data [[placeholder]]
-            </LinkButton>
-            <LinkButton size="sm" variant="danger" href={`mailto:${PRIVACY_CONTACT}?subject=Delete%20my%20account`}>
-              Delete your account [[placeholder]]
-            </LinkButton>
+            <Button size="sm" disabled title="Not built yet - email us and we will do it by hand">
+              Download your data
+            </Button>
+            <Button
+              size="sm"
+              variant="danger"
+              disabled
+              title="Not built yet - email us and we will do it by hand"
+            >
+              Delete your account
+            </Button>
           </div>
+          <p className="ui-hint">
+            Both are still to build. Until they are here, the email above does the same job.
+          </p>
         </section>
       </main>
       <SiteFooter />

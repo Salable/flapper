@@ -2,6 +2,7 @@
 
 import { Chip, CopyButton } from '@/components/ui/bits';
 import { LinkButton } from '@/components/ui/Button';
+import { formatDay } from '@/lib/format';
 
 /**
  * The board itself, beside whatever screen is working on it: name, slug and
@@ -42,7 +43,7 @@ export function BoardSidebar({
       </div>
       <dl className="board-side-facts">
         <dt>Created</dt>
-        <dd>{new Date(createdAt).toLocaleDateString(undefined, { dateStyle: 'medium' })}</dd>
+        <dd>{formatDay(createdAt)}</dd>
       </dl>
       <div className="board-side-actions">
         {boardUrl !== '' && (

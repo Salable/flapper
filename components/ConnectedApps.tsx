@@ -10,6 +10,7 @@
 import { useEffect, useState } from 'react';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { Button } from '@/components/ui/Button';
+import { formatDay } from '@/lib/format';
 
 export type Connection = { clientId: string; name: string; uri: string | null; grantedAt: number | null };
 
@@ -68,7 +69,7 @@ export function ConnectedApps({
               <strong>{connection.name}</strong>
               {!compact && connection.uri && <span className="muted"> · {connection.uri}</span>}
               {connection.grantedAt && (
-                <span className="muted"> · since {new Date(connection.grantedAt).toLocaleDateString()}</span>
+                <span className="muted"> · since {formatDay(connection.grantedAt)}</span>
               )}
             </span>
             {!compact && (

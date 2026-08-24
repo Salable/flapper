@@ -113,11 +113,8 @@ export function DashboardClient({
         ) : boards.length === 0 ? (
           <EmptyState title="No boards yet.">
             A board is a split-flap display with its own URL and its own API — put it on a wall,
-            drive it from anywhere.{' '}
-            <LinkButton size="sm" variant="primary" href="/new">
-              Choose a board
-            </LinkButton>{' '}
-            Or connect Claude below and ask it to.
+            drive it from anywhere. Make one with New board above, or connect Claude below and ask
+            it to.
           </EmptyState>
         ) : (
           <>
