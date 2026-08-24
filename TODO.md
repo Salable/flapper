@@ -205,6 +205,51 @@ through it, which is the same mechanism as a moving tint.
       that would need a fixed screen ratio - so that constraint applies to
       authored transitions, not generated ones.
 
+## A size, not a grid
+
+Nobody wants to choose 24 columns. They want cards a certain size on a certain
+screen, and the grid is the *consequence* - which matters more here than in most
+layout problems, because a split-flap board cannot reflow. The grid is not a
+layout choice, it is a physical fact about a wall, and asking somebody to pick it
+is asking them to do the arithmetic the app already does.
+
+`rowsThatFit` already derives cards-down from the screen and cards-across
+(done). The remaining half is that cards-*across* is still a grid number in a
+slider labelled 1-80. It should be a size - and the grid should be shown as an
+outcome rather than typed as an input:
+
+| Card size | 16:9 | 4:3 | 9:16 | Square |
+| --- | --- | --- | --- | --- |
+| Huge | 8 × 5 | 8 × 6 | 8 × 14 | 8 × 8 |
+| Large | 12 × 7 | 12 × 9 | 12 × 21 | 12 × 12 |
+| Medium | 20 × 11 | 20 × 15 | 20 × 36 | 20 × 20 |
+| Small | 32 × 18 | 32 × 24 | 32 × 40 | 32 × 32 |
+| Tiny | 48 × 27 | 48 × 36 | 48 × 40 | 48 × 40 |
+
+- [ ] Replace "cards across" with a card size, and show the grid it produces
+- [ ] Keep an escape hatch for a board that genuinely wants an odd grid, the way
+      "set it myself" works for rows
+
+## Several screens, several versions
+
+The better answer to the Shared screens problem. Today that type is
+`{...scheduled}` with no behaviour of its own, and the thing it *should* mean
+is: this board lives on three screens, so it is three versions of one thing,
+edited independently and kept as a package.
+
+The reason it cannot just be one layout stretched three ways is the same reason
+the grid is not a layout choice - a board does not reflow. Where a line breaks
+on a 16:9 wall is not where it should break on a portrait panel, and no rule
+gets that right for real words. Somebody has to look at each one.
+
+So: a board has screens; a screen has a shape and its own laid-out version of
+each sheet; editing one does not touch the others; they play in step because
+the clock says so, which is the one thing Shared screens already does.
+
+- [ ] Decide whether this replaces the Shared screens type or subsumes it
+- [ ] A sheet with per-screen versions is the same shape as a sheet with a
+      per-sheet design (see the sheets section) - worth building them together
+
 ## Big letters
 
 A glyph spanning 2x2 tiles, the way a real board uses dedicated large-character
