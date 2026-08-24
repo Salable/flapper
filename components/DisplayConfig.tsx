@@ -15,8 +15,7 @@ import {
   MAX_COLS,
   MAX_ROWS,
   gridFor,
-  cardSizeMm,
-  screenSizeMm,
+  screenLabel,
   CARD_SIZE_IDS,
   DEFAULT_CARD_SIZE,
   DEFAULT_SCREEN as DEFAULT_SCREEN_SHAPE,
@@ -86,12 +85,11 @@ export function DisplayConfig({
   };
   const [config, setConfig] = useState<Config>({ ...defaults, ...initial });
   const [error, setError] = useState('');
-  type Screen = { w: number; h: number; diagonalIn: number };
+  type Screen = { w: number; h: number };
   const stored = (initial.screen ?? null) as Partial<Screen> | null;
   const [screen, setScreenState] = useState<Screen>({
     w: stored?.w ?? DEFAULT_SCREEN_SHAPE.w,
     h: stored?.h ?? DEFAULT_SCREEN_SHAPE.h,
-    diagonalIn: stored?.diagonalIn ?? DEFAULT_SCREEN_SHAPE.diagonalIn,
   });
   // Where this board's shape came from, so the numbers below can be accounted
   // for rather than just found.
@@ -120,7 +118,7 @@ export function DisplayConfig({
     ? String(config.cardSize)
     : DEFAULT_CARD_SIZE;
   const grid = gridFor(cardSize, screen);
-  const sizeMm = screenSizeMm(screen);
+  const shape = screenLabel(screen);
 
   /** A card size, and the grid it makes on this screen - one write. */
   function pickSize(size: string) {
@@ -261,34 +259,13 @@ export function DisplayConfig({
             onChange={pickScreen}
           />
         </Field>
-        <Field
-          label={
-            <>
-              Screen size <span className="muted">{screen.diagonalIn}&Prime; diagonal</span>
-            </>
-          }
-          htmlFor="cfg-screen-size"
-          hint="How big the glass actually is, corner to corner - the number on the box. This is what decides how much board fits: the same cards, more of them on a bigger screen."
-        >
-          <div className="geometry-rows">
-            <RangeSlider
-              id="cfg-screen-size"
-              min={10}
-              max={200}
-              step={1}
-              value={screen.diagonalIn}
-              onChange={(event) =>
-                applyScreen({ ...screen, diagonalIn: Math.max(1, Number(event.target.value) || 1) })
-              }
-            />
-            <p className="geometry-derived">
-              {Math.round(sizeMm.widthMm)} × {Math.round(sizeMm.heightMm)}mm
-            </p>
-          </div>
-        </Field>
         {screenKey === 'custom' && (
           <div className="geometry-custom">
-            <Field label="Screen width" htmlFor="cfg-screen-w">
+            <Field
+              label="Screen width"
+              htmlFor="cfg-screen-w"
+              hint="Any units - centimetres, pixels, or just the proportions. Only the ratio matters."
+            >
               <TextInput
                 id="cfg-screen-w"
                 type="number"
@@ -319,7 +296,7 @@ export function DisplayConfig({
             <>
               Card size{' '}
               <span className="muted">
-                {SIZE_LABELS[cardSize]} · {cardSizeMm(cardSize)}mm
+                {SIZE_LABELS[cardSize]}
               </span>
             </>
           }
@@ -337,7 +314,6 @@ export function DisplayConfig({
                   onClick={() => pickSize(id)}
                 >
                   <span className="geometry-size-name">{SIZE_LABELS[id]}</span>
-                  <span className="geometry-size-mm">{cardSizeMm(id)}mm</span>
                   <span className="geometry-size-grid">
                     {grid.cols} × {grid.rows}
                   </span>
@@ -354,8 +330,7 @@ export function DisplayConfig({
             <strong>
               {grid.cols} × {grid.rows} cards
             </strong>{' '}
-            — {Math.round(sizeMm.widthMm)}mm × {Math.round(sizeMm.heightMm)}mm of glass at{' '}
-            {cardSizeMm(cardSize)}mm a card.
+            — {SIZE_LABELS[cardSize].toLowerCase()} cards on a {shape} screen.
           </p>
         </Field>
       </div>

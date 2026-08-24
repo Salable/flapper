@@ -1,7 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { rowsThatFit, clampRows, fitInRegion, MAX_ROWS } from '../lib/board/geometry.mjs';
+import {
+  rowsThatFit,
+  clampRows,
+  fitInRegion,
+  gridFor,
+  screenLabel,
+  MAX_ROWS,
+} from '../lib/board/geometry.mjs';
 
 test('a screen shape turns cards across into cards down', () => {
   // 20 square cards across a 16:9 screen: 20 / (16/9) = 11.25 -> 11.
@@ -40,3 +47,29 @@ test('a board either fills its region or leaves bands on one axis', () => {
   // A taller region - a portrait wall - fits the width and bands top and bottom.
   assert.equal(fitInRegion(20, 8, 9, 16), 'bands-top-bottom');
 });
+
+test('a screen is a shape in any units, and the board is scale all the way down', () => {
+  /*
+   * Nothing about what gets drawn depends on how big the glass physically is.
+   * A board fills the window it is in, so two 16:9 screens of different sizes
+   * showing the same board look the same, one just bigger - which makes a
+   * measurement a number with no effect. So a screen is proportions, given in
+   * whatever units somebody has to hand.
+   */
+  const asRatio = gridFor('medium', { w: 16, h: 9 });
+  assert.deepEqual(gridFor('medium', { w: 1920, h: 1080 }), asRatio, 'pixels');
+  assert.deepEqual(gridFor('medium', { w: 121.8, h: 68.5 }), asRatio, 'centimetres');
+  assert.deepEqual(screenLabel({ w: 1920, h: 1080 }), '16:9', 'and all reduce to the same shape');
+
+  // A ticker over a door: 300cm by 20cm, which no aspect preset offers.
+  assert.equal(screenLabel({ w: 300, h: 20 }), '15:1');
+  assert.deepEqual(gridFor('tiny', { w: 300, h: 20 }), { cols: 48, rows: 3 });
+  assert.deepEqual(gridFor('huge', { w: 300, h: 20 }), { cols: 8, rows: 1 });
+
+  // A shape it cannot make sense of falls back rather than throwing.
+  for (const bad of [undefined, null, {}, { w: 0, h: 0 }, { w: NaN, h: 9 }]) {
+    const grid = gridFor('medium', bad);
+    assert.ok(Number.isInteger(grid.cols) && grid.cols >= 1, JSON.stringify(bad));
+    assert.ok(Number.isInteger(grid.rows) && grid.rows >= 1, JSON.stringify(bad));
+  }
+})

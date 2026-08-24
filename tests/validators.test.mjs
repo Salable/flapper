@@ -176,9 +176,10 @@ test('a grid is not a board setting, and saying so is the point', () => {
   // And the two that are real.
   assert.deepEqual(validateConfigPatch({ cardSize: 'huge' }), { cardSize: 'huge' });
   refused(() => validateConfigPatch({ cardSize: 'enormous' }), /cardSize must be one of/);
-  assert.deepEqual(
-    validateConfigPatch({ screen: { w: 16, h: 9, diagonalIn: 98 } }),
-    { screen: { w: 16, h: 9, diagonalIn: 98 } },
-  );
-  refused(() => validateConfigPatch({ screen: { w: 16, h: 9, diagonalIn: 0 } }), /diagonalIn/);
+  assert.deepEqual(validateConfigPatch({ screen: { w: 16, h: 9 } }), { screen: { w: 16, h: 9 } });
+  // Any units, because only the ratio matters: a ticker given in centimetres
+  // and the same ticker given as proportions are the same screen.
+  assert.deepEqual(validateConfigPatch({ screen: { w: 300, h: 20 } }), { screen: { w: 300, h: 20 } });
+  refused(() => validateConfigPatch({ screen: { w: 16, h: 0 } }), /screen.h must be a positive number/);
+  refused(() => validateConfigPatch({ screen: { w: 16, h: 9, diagonalIn: 55 } }), /not a screen field/);
 })

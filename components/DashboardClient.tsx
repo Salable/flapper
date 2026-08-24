@@ -28,7 +28,7 @@ type BoardRow = {
   /** Up to three of the words on it. Empty means blank glass, which is honest. */
   lines: string[];
   /** What the board is designed for; its grid follows from these two. */
-  screen: { w: number; h: number; diagonalIn: number };
+  screen: { w: number; h: number };
   cardSize: string;
 };
 
