@@ -28,7 +28,6 @@ import { Chip } from '@/components/ui/bits';
 import { ThemePreview } from '@/components/flapper/ThemePreview';
 import { resolveTheme } from '@/lib/board/themes.mjs';
 import { DEFAULTS } from '@/lib/board/flipboard.js';
-import { TEMPLATES } from '@/lib/board-types/templates.mjs';
 import type { TypeMeta } from '@/components/board-types/type-meta';
 import { nextFreeName } from '@/lib/board-types/names.mjs';
 
@@ -70,28 +69,17 @@ function creationParams(type: TypeMeta) {
 }
 
 /**
- * The biggest grid any template asks for. Every poster is drawn at a tile size
- * that makes this one fit, so all of them share a scale.
- */
-const WIDEST = (() => {
-  let cols = DEFAULTS.cols;
-  let rows = DEFAULTS.rows;
-  for (const template of TEMPLATES.values()) {
-    cols = Math.max(cols, Number(template.config?.cols) || DEFAULTS.cols);
-    rows = Math.max(rows, Number(template.config?.rows) || DEFAULTS.rows);
-  }
-  return { cols, rows };
-})();
-
-/**
- * The one tile size every poster is drawn at: whatever makes the widest and
- * tallest grid fit the box a poster has. `height` is the room the card gives a
- * board, so a ten-row template is not clipped by an eight-row assumption.
+ * Every poster is the same board: one grid, one tile size, so the cards are a
+ * row of identical frames and the only thing that varies between them is the
+ * design and the words. A card is an example, not a spec sheet - it is not the
+ * place to communicate that this template happens to be twenty-four columns
+ * wide, and three different widths in a row read as a mistake rather than as
+ * information. The template's real grid still applies to the board you get.
  */
 function tileSizeFor(width: number, height: number, maxTile: number) {
   const perTile = 1 + DEFAULTS.gapRatio;
-  const byWidth = (width - 12) / (WIDEST.cols * perTile);
-  const byHeight = (height - 12) / (WIDEST.rows * perTile);
+  const byWidth = (width - 12) / (DEFAULTS.cols * perTile);
+  const byHeight = (height - 12) / (DEFAULTS.rows * perTile);
   return Math.max(5, Math.min(maxTile, Math.floor(Math.min(byWidth, byHeight))));
 }
 
@@ -205,15 +193,13 @@ export function NewBoardClient({
    */
   const poster = (template: TemplateMeta, width: number, height: number, maxTile: number) => {
     const pack = resolveTheme(template.config.theme);
-    const cols = Number(template.config.cols) || DEFAULTS.cols;
-    const rows = Number(template.config.rows) || DEFAULTS.rows;
     return (
       <span className="poster" aria-hidden="true">
         <ThemePreview
           pack={pack}
           text={template.poster.join('\n')}
-          cols={cols}
-          rows={rows}
+          cols={DEFAULTS.cols}
+          rows={DEFAULTS.rows}
           tilePx={tileSizeFor(width, height, maxTile)}
           bar={false}
           fixed
