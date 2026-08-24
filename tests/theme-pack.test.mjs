@@ -76,7 +76,7 @@ test('fonts scale with the tile', () => {
 });
 
 test('the shipped themes are all valid packs', () => {
-  assert.deepEqual([...THEME_IDS], ['classic', 'canary', 'sorbet', 'carnival']);
+  assert.deepEqual([...THEME_IDS], ['classic', 'canary', 'sorbet', 'carnival', 'marquee']);
   for (const id of THEME_IDS) {
     assert.equal(THEMES[id].id, id);
     assert.ok(validatePack(THEMES[id]).ok);
