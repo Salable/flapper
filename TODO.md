@@ -93,7 +93,7 @@ done; what remains is the gallery and the designs themselves.
       two stops, an angle, a strength, and how it applies (`8a01dae`).
 - [x] **The design gallery** — /designs, every design as real tiles, reachable
       from the dashboard; "make a board in this" carries the design through
-      creation (`f1c8e0d`). Read-only until designs have somewhere to be saved.
+      creation (`2cb9dc0`). Read-only until designs have somewhere to be saved.
 - [ ] **Authoring a design outside a board** — blocked on open question 2.
 - [ ] **Eight more designs.** A design is validated data, not code, so these are
       authoring. Split across the two ink families.
