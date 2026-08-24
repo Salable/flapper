@@ -1090,29 +1090,6 @@ main.landing .error {
   flex-wrap: nowrap;
 }
 
-/* A board skin is a token override - the seam docs/DESIGN-SYSTEM.md saves
-   for per-board media. The Canary tiles, in CSS.
-
-   These were hand-typed and did not match the theme they advertise: the
-   poster read #1ca40a where Canary's pack says card.fill #139a04, so the
-   card was brighter and more saturated than any board it could make. Now
-   anchored to the pack's value, stepped down for mid and lo by the same
-   ratios Classic's tile tokens use (x0.743, x0.543). White ink is correct
-   here - Canary's glyph is a white stroke on a transparent fill.
-
-   Deriving these from the pack at build time instead of restating it is the
-   remaining half of the job (see the poster question in the design review). */
-.poster.is-canary {
-  --tile-hi: #139a04;
-  --tile-mid: #0e7203;
-  --tile-lo: #0a5302;
-  --ink: #ffffff;
-}
-
-.poster.is-canary .ui-tile {
-  border-color: rgba(0, 0, 0, 0.5);
-}
-
 .rail-card-body {
   display: flex;
   flex-direction: column;

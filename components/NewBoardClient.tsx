@@ -26,6 +26,7 @@ import { Button, LinkButton } from '@/components/ui/Button';
 import { Field, TextInput, Select, Checkbox } from '@/components/ui/Field';
 import { Chip } from '@/components/ui/bits';
 import { MiniBoard } from '@/components/ui/MiniBoard';
+import { resolveTheme } from '@/lib/board/themes.mjs';
 import type { TypeMeta } from '@/components/board-types/type-meta';
 import { nextFreeName } from '@/lib/board-types/names.mjs';
 
@@ -164,10 +165,22 @@ export function NewBoardClient({
   const poster = (template: TemplateMeta, width: number, maxTile: number) => {
     const longest = Math.max(1, ...template.poster.map((line) => line.length));
     const fit = Math.max(10, Math.min(maxTile, Math.floor(width / (longest + (longest - 1) * 0.08))));
+    // The card wears the template's own design, resolved from its config. This
+    // used to be `theme === 'canary' ? ' is-canary' : ''` with the colours
+    // restated in CSS, so any design but those two came out looking like
+    // Classic - which is what had happened to Sorbet.
+    const pack = resolveTheme(template.config.theme);
     return (
-      <span className={`poster${template.config.theme === 'canary' ? ' is-canary' : ''}`} aria-hidden="true">
+      <span className="poster" aria-hidden="true">
         {template.poster.map((line, index) => (
-          <MiniBoard key={index} text={line} fit={fit} />
+          <MiniBoard
+            key={index}
+            text={line}
+            fit={fit}
+            pack={pack}
+            cols={longest}
+            row={index}
+          />
         ))}
       </span>
     );

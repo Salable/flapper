@@ -52,6 +52,22 @@ export interface PackFont {
   style?: string;
 }
 
+/** A wash across the grid: a colour per cell, stored as the formula. */
+export interface TintGradient {
+  from: string;
+  to: string;
+  /** Degrees clockwise from left-to-right. 0 across, 90 down, 45 corner to corner. */
+  angle?: number;
+}
+
+export interface Tint {
+  gradient: TintGradient;
+  /** How the colour lands on the card. `overlay` protects black and white glyphs. */
+  mode?: 'overlay' | 'wash' | 'multiply' | 'screen';
+  /** 0 to 1. */
+  strength?: number;
+}
+
 /** A validated, fully-defaulted pack. */
 export interface ThemePack {
   id?: string;
@@ -64,6 +80,7 @@ export interface ThemePack {
   states: Record<string, StateOverride>;
   art: Record<string, string>;
   fonts: PackFont[];
+  tint: Tint | null;
 }
 
 /** What validatePack accepts: any subset, plus per-state overrides. */
