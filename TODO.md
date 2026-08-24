@@ -81,6 +81,8 @@ the `cols × rows` colour grid, the renderer cannot tell the difference.
 - [x] Keyboard and numeric readout on the layout picker — SPEC asks 20, 21 (`383e6f0`)
 - [x] Per-cell tint, gradients, and Sorbet as the first pastel design (`9f6b254`)
 - [x] Board card says Edit, not Settings (`9baf778`)
+- [x] A wash you can author, not just one that ships (`8a01dae`)
+- [x] CSS tiles wear any design; nothing keyed on a theme id (`23f2d56`)
 
 ### Next — the designer suite
 
@@ -94,15 +96,13 @@ Building it is also how we find out what is still hard-coded. Known already:
       place, openable and copyable into a new design.
 - [ ] **Eight more designs.** A design is validated data, not code, so these are
       authoring. Split across the two ink families.
-- [ ] **`NewBoardClient.tsx:168` keys the poster on the string `'canary'`.**
-      Add a fourth design and its card silently renders in Classic's colours —
-      Sorbet's poster is wrong today and nothing noticed.
-- [ ] **`.poster.is-canary` (`board.css:1105`) restates the pack in CSS.** The
-      values match now but they are a copy and can drift again.
-- [ ] **The MiniBoard's tile face is Classic, baked into the design system.**
-      `ui.css:462` draws every CSS tile from `--tile-hi/mid/lo`, which are
-      Classic's three greys. So the wordmark, the dashboard cards and every
-      poster are Classic-shaped whatever design a board wears.
+- [x] **The poster keyed on the string `'canary'`** — now resolves the
+      template's pack (`23f2d56`).
+- [x] **`.poster.is-canary` restating the pack in CSS** — deleted (`23f2d56`).
+- [x] **The MiniBoard's tile face baked as Classic** — `lib/board/face.mjs`
+      turns a pack into the custom properties the tile rules read, wash
+      included; no pack still means the tokens, so the wordmark is unchanged
+      (`23f2d56`).
 
 ### Then — sheets
 
