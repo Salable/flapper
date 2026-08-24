@@ -131,7 +131,7 @@ export function DashboardClient({
                   </div>
                   <div className="board-card-actions">
                     <LinkButton size="sm" href={`/b/${board.slug}/settings`}>
-                      Settings
+                      Edit
                     </LinkButton>
                     <LinkButton size="sm" href={`/b/${board.slug}`} target="_blank" rel="noopener">
                       Open display
