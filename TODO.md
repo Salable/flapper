@@ -135,9 +135,18 @@ done; what remains is the gallery and the designs themselves.
 
 ### Then — sheets
 
+**Worth re-reading before starting this: "the sidebar dissolves" was written
+before the sidebar existed.** It is now where Design, Screen, Card size and
+Fidget live - the single place that answers "what does this board look
+like" - and per-sheet design (below) means a sheet, not the board, will be
+what wears a design. Building this as originally imagined would undo real
+work from 25 Aug 26, not just move it; worth a fresh look at what the
+sidebar becomes rather than assuming it goes.
+
 - [ ] Sheets replace the Queue tab; tabs are the deck; drag to reorder
 - [ ] Sheets persist and loop by default; retire `↻` and the Loop paragraph
-- [ ] Board name and copy-link into the app bar; the sidebar dissolves
+- [ ] Board name and copy-link into the app bar; the sidebar dissolves - see
+      note above, this needs deciding again, not just doing
 - [ ] One addressable slot per sheet, so a pushed sheet is a real source
 - [ ] Per-sheet design, capped at a few per board
 - [ ] Move queue size next to the sheets, out of General → Type settings
@@ -196,18 +205,23 @@ Sync stops being a type and becomes a sentence about timetables.
 - [ ] Fold Shared screens into Scheduled, or give it something Scheduled has
       not got - per-screen layouts off one schedule was the thing it was
       assumed to mean, and would be worth having
-- [ ] Rename the types for intention, and make a standing sign a first-class
-      choice rather than a drained queue
-- [ ] `match-day`'s config sets `rows: 8`, which is already the default - a
-      line that reads as a decision and is not one
+- [x] Make a standing sign a first-class choice rather than a drained queue -
+      done differently than imagined here: not a fourth board type, but a
+      `live` board with `queueCap: 1`. The panel derives from the cap, not a
+      template id, so raising it brings the queue back (`246a6e4`)
+- [ ] Rename the types for intention - still open
+- [x] `match-day`'s config no longer sets a grid at all - it sets
+      `cardSize: 'small'`, and the grid is worked out from that and the
+      board's screen (`4313bac`)
 
 ## Transitions and washes
 
 Half of this exists: `sweepMs` and `staggerMode` (diagonal, column, row,
-random, none) already shape the wave as tiles flip, per board, in Display
-settings. A rainbow or an explosion wash is the colour version of the same
-idea, riding the tint grid - recompute it per frame with the wave moving
-through it, which is the same mechanism as a moving tint.
+random, none) already shape the wave as tiles flip - per design now, in its
+own Advanced group, not per board. A rainbow or an explosion wash is the
+colour version of the same idea, riding the tint grid - recompute it per
+frame with the wave moving through it, which is the same mechanism as a
+moving tint.
 
 - [ ] **Washes as transitions.** Procedural ones (a rainbow along an axis, an
       explosion from the centre) work at any cols x rows, because the grid is
@@ -215,7 +229,7 @@ through it, which is the same mechanism as a moving tint.
       that would need a fixed screen ratio - so that constraint applies to
       authored transitions, not generated ones.
 
-## A size, not a grid
+## A size, not a grid — done
 
 Nobody wants to choose 24 columns. They want cards a certain size on a certain
 screen, and the grid is the *consequence* - which matters more here than in most
@@ -223,10 +237,12 @@ layout problems, because a split-flap board cannot reflow. The grid is not a
 layout choice, it is a physical fact about a wall, and asking somebody to pick it
 is asking them to do the arithmetic the app already does.
 
-`rowsThatFit` already derives cards-down from the screen and cards-across
-(done). The remaining half is that cards-*across* is still a grid number in a
-slider labelled 1-80. It should be a size - and the grid should be shown as an
-outcome rather than typed as an input:
+Built exactly as described below, in the geometry rework
+(`4313bac`..`31f8c5b`): `cardSize` (Huge/Large/Medium/Small/Tiny) and `screen`
+(a shape - any two numbers, Custom included) are the only two things a board
+records; `cols`/`rows` are never stored anywhere, and the API refuses them
+outright if sent. The table held up exactly - verified against the real
+function, not just sketched:
 
 | Card size | 16:9 | 4:3 | 9:16 | Square |
 | --- | --- | --- | --- | --- |
@@ -236,9 +252,13 @@ outcome rather than typed as an input:
 | Small | 32 × 18 | 32 × 24 | 32 × 40 | 32 × 32 |
 | Tiny | 48 × 27 | 48 × 36 | 48 × 40 | 48 × 40 |
 
-- [ ] Replace "cards across" with a card size, and show the grid it produces
-- [ ] Keep an escape hatch for a board that genuinely wants an odd grid, the way
-      "set it myself" works for rows
+- [x] Replace "cards across" with a card size, and show the grid it produces
+      (`4313bac`)
+- [x] An escape hatch for a board that wants something other than the five
+      sizes - not a raw grid number, a Custom **screen** instead: any two
+      numbers, any units. Between five card sizes and an unlimited screen
+      shape there is no combination the five sizes alone couldn't reach
+      (`2706326`).
 
 ## Several screens, several versions
 
