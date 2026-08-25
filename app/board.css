@@ -774,9 +774,8 @@ main.landing .error {
 
 /* ---- control room: queue + compose + display config ---- */
 
-/* Composing itself happens on the board now (see .design-preview) - this is
-   just what governs how a message is admitted once typed there. Separated
-   from the list above it the way the old compose box's border used to. */
+/* What decides where a composed message lands once it's written - priority,
+   hold, loop. Writing it happens in ComposeModal now, not here. */
 .compose-options {
   display: flex;
   gap: 14px;
@@ -785,6 +784,44 @@ main.landing .error {
   padding-top: 14px;
   margin-top: 4px;
   border-top: 1px dashed var(--edge);
+}
+
+/*
+ * The compose popup: a real textarea dressed as the glass it's headed for,
+ * because typing straight onto the canvas (the previous approach) has no
+ * cursor, no selection, no paste - one key to one cell and nothing else.
+ * The live preview above is the actual engine laying the same text out with
+ * the same align/valign/wrap this popup is about to post, so what's shown
+ * here is what lands, the same promise the canvas used to make.
+ */
+.compose-modal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.compose-textarea {
+  width: 100%;
+  resize: vertical;
+  font: 400 15px / 1.5 var(--font-mono);
+  letter-spacing: var(--track-wide);
+  text-transform: uppercase;
+  color: var(--ink);
+  background: rgba(0, 0, 0, 0.42);
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+}
+
+.compose-textarea:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 1px;
+}
+
+.compose-modal-layout {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
 }
 
 .queue-list {

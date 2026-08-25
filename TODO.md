@@ -96,6 +96,20 @@ the `cols × rows` colour grid, the renderer cannot tell the difference.
 - [x] Four more design fonts, self-hosted like Arimo: Work Sans, Source
       Serif 4, IBM Plex Mono, Oswald - and the Face dropdown fixed so
       picking one actually loads it (`b83e193`)
+- [x] Click-canvas composing (`2571577`, above) reverted: no cursor, no
+      selection, no paste, backspace only ever eats the last character
+      typed - unpleasant to actually write in. ComposeModal instead: a real
+      textarea in a popup styled like the glass, `text` mode restored
+      (Align/Vertical/Wrap are back, and matter again), the live preview
+      above it the same engine laying out the same three options this posts.
+      Found and fixed in the same pass: `.flap-in`'s entrance animation held
+      a non-`none` transform forever after finishing (`animation: ... both`
+      fills forward, and a CSS Animation's "none" is an identity matrix, not
+      actually `none`) - a real transform, even an identity one, makes its
+      element the containing block for `position: fixed`, so every modal
+      opened from inside a settled tab panel, rail card or dashboard row was
+      confined to that element's box instead of the viewport. Small dialogs
+      mostly got away with it unnoticed; this popup's own preview did not.
 
 ### Next — the designer suite
 

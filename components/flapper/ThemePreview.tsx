@@ -29,6 +29,9 @@ export function ThemePreview({
   bar = true,
   fixed = false,
   loop = 0,
+  align,
+  valign,
+  wrap,
 }: {
   pack: ThemePack;
   /**
@@ -71,6 +74,17 @@ export function ThemePreview({
    * everything else wants.
    */
   loop?: number;
+  /**
+   * The same three options the server lays `text` out with. Left undefined
+   * (the click-and-type callers, and every poster on /new and /designs), the
+   * board falls back to its own opts - passing `align: undefined` here would
+   * overwrite that default with nothing, not leave it alone, since these
+   * land in a spread. Only ComposeModal's preview sets them, to show exactly
+   * what posting `text` with the same three options would render.
+   */
+  align?: 'left' | 'center' | 'right';
+  valign?: 'top' | 'middle' | 'bottom';
+  wrap?: 'word' | 'char' | 'none';
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const boardRef = useRef<any>(null);
@@ -95,6 +109,17 @@ export function ThemePreview({
   // the tiles, not rebuild a skin and its forty-two cards.
   const firstText = useRef(showing);
   firstText.current = showing;
+  /*
+   * Only the three keys actually given: `setText` spreads its overrides over
+   * the board's own opts, so an explicit `align: undefined` here would blank
+   * out a real default rather than leaving it alone.
+   */
+  const layoutOptions = { ...(align && { align }), ...(valign && { valign }), ...(wrap && { wrap }) };
+  // Same reasoning as firstText: the build effect below does not depend on
+  // these (picking Align must re-lay-out the existing text, not rebuild the
+  // skin), so its one-off initial paint reads the current value via a ref.
+  const layoutRef = useRef(layoutOptions);
+  layoutRef.current = layoutOptions;
 
   /*
    * The shape of the board, which is the shape of the box.
@@ -149,7 +174,7 @@ export function ThemePreview({
             // when it starts observing - before this board exists - and never
             // again if the box does not change afterwards.
             if (!fixed) requestAnimationFrame(() => boardRef.current?.resize());
-            boardRef.current.setText(firstText.current);
+            boardRef.current.setText(firstText.current, layoutRef.current);
             setReady(true);
           } else {
             boardRef.current.setSkin(skin);
@@ -219,13 +244,14 @@ export function ThemePreview({
     // blanking first would send every tile from the blank and make the travel
     // even again, which is the thing we are trying to show.
     if (replays === 0 || messages.length > 1) {
-      board.setText(showing);
+      board.setText(showing, layoutOptions);
       return;
     }
     board.clear();
-    const timer = setTimeout(() => board.setText(showing), 400);
+    const timer = setTimeout(() => board.setText(showing, layoutOptions), 400);
     return () => clearTimeout(timer);
-  }, [showing, replays, messages.length]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showing, replays, messages.length, align, valign, wrap]);
 
   // A board that is demonstrating rather than sitting still.
   useEffect(() => {

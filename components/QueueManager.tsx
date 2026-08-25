@@ -5,12 +5,15 @@
  * queue and manage what is waiting - reorder, edit, loop, remove. The board
  * itself is passive; everything a wallboard shows starts here or on the API.
  *
- * Composing is done on the board itself - a live canvas in this board's own
- * design, click it and type - not a plain text box beside it. What you see is
- * exactly what lands: each keystroke lands on the exact cell it will occupy,
- * so there is nothing left for align, vertical or wrap to decide. That is why
- * this posts `rows` (taken literally) rather than `text` (laid out by the
- * server) - a position you chose yourself is not something to re-lay-out.
+ * Composing used to happen directly on the board's own canvas - click it and
+ * type, one keystroke to one cell. WYSIWYG, but with none of a real text
+ * field's vocabulary: no cursor to move, no selection, no paste, backspace
+ * only ever eats the last character typed. Composing now opens ComposeModal
+ * instead - a real textarea, styled like the glass it's headed for - and
+ * posts `text` (laid out by the server, align/valign/wrap and all) rather
+ * than `rows` (taken literally): a real textarea's cursor does not correspond
+ * to a cell the way a click on the canvas did, so there is no longer a
+ * position of your own choosing to preserve.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -18,7 +21,12 @@ import { Button } from '@/components/ui/Button';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { Checkbox, Field, Select } from '@/components/ui/Field';
 import { ThemePreview } from '@/components/flapper/ThemePreview';
+import { ComposeModal, type TextLayout } from '@/components/ComposeModal';
 import type { ThemePack } from '@/lib/board/theme-pack.mjs';
+
+/** Mirrors lib/board/layout.mjs's DEFAULTS - what a message gets when it
+ * names none of the three itself. */
+const LAYOUT_DEFAULTS: TextLayout = { align: 'center', valign: 'middle', wrap: 'word' };
 
 /*
  * A stored item's payload is not the shape you posted it in: `rows` arrives
@@ -83,7 +91,8 @@ export function QueueManager({
    */
   const isSign = cap === 1;
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
-  const [draft, setDraft] = useState('');
+  const [composeOpen, setComposeOpen] = useState(false);
+  const [sending, setSending] = useState(false);
   const [priority, setPriority] = useState('normal');
   const [holdMs, setHoldMs] = useState('');
   const [loop, setLoop] = useState(false);
@@ -108,10 +117,14 @@ export function QueueManager({
     return () => clearInterval(timer);
   }, [refresh]);
 
-  async function act(run: () => Promise<Response>) {
-    if (busyRef.current) return;
+  /** @returns whether `run` landed - most callers fire-and-forget, but the
+   * compose modal stays open (showing `error`) rather than closing on a
+   * message that never posted. */
+  async function act(run: () => Promise<Response>): Promise<boolean> {
+    if (busyRef.current) return false;
     busyRef.current = true;
     setError('');
+    let ok = true;
     try {
       const response = await run();
       if (!response.ok) {
@@ -120,9 +133,11 @@ export function QueueManager({
       }
     } catch (err: any) {
       setError(err.message);
+      ok = false;
     }
     busyRef.current = false;
     refresh();
+    return ok;
   }
 
   const post = (path: string, method: string, body?: object) =>
@@ -132,9 +147,10 @@ export function QueueManager({
       ...(body ? { body: JSON.stringify(body) } : {}),
     });
 
-  function send() {
-    if (draft.trim() === '') return;
-    const body: Record<string, unknown> = { rows: draft.split('\n') };
+  async function send(text: string, layout: TextLayout) {
+    const body: Record<string, unknown> = { text, ...layout };
+    setSending(true);
+    let ok: boolean;
     if (isSign) {
       /*
        * Replace, not add. A queue of one is full the moment it says anything,
@@ -149,7 +165,7 @@ export function QueueManager({
       // back into a postable body (payloadToBody), not just re-sent as
       // stored - the stored shape and the posted shape are not the same one.
       const previousBody = payloadToBody(items[0]?.payload);
-      act(async () => {
+      ok = await act(async () => {
         const cleared = await post('/clear', 'POST', {});
         if (!cleared.ok) return cleared;
         const posted = await post('/queue/items', 'POST', { ...body, loop: true });
@@ -158,14 +174,17 @@ export function QueueManager({
         }
         return posted;
       });
-      setDraft('');
-      return;
+    } else {
+      if (priority !== 'normal') body.priority = priority;
+      if (holdMs !== '') body.dwellMs = Number(holdMs);
+      if (loop) body.loop = true;
+      ok = await act(() => post('/queue/items', 'POST', body));
     }
-    if (priority !== 'normal') body.priority = priority;
-    if (holdMs !== '') body.dwellMs = Number(holdMs);
-    if (loop) body.loop = true;
-    act(() => post('/queue/items', 'POST', body));
-    setDraft('');
+    setSending(false);
+    // Stay open on failure - error is already set by act(), and the modal
+    // shows it right beside the text that caused it rather than sending the
+    // reader hunting for a message that landed outside a popup that closed.
+    if (ok) setComposeOpen(false);
   }
 
   function reorder(item: QueueItem, direction: -1 | 1) {
@@ -196,22 +215,49 @@ export function QueueManager({
   const pendingCount = items.filter((entry) => entry.id !== playingId).length;
   const nothingOnBoard = items.length === 0 && !holdingId && !playingId;
 
+  // What is actually on the glass right now, to preview and (for a sign) to
+  // seed the compose modal with - editing a sign is replacing what is there,
+  // which reads as editing it in place, not starting from blank.
+  const glassItem =
+    items.find((entry) => entry.id === playingId) ??
+    items.find((entry) => entry.id === holdingId) ??
+    (isSign ? items[0] : undefined);
+  const glassText = glassItem ? label(glassItem) : '';
+  const glassOptions = isSign ? glassItem?.payload.options : undefined;
+  const composeSeedLayout: TextLayout = {
+    align: (glassOptions?.align as TextLayout['align']) ?? LAYOUT_DEFAULTS.align,
+    valign: (glassOptions?.valign as TextLayout['valign']) ?? LAYOUT_DEFAULTS.valign,
+    wrap: (glassOptions?.wrap as TextLayout['wrap']) ?? LAYOUT_DEFAULTS.wrap,
+  };
+
   return (
     <>
       {dialog}
+      <ComposeModal
+        open={composeOpen}
+        onClose={() => setComposeOpen(false)}
+        title={isSign ? 'Change what it says' : 'Add a message'}
+        submitLabel={isSign ? 'Change it' : 'Put this on the board'}
+        pack={pack}
+        cols={cols}
+        rows={rows}
+        initialText={isSign ? glassText : ''}
+        initialLayout={composeSeedLayout}
+        busy={sending}
+        error={error}
+        onSubmit={send}
+      />
       <div className="design-surface">
         <div className="design-preview">
-          <ThemePreview pack={pack} text={draft} cols={cols} rows={rows} tilePx={56} onText={setDraft} />
+          <ThemePreview pack={pack} text={glassText} cols={cols} rows={rows} tilePx={56} />
           <div className="design-preview-bar">
             <p className="design-preview-caption">
-              {cols} × {rows} cards · click the board and type
+              {cols} × {rows} cards{glassText === '' ? ' · the board is blank' : ''}
             </p>
-            <div className="design-preview-actions">
-              <Button size="sm" variant="ghost" onClick={() => setDraft('')} disabled={draft === ''}>
-                Clear
-              </Button>
-            </div>
           </div>
+          <Button variant="primary" onClick={() => setComposeOpen(true)}>
+            {isSign ? 'Change it' : 'Compose'}
+          </Button>
         </div>
         <div className="design-controls">
           <section className="settings-block">
@@ -220,7 +266,7 @@ export function QueueManager({
             {items.length === 0 ? (
               <p className="muted">
                 {isSign
-                  ? 'The board is blank. Type on it, then put it on the board.'
+                  ? 'The board is blank. Compose something to put on it.'
                   : snapshot?.currentState === 'holding'
                     ? 'The queue has drained; the last message is standing on the glass.'
                     : 'Nothing queued. The board is blank until something is.'}
@@ -296,45 +342,33 @@ export function QueueManager({
                 ))}
               </ol>
             )}
-            <div className="compose-options">
-              {/* Priority, hold and loop all arrange things that are waiting.
-                  On a sign nothing waits, so there is one button and it does
-                  the one thing: replace what is on the glass. */}
-              {isSign ? (
-                <Button variant="primary" size="sm" onClick={send} disabled={draft.trim() === ''}>
-                  Change it
-                </Button>
-              ) : (
-                <>
-                  <Field label="Priority" htmlFor="compose-priority">
-                    <Select id="compose-priority" value={priority} onChange={(e) => setPriority(e.target.value)}>
-                      <option value="normal">Queue it</option>
-                      <option value="next">Play next</option>
-                      <option value="now">Play now</option>
-                    </Select>
-                  </Field>
-                  <Field label="Hold" htmlFor="compose-hold">
-                    <Select id="compose-hold" value={holdMs} onChange={(e) => setHoldMs(e.target.value)}>
-                      <option value="">Board default</option>
-                      <option value="1000">1s</option>
-                      <option value="2000">2s</option>
-                      <option value="5000">5s</option>
-                      <option value="10000">10s</option>
-                      <option value="30000">30s</option>
-                    </Select>
-                  </Field>
-                  <Checkbox
-                    id="compose-loop"
-                    label="Loop"
-                    checked={loop}
-                    onChange={(e) => setLoop(e.target.checked)}
-                  />
-                  <Button variant="primary" size="sm" onClick={send} disabled={draft.trim() === ''}>
-                    Put this on the board
-                  </Button>
-                </>
-              )}
-            </div>
+            {/* Priority, hold and loop all arrange things that are waiting - a
+                sign has nothing waiting, so none of it applies; its one control
+                is the "Change it" button beside the preview above. Left here
+                rather than inside the modal: these decide where the message
+                that is about to be written will land, not how it is written. */}
+            {!isSign && (
+              <div className="compose-options">
+                <Field label="Priority" htmlFor="compose-priority">
+                  <Select id="compose-priority" value={priority} onChange={(e) => setPriority(e.target.value)}>
+                    <option value="normal">Queue it</option>
+                    <option value="next">Play next</option>
+                    <option value="now">Play now</option>
+                  </Select>
+                </Field>
+                <Field label="Hold" htmlFor="compose-hold">
+                  <Select id="compose-hold" value={holdMs} onChange={(e) => setHoldMs(e.target.value)}>
+                    <option value="">Board default</option>
+                    <option value="1000">1s</option>
+                    <option value="2000">2s</option>
+                    <option value="5000">5s</option>
+                    <option value="10000">10s</option>
+                    <option value="30000">30s</option>
+                  </Select>
+                </Field>
+                <Checkbox id="compose-loop" label="Loop" checked={loop} onChange={(e) => setLoop(e.target.checked)} />
+              </div>
+            )}
             {!isSign && (
               <span className="muted">
                 Loop sends a played message to the back of the queue instead of removing it. A

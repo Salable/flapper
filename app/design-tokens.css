@@ -76,13 +76,32 @@
     opacity: 1;
   }
   100% {
-    transform: perspective(600px) rotateX(0deg);
+    /* Not perspective(600px) rotateX(0deg) - identical on screen (rotateX(0)
+       has no depth to show) but still a transform, and see below for why
+       that matters at rest. */
+    transform: none;
     opacity: 1;
   }
 }
 
+/*
+ * `backwards`, not `both`. `both` also fills forwards - holding the 100%
+ * frame's computed style *after* the animation ends, for good - and a CSS
+ * Animation's held value is never truly `none` even when the keyframe says
+ * so: the engine represents it as an identity matrix so it can keep
+ * interpolating, and a non-`none` transform (identity or not) still makes
+ * its element the containing block for any `position: fixed` descendant.
+ * Every settled .flap-in element - a tab panel, a rail card, a dashboard
+ * row - was quietly one of those forever after animating in, so a modal
+ * opened from anywhere inside one was confined to that element's box
+ * instead of the viewport: the backdrop dimmed a corner of the page and a
+ * tall dialog ran off the top of it. `backwards` still holds the 0% frame
+ * during `animation-delay` (so a staggered item does not flash its settled
+ * look before its turn) but lets the animation itself end when it ends,
+ * which is what actually returns `transform` to a real `none`.
+ */
 .flap-in {
-  animation: flap-in var(--flap-ms-slow) var(--ease-flap) both;
+  animation: flap-in var(--flap-ms-slow) var(--ease-flap) backwards;
   transform-origin: 50% 0%;
 }
 
