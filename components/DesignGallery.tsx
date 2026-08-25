@@ -144,6 +144,11 @@ export function DesignGallery() {
     }
   }
 
+  // basedOn names a shipped theme or one of your own designs, whichever it
+  // was made from - checked in that order since a shipped id can never
+  // collide with a design's generated one.
+  const basedOnName = (id: string) => themes[id]?.name ?? mine?.find((design) => design.id === id)?.name ?? id;
+
   const packButton = (key: string) => (
     <button
       type="button"
@@ -221,11 +226,22 @@ export function DesignGallery() {
               hint="A copy to change, not a link - editing yours later never touches the original."
             >
               <Select id="design-from" value={newFrom} onChange={(event) => setNewFrom(event.target.value)}>
-                {THEME_IDS.map((id: string) => (
-                  <option key={id} value={id}>
-                    {themes[id].name}
-                  </option>
-                ))}
+                <optgroup label="In the box">
+                  {THEME_IDS.map((id: string) => (
+                    <option key={id} value={id}>
+                      {themes[id].name}
+                    </option>
+                  ))}
+                </optgroup>
+                {mine !== null && mine.length > 0 && (
+                  <optgroup label="Yours">
+                    {mine.map((design) => (
+                      <option key={design.id} value={design.id}>
+                        {design.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
               </Select>
             </Field>
             <div className="design-new-actions">
@@ -253,9 +269,7 @@ export function DesignGallery() {
                 design.id,
                 design.pack,
                 design.name,
-                design.basedOn
-                  ? `Started from ${themes[design.basedOn]?.name ?? design.basedOn}.`
-                  : 'Made from a pack.',
+                design.basedOn ? `Started from ${basedOnName(design.basedOn)}.` : 'Made from a pack.',
                 renaming === design.id ? (
                   <div className="design-rename">
                     <TextInput
@@ -286,6 +300,17 @@ export function DesignGallery() {
                     <LinkButton size="sm" href={`/new?design=${design.id}`}>
                       Make a board in this
                     </LinkButton>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        setNewFrom(design.id);
+                        setNewName(`${design.name} copy`);
+                        setMaking(true);
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                    >
+                      Start one from this
+                    </Button>
                     <Button
                       size="sm"
                       onClick={() => {

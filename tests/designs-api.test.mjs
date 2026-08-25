@@ -91,6 +91,43 @@ test('an unknown design to fork from is named, not defaulted', async () => {
   assert.match(result.body.error, /unknown design "tartan"/);
 });
 
+test('a design can also be forked from one of your own, not just a shipped one', async () => {
+  const first = await jsonOf(
+    call(createDesignHandler, as('mine'), '/api/designs', {
+      method: 'POST',
+      body: { name: 'Carrow Road', from: 'sorbet' },
+    }),
+  );
+  const second = await jsonOf(
+    call(createDesignHandler, as('mine'), '/api/designs', {
+      method: 'POST',
+      body: { name: 'Carrow Road, away kit', from: first.body.design.id },
+    }),
+  );
+  assert.equal(second.status, 201, JSON.stringify(second.body));
+  assert.equal(second.body.design.basedOn, first.body.design.id);
+  // A copy, the same as forking a shipped theme is - not a link to the first.
+  assert.deepEqual(second.body.design.pack.card, first.body.design.pack.card);
+  assert.notEqual(second.body.design.id, first.body.design.id);
+});
+
+test('forking from someone else\'s design is refused the same as an unknown one', async () => {
+  const theirs = await jsonOf(
+    call(createDesignHandler, as('theirs'), '/api/designs', {
+      method: 'POST',
+      body: { name: 'Not yours', from: 'canary' },
+    }),
+  );
+  const result = await jsonOf(
+    call(createDesignHandler, as('mine'), '/api/designs', {
+      method: 'POST',
+      body: { name: 'Nope', from: theirs.body.design.id },
+    }),
+  );
+  assert.equal(result.status, 422);
+  assert.match(result.body.error, new RegExp(`unknown design "${theirs.body.design.id}"`));
+});
+
 test('an agent can post a whole pack, and is told everything wrong with it', async () => {
   const good = await jsonOf(
     call(createDesignHandler, as('mine'), '/api/designs', {
