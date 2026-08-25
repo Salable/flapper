@@ -272,6 +272,52 @@ eight art entries at 16 KB each. Enough for a demo or a logo, not for typing.
 - [ ] Decide which of the two real routes, or ship the art trick as a
       deliberate "big word" feature and leave typing alone
 
+## Board motion belongs to the design, not the board
+
+*Worked out 25 Aug 2026, field by field, against the Display tab's "The board
+this makes" group. A separate PR, not part of this branch - the design pack
+schema is not touched here.*
+
+Six of the ten fields there describe how the physical board moves, not what a
+particular board is showing, and belong in the design instead: **Hold**
+(`dwellMs`), **Scroll speed** (`fastStepMs`), **Landing** (`landStepMs`),
+**Sweep** (`sweepMs`), **Sweep shape** (`staggerMode`), **Always flip**
+(`alwaysFlip`). Two of those are already shared machinery, not just
+similar in kind: the fidget system's own "sweep" idle action borrows Sweep,
+Sweep shape and Always flip rather than owning copies, so a design's value is
+the only one that will exist once this lands.
+
+Three stay exactly where they are, per-board and per-slide, WYSIWYG: **Align**,
+**Vertical**, **Wrap** - they describe how this content sits, not how the
+board moves.
+
+**Fidget** stays a per-board setting, in its own section - some walls want a
+quiet board and some want personality, regardless of which design is worn. It
+stops carrying its own Sweep/Sweep shape/Always flip and reads whichever
+design the board wears for them when it acts.
+
+**Hold** specifically: hidden entirely on a static board (a sign). Verified
+end to end that it fires a repeat cycle every interval with no visible effect
+there, since there is nothing to hold between. The per-message Hold override
+already in the compose panel (Board default / 1s / 2s / 5s / 10s / 30s) is the
+per-slide override this already wants and needs no new work beyond falling
+back to the design's Hold instead of the board's.
+
+- [ ] A new pack section for the six fields - called `advanced` for now.
+      No existing section fits: `motion` is already taken, for the flip's
+      lighting (shading/shadow/highlight/perspective).
+- [ ] Rename **Scroll speed** - it is the mid-flip cycling speed, not
+      scrolling (see "There is no scrolling" below).
+- [ ] Rename **Always flip** - flagged as unclear. What it does: force every
+      tile through a full revolution even when the letter is unchanged, as a
+      permanent style choice.
+- [ ] The compose panel's "Hold: Board default" falls back to the design's
+      Hold rather than `config.dwellMs`.
+- [ ] Hold hidden wherever it is offered on a static board - the compose
+      panel and Display alike.
+- [ ] Fidget's sweep action reads the resolved pack's Sweep, Sweep shape and
+      Always flip rather than its own copies.
+
 ## Left by the code review
 
 - [x] **`lib/board/face.mjs` had no production caller** — deleted, with its
