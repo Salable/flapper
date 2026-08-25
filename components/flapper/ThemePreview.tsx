@@ -166,9 +166,27 @@ export function ThemePreview({
     };
   }, [pack, cols, rows, fixed, width, height]);
 
+  /*
+   * A grid resize (a board's card size or screen changing under a preview
+   * that's already built) reallocates the tile array by flat index -
+   * `setGrid` in flipboard.js, deliberately: it is what lets a message keep
+   * flipping through a resize instead of blanking outright. But it does not
+   * re-lay the text out for the *new* shape, and nothing else was calling
+   * setText either - the effect above only builds a board once and then
+   * only ever re-skins it, and the "flip it in again" effect below only
+   * fires when the text itself changes. So the tiles that used to spell
+   * something sat there reused, one-to-one by index, into a grid with a
+   * different width - which reads as blank (mostly padding) far more often
+   * than it reads as recognisably garbled. Explicit here: same text,
+   * relaid for the grid it now has to fit, snapped rather than flown in -
+   * a resize is a discontinuity, not a message worth watching travel.
+   */
   useEffect(() => {
-    boardRef.current?.setOptions({ cols, rows });
-  }, [cols, rows]);
+    const board = boardRef.current;
+    if (!board) return;
+    board.setOptions({ cols, rows });
+    board.setText(showing, { immediate: true });
+  }, [cols, rows, showing]);
 
   /*
    * Stop drawing while off screen.

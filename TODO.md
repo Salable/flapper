@@ -125,6 +125,19 @@ the `cols × rows` colour grid, the renderer cannot tell the difference.
       below. Font size is fitted to a footprint now (fontSizeFor, clamped
       9-16px), so the box stays a sane, submittable size at every card
       size instead of growing unbounded with `rows`.
+- [x] ThemePreview blanked (or garbled) on a resize while mounted, and
+      changing card size back did not fix it - only a hard reload did.
+      Found on the sign's own "what it says" preview, which is new enough
+      to be the first caller that watches a board's cols/rows change while
+      it stays on screen. Cause: `Flipboard.setGrid` reallocates the tile
+      array by flat index into the new shape (deliberately - it's how a
+      message keeps flipping through a resize instead of blanking
+      outright) but nothing re-lays the text out for the shape it just
+      became - the build effect only ever re-skins an existing board, and
+      the "flip it in again" effect only fires when the text itself
+      changes, so a plain grid resize called neither. The `[cols, rows]`
+      effect now calls `setText` again (snapped, not flown in - a resize
+      is a discontinuity) right after resizing.
 
 ### Next — the designer suite
 
