@@ -45,13 +45,40 @@ const JUSTIFY: Record<TextLayout['valign'], string> = {
 const EMPTY_CELL = '·';
 
 /*
- * The grid box's font size and line height, set inline (not in board.css)
- * because the box's pixel height below is computed from these same two
- * numbers - `rows` lines of exactly this size. One source, so they cannot
- * drift apart.
+ * The grid box's line height and its own footprint, set inline (not in
+ * board.css) because the box's pixel height below is computed from these
+ * same numbers - `rows` lines of exactly this size. One source, so they
+ * cannot drift apart.
+ *
+ * Font size is not one of them - it is fitted per board (see fontSizeFor),
+ * because a fixed size does not survive contact with every card size a
+ * board can be. `cols` runs 8 (huge) to 48 (tiny), `rows` up to 40 on an
+ * unusual screen - at 16px a huge board's own placeholder text wraps
+ * across three lines for want of eight characters' width, and a tiny
+ * board's grid runs to 650px tall, pushing Align/Vertical/Wrap and the
+ * button that actually sends it below the fold. Fitted to a footprint
+ * instead, clamped so it never goes unreadable at one extreme or silly
+ * oversized at the other - past that clamp (a very tall custom screen at
+ * a small card size) the box is still capped, just no longer guaranteed
+ * to show every row without scrolling, which is what happened everywhere
+ * before this.
  */
-const FONT_SIZE_PX = 16;
 const LINE_HEIGHT = 1.5;
+const MAX_FONT_SIZE = 16;
+const MIN_FONT_SIZE = 9;
+const BOX_MAX_HEIGHT = 420;
+const BOX_MAX_WIDTH = 640;
+// A monospace font's advance width as a fraction of its size - not exact
+// (it varies a little face to face), close enough to size the box by; the
+// box's actual width is still set in real `ch` units, so whatever this
+// under- or overshoots by, the grid drawn is still exactly `cols` wide.
+const CH_WIDTH_EM = 0.6;
+
+function fontSizeFor(cols: number, rows: number) {
+  const byHeight = BOX_MAX_HEIGHT / (rows * LINE_HEIGHT);
+  const byWidth = BOX_MAX_WIDTH / (cols * CH_WIDTH_EM);
+  return Math.max(MIN_FONT_SIZE, Math.min(MAX_FONT_SIZE, byHeight, byWidth));
+}
 
 export function ComposeModal({
   open,
@@ -120,6 +147,7 @@ export function ComposeModal({
   // stored page is. Only depends on the grid, so it is built once and left
   // alone rather than on every keystroke.
   const dots = Array.from({ length: rows }, () => EMPTY_CELL.repeat(cols)).join('\n');
+  const fontSize = fontSizeFor(cols, rows);
 
   return (
     <Modal open={open} onClose={onClose} title={title} wide>
@@ -130,8 +158,8 @@ export function ComposeModal({
             className="compose-board"
             style={{
               width: `min(${cols}ch, 100%)`,
-              height: `${Math.round(rows * FONT_SIZE_PX * LINE_HEIGHT)}px`,
-              fontSize: FONT_SIZE_PX,
+              height: `${Math.round(rows * fontSize * LINE_HEIGHT)}px`,
+              fontSize,
               lineHeight: LINE_HEIGHT,
             }}
           >
@@ -152,7 +180,10 @@ export function ComposeModal({
                     submit();
                   }
                 }}
-                placeholder="Type what it should say…"
+                // Short on purpose: a huge card size is 8 columns wide, and
+                // even at full font size "Type what it should say..." wraps
+                // across four broken lines there for want of it.
+                placeholder="Type here…"
               />
             </div>
           </div>

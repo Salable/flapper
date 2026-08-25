@@ -117,6 +117,14 @@ the `cols × rows` colour grid, the renderer cannot tell the difference.
       form row) fought the compose box's own auto-grow, always filling it
       full-height regardless of how little was typed - overridden with
       `flex: none` on this one.
+      The box was fixed-font-size (16px) as well, which did not survive
+      contact with every card size: `cols` runs 8 (huge) to 48 (tiny), and
+      at 16px a tiny board's grid ran 650px tall, pushing Align/Vertical/
+      Wrap and the send button below the fold - and a `overflow-y:auto`
+      modal hid rather than solved that, since nothing said there was more
+      below. Font size is fitted to a footprint now (fontSizeFor, clamped
+      9-16px), so the box stays a sane, submittable size at every card
+      size instead of growing unbounded with `rows`.
 
 ### Next — the designer suite
 
