@@ -50,6 +50,8 @@ export interface AdvancedStyle {
   fastStepMs: number;
   /** Duration of a tile's final, landing step, in ms. */
   landStepMs: number;
+  /** Repaint at most this often, in ms; 0 is uncapped. Lower reads as more mechanical. */
+  frameMs: number;
   /** Total stagger across the whole board when many tiles flip together, in ms. */
   sweepMs: number;
   /** The pattern the stagger follows across the grid. */

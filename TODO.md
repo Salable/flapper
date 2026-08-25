@@ -491,6 +491,22 @@ two hinged vanes, and the whole board looked too clean to have hung anywhere.
       rather than baked in `paintCard`) but costs a draw call per tile per
       frame instead of nothing - not done since the baked version already
       reads as worn at the strength shipped.
+- [x] `advanced.frameMs` (default 70): the canvas now repaints at most this
+      often, not every rAF tick - a lower visual frame rate reads as a flap
+      actually clacking through positions rather than a 60fps blur. The step
+      timing that drives sound and idle detection is untouched; only how
+      often the canvas is repainted changes. Live-measured via CDP: a
+      steady ~75ms gap between repaints during a flip, against a 70ms
+      target (the difference is rAF's own ~16.7ms granularity - a throttled
+      gap always lands on a multiple of that, not the raw number typed in).
+- [ ] **`lib/api/mcp.mjs`'s `config` tool schema still advertises `dwellMs`
+      and `staggerMode`** as valid board-level config fields, even though
+      `validators.mjs` has refused both there since they moved to the
+      design's pack - noticed in passing while wiring `frameMs` through,
+      not fixed here (out of scope for this change, and an agent sending
+      either still gets a clear rejection telling it where the field
+      actually lives, so this is a stale schema description, not a
+      functional bug).
 
 ## Left by the code review
 

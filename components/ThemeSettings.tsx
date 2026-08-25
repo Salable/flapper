@@ -358,6 +358,7 @@ export function ThemeSettings({
                       onChange={(e) => field('advanced.alwaysFlip')(e.target.checked)}
                     />
                   </Field>
+                  {slider('Frame gap', 'advanced.frameMs', 5)}
                 </fieldset>
                 <fieldset className="theme-group">
                   <legend>Wash</legend>

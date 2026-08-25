@@ -152,6 +152,7 @@ export function ThemePreview({
               sweepMs: advanced.sweepMs,
               staggerMode: advanced.staggerMode,
               alwaysFlip: advanced.alwaysFlip,
+              frameMs: advanced.frameMs,
               // Told, not measured - see Flipboard.resize.
               ...(fixed ? { cssSize: { width, height } } : {}),
             });
