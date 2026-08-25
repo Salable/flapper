@@ -40,7 +40,7 @@ export function ThemePreview({
    * text again sends every tile the same distance every time and shows none of
    * that; flipping to a *different* message does.
    */
-  text: string | string[];
+  text: string | readonly string[];
   cols?: number;
   rows?: number;
   tilePx?: number;
@@ -342,7 +342,7 @@ export function ThemePreview({
      on the wall. Anything outside the ring is left to the layout engine, which
      substitutes and reports. */
   function type(event: React.KeyboardEvent<HTMLCanvasElement>) {
-    if (!onText || Array.isArray(text)) return;
+    if (!onText || typeof text !== 'string') return;
     const lines = text.split('\n');
     const last = () => lines[lines.length - 1] ?? '';
 

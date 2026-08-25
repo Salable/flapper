@@ -24,8 +24,7 @@ import { validatePack, type ThemePack } from '@/lib/board/theme-pack.mjs';
 import { stableStringify } from '@/lib/board/board-theme.mjs';
 import { DEFAULT_THEME } from '@/lib/board/themes.mjs';
 import { DEFAULTS } from '@/lib/board/flipboard.js';
-
-const SAMPLE = ['NOW BOARDING\nGATE 12 .,!()', 'DELAYED 15 MIN\nPLATFORM 4 (B)'];
+import { SAMPLE_MESSAGES } from '@/lib/board/sample-messages.mjs';
 
 /*
  * The preview's own zoom, independent of any real board's shape - this is
@@ -109,7 +108,7 @@ export function DesignEditor({ design }: { design: Design }) {
       <div className="design-preview">
         <ThemePreview
           pack={draft.pack}
-          text={SAMPLE}
+          text={SAMPLE_MESSAGES}
           cols={previewCols}
           rows={previewRows}
           tilePx={previewTilePx}

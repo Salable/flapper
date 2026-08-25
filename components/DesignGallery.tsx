@@ -23,18 +23,10 @@ import { Field, TextInput, Select } from '@/components/ui/Field';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { THEMES, THEME_IDS, DEFAULT_THEME, resolveTheme } from '@/lib/board/themes.mjs';
 import { DEFAULTS } from '@/lib/board/flipboard.js';
+import { SAMPLE_MESSAGES } from '@/lib/board/sample-messages.mjs';
 import type { ThemePack } from '@/lib/board/theme-pack.mjs';
 
 const themes: Record<string, any> = THEMES;
-
-/**
- * Two messages, not one. Flip again alternates between them, because sending
- * every tile the same distance every time shows none of what makes a
- * split-flap board worth watching - a tile only moves forward round the ring,
- * so O to P is one step and P back round to O is forty-one. Between these two,
- * some tiles barely twitch and others riffle the whole way round.
- */
-const SAMPLE = ['NOW BOARDING\nGATE 12 .,!()', 'DELAYED 15 MIN\nPLATFORM 4 (B)'];
 
 /**
  * The mock is the system's own geometry, not a shape chosen to suit a card.
@@ -170,7 +162,7 @@ export function DesignGallery() {
   ) => (
     <article className="design-card" key={key}>
       <div className="design-card-board">
-        <ThemePreview pack={pack} text={SAMPLE} cols={COLS} rows={ROWS} tilePx={26} />
+        <ThemePreview pack={pack} text={SAMPLE_MESSAGES} cols={COLS} rows={ROWS} tilePx={26} />
       </div>
       <div className="design-card-body">
         <h3 className="design-card-name">
