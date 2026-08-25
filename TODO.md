@@ -86,6 +86,16 @@ the `cols × rows` colour grid, the renderer cannot tell the difference.
 - [x] Board card says Edit, not Settings (`9baf778`)
 - [x] A wash you can author, not just one that ships (`8a01dae`)
 - [x] CSS tiles wear any design; nothing keyed on a theme id (`23f2d56`)
+- [x] The Display tab dissolved: Start from and Fidget move into the board's
+      own sidebar, composing moves onto the board itself (click the canvas
+      and type; rows mode, not text mode, so Align/Vertical/Wrap have nothing
+      left to decide) (`2571577`)
+- [x] The duplicate Screen/Card size editor removed from the (now-gone)
+      Display tab; a live 422 on it and a `setConfig` lost-update race both
+      found and fixed in the same pass (`31f8c5b`)
+- [x] Four more design fonts, self-hosted like Arimo: Work Sans, Source
+      Serif 4, IBM Plex Mono, Oswald - and the Face dropdown fixed so
+      picking one actually loads it (`b83e193`)
 
 ### Next — the designer suite
 
@@ -275,8 +285,8 @@ eight art entries at 16 KB each. Enough for a demo or a logo, not for typing.
 ## Board motion belongs to the design, not the board
 
 *Worked out 25 Aug 2026, field by field, against the Display tab's "The board
-this makes" group. A separate PR, not part of this branch - the design pack
-schema is not touched here.*
+this makes" group. Built the same day, in `6aeb2a1` - what was banked as "a
+separate PR" turned out to fit on this branch after all.*
 
 Six of the ten fields there describe how the physical board moves, not what a
 particular board is showing, and belong in the design instead: **Hold**
@@ -303,20 +313,26 @@ already in the compose panel (Board default / 1s / 2s / 5s / 10s / 30s) is the
 per-slide override this already wants and needs no new work beyond falling
 back to the design's Hold instead of the board's.
 
-- [ ] A new pack section for the six fields - called `advanced` for now.
-      No existing section fits: `motion` is already taken, for the flip's
-      lighting (shading/shadow/highlight/perspective).
+- [x] A new pack section for the six fields - called `advanced` for now.
+      No existing section fit: `motion` was already taken, for the flip's
+      lighting (shading/shadow/highlight/perspective) (`6aeb2a1`).
 - [ ] Rename **Scroll speed** - it is the mid-flip cycling speed, not
-      scrolling (see "There is no scrolling" below).
+      scrolling (see "There is no scrolling" below). Still open; naming was
+      deliberately left for later.
 - [ ] Rename **Always flip** - flagged as unclear. What it does: force every
       tile through a full revolution even when the letter is unchanged, as a
-      permanent style choice.
-- [ ] The compose panel's "Hold: Board default" falls back to the design's
-      Hold rather than `config.dwellMs`.
-- [ ] Hold hidden wherever it is offered on a static board - the compose
-      panel and Display alike.
-- [ ] Fidget's sweep action reads the resolved pack's Sweep, Sweep shape and
-      Always flip rather than its own copies.
+      permanent style choice. Still open, same reason.
+- [x] The compose panel's "Hold: Board default" falls back to the design's
+      Hold rather than `config.dwellMs` - not a separate change: the
+      controller's own default dwellMs is populated from the resolved pack
+      (`advancedFrom`), so "board default" already means the design's Hold
+      (`6aeb2a1`).
+- [x] Hold hidden wherever it is offered on a static board - the compose
+      panel and the sidebar (Display no longer exists) (`6aeb2a1`, `2571577`).
+- [x] Fidget's sweep action reads the resolved pack's Sweep, Sweep shape and
+      Always flip rather than its own copies - also not separate work: the
+      board's own opts (which the fidget system reads) are populated from the
+      resolved pack, so there is only ever one copy (`6aeb2a1`).
 
 ## Left by the code review
 
@@ -340,6 +356,12 @@ back to the design's Hold instead of the board's.
    day's work on rails that exist, the second is a project. Both are worth
    having; the first is worth having first either way, because a fetched sheet
    is a pushed sheet where Flapper does the pushing.
+4. **Canary's glyphs are illegible below ~40px tiles, and it is not the font.**
+   `themes.mjs` — `glyph: { fill: 'transparent', stroke: '#ffffff', strokeWidth:
+   0.022 }`. It uses the same Arimo every other design does; a transparent fill
+   traced by a stroke 2.2% of tile width goes sub-pixel on a small board
+   regardless of typeface. Fixable with a solid fill or a heavier stroke -
+   not done, since it changes how Canary looks.
 
 ## Refused by design, not missing
 
