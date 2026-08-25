@@ -499,14 +499,18 @@ two hinged vanes, and the whole board looked too clean to have hung anywhere.
       steady ~75ms gap between repaints during a flip, against a 70ms
       target (the difference is rAF's own ~16.7ms granularity - a throttled
       gap always lands on a multiple of that, not the raw number typed in).
-- [ ] **`lib/api/mcp.mjs`'s `config` tool schema still advertises `dwellMs`
-      and `staggerMode`** as valid board-level config fields, even though
-      `validators.mjs` has refused both there since they moved to the
-      design's pack - noticed in passing while wiring `frameMs` through,
-      not fixed here (out of scope for this change, and an agent sending
-      either still gets a clear rejection telling it where the field
-      actually lives, so this is a stale schema description, not a
-      functional bug).
+- [x] `lib/api/mcp.mjs`'s `update_config` schema no longer advertises `cols`,
+      `rows`, `dwellMs` or `staggerMode` as board-level fields - all four
+      have been refused by `validators.mjs` since they moved to `screen`/
+      `cardSize`/the design's pack, and the schema had drifted out of sync
+      with both moves. `themePack`'s own description now says `advanced`
+      is a section too, since it never did. `get_capabilities` → `themePack`
+      was already correct (it derives from `RANGES`, not a hand list), so
+      `frameMs`'s range needed no separate change there.
+- [ ] **`update_config` still has no way to set `screen` or `cardSize`** -
+      noticed alongside the stale fields above; the API supports both, the
+      MCP schema has never offered either. A real gap, not a staleness bug,
+      and a bigger one (new fields, not a removal) - left for its own pass.
 
 ## Left by the code review
 
