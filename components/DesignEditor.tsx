@@ -19,12 +19,25 @@ import { useRouter } from 'next/navigation';
 import { ThemeSettings, type ThemeDraft } from '@/components/ThemeSettings';
 import { ThemePreview } from '@/components/flapper/ThemePreview';
 import { Button, LinkButton } from '@/components/ui/Button';
+import { Field, RangeSlider } from '@/components/ui/Field';
 import { validatePack, type ThemePack } from '@/lib/board/theme-pack.mjs';
 import { stableStringify } from '@/lib/board/board-theme.mjs';
 import { DEFAULT_THEME } from '@/lib/board/themes.mjs';
 import { DEFAULTS } from '@/lib/board/flipboard.js';
 
 const SAMPLE = ['NOW BOARDING\nGATE 12 .,!()', 'DELAYED 15 MIN\nPLATFORM 4 (B)'];
+
+/*
+ * The preview's own zoom, independent of any real board's shape - this is
+ * for judging a design, not for showing what a screen will look like.
+ * PREVIEW_WIDTH is what the grid used to fill at the old fixed 20 cards
+ * across and tilePx 30 (20*30 + 19 gaps + padding); held constant and
+ * divided by however many cards are asked for, so dragging the slider down
+ * to one card doesn't shrink to a tiny square in the corner of the same
+ * box - it grows to fill it, which is the point of zooming in.
+ */
+const PREVIEW_WIDTH = 630;
+const MIN_PREVIEW_COLS = 1;
 
 type Design = { id: string; name: string; pack: ThemePack; basedOn: string | null };
 
@@ -36,6 +49,13 @@ export function DesignEditor({ design }: { design: Design }) {
     pack: design.pack,
   });
   const [error, setError] = useState('');
+  // How many cards the preview shows, from the full grid down to one - the
+  // rest of the box's width goes to making each card bigger, not to
+  // shrinking toward a corner. Rows follow the same ratio as the full grid,
+  // so one card is one card, not a sliver.
+  const [previewCols, setPreviewCols] = useState(DEFAULTS.cols);
+  const previewRows = Math.max(1, Math.round((DEFAULTS.rows * previewCols) / DEFAULTS.cols));
+  const previewTilePx = Math.max(12, Math.floor(PREVIEW_WIDTH / previewCols));
 
   /*
    * Dirty when the pack differs from the one on the server - but compared as
@@ -90,13 +110,27 @@ export function DesignEditor({ design }: { design: Design }) {
         <ThemePreview
           pack={draft.pack}
           text={SAMPLE}
-          cols={DEFAULTS.cols}
-          rows={DEFAULTS.rows}
-          tilePx={30}
+          cols={previewCols}
+          rows={previewRows}
+          tilePx={previewTilePx}
         />
+        <Field
+          label="Cards across"
+          htmlFor="design-preview-zoom"
+          hint="Fewer, bigger cards - down to one, to judge a single glyph up close."
+        >
+          <RangeSlider
+            id="design-preview-zoom"
+            min={MIN_PREVIEW_COLS}
+            max={DEFAULTS.cols}
+            step={1}
+            value={previewCols}
+            onChange={(event) => setPreviewCols(Number(event.target.value))}
+          />
+        </Field>
         <div className="design-preview-bar">
           <p className="design-preview-caption">
-            {DEFAULTS.cols} × {DEFAULTS.rows} cards · {dirty ? 'unsaved changes' : 'saved'}
+            {previewCols} × {previewRows} cards · {dirty ? 'unsaved changes' : 'saved'}
           </p>
           <div className="design-preview-actions">
             <Button
