@@ -183,6 +183,10 @@ the `cols × rows` colour grid, the renderer cannot tell the difference.
       beneath. Queue mode's own two-column layout (design-surface)
       untouched - verified side by side on a sign and a cycle in the
       same run.
+- [x] The left-nav tab holding Change it/Blank it still said "Queue" for
+      a sign - same mistake as the chip, just missed there. "Board" now,
+      derived from the same `cap === 1` SettingsClient already computes
+      for QueueManager's own `cap` prop, not a second copy of the check.
 
 ### Next — the designer suite
 

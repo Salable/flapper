@@ -80,6 +80,11 @@ export function SettingsClient({ board: initial }: { board: Board }) {
    * real size until the page reloaded. Derived fresh, it cannot.
    */
   const grid = gridForConfig(board.config);
+  // A board that holds one message is a sign; QueueManager derives the same
+  // fact the same way, from the cap rather than the template id, so a board
+  // is whatever its settings currently say.
+  const cap = Number(board.config?.queueCap) || Infinity;
+  const isSign = cap === 1;
 
   // Resolved after mount: the server does not know the public origin, and
   // rendering it there would make hydration disagree with the glass.
@@ -240,9 +245,9 @@ export function SettingsClient({ board: initial }: { board: Board }) {
   ) : (
     <QueueManager
       slug={board.slug}
-      // A board that holds one message is a sign; the panel drops everything
-      // that only makes sense with a queue behind it.
-      cap={Number(board.config?.queueCap) || Infinity}
+      // The panel drops everything that only makes sense with a queue
+      // behind it once cap is 1.
+      cap={cap}
       // The board's own design, so composing happens on it - what look this
       // board wears is picked in the sidebar now, not a draft owned here.
       pack={resolveBoardTheme(board.config).pack}
@@ -413,7 +418,9 @@ export function SettingsClient({ board: initial }: { board: Board }) {
             </nav>
           }
           tabs={[
-            { id: 'queue', label: 'Queue', content: queueTab },
+            // "Queue" for anything that has one; a sign has none, so the
+            // tab that holds Change it/Blank it is named for what it is.
+            { id: 'queue', label: isSign ? 'Board' : 'Queue', content: queueTab },
             { id: 'general', label: 'General', content: generalTab },
           ]}
         />
