@@ -238,7 +238,6 @@ export function QueueManager({
         onClose={() => setComposeOpen(false)}
         title={isSign ? 'Change what it says' : 'Add a message'}
         submitLabel={isSign ? 'Change it' : 'Put this on the board'}
-        pack={pack}
         cols={cols}
         rows={rows}
         initialText={isSign ? glassText : ''}

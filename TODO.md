@@ -98,18 +98,25 @@ the `cols × rows` colour grid, the renderer cannot tell the difference.
       picking one actually loads it (`b83e193`)
 - [x] Click-canvas composing (`2571577`, above) reverted: no cursor, no
       selection, no paste, backspace only ever eats the last character
-      typed - unpleasant to actually write in. ComposeModal instead: a real
-      textarea in a popup styled like the glass, `text` mode restored
-      (Align/Vertical/Wrap are back, and matter again), the live preview
-      above it the same engine laying out the same three options this posts.
-      Found and fixed in the same pass: `.flap-in`'s entrance animation held
-      a non-`none` transform forever after finishing (`animation: ... both`
+      typed - unpleasant to actually write in. ComposeModal instead: `text`
+      mode restored (Align/Vertical/Wrap are back, and matter again), and
+      the textarea itself is the board rather than a second thing beside
+      one - a fixed cols x rows box, a dot for every cell nothing has
+      reached, Align as its own `text-align`, Vertical as where a flex box
+      puts it. A first pass showed a real preview canvas above the
+      textarea and asked the same three questions twice; dropped in favour
+      of the one honest view.
+      Found and fixed along the way: `.flap-in`'s entrance animation held a
+      non-`none` transform forever after finishing (`animation: ... both`
       fills forward, and a CSS Animation's "none" is an identity matrix, not
       actually `none`) - a real transform, even an identity one, makes its
       element the containing block for `position: fixed`, so every modal
       opened from inside a settled tab panel, rail card or dashboard row was
-      confined to that element's box instead of the viewport. Small dialogs
-      mostly got away with it unnoticed; this popup's own preview did not.
+      confined to that element's box instead of the viewport. And the
+      global `textarea { flex: 1 }` rule (meant for textareas in a settings
+      form row) fought the compose box's own auto-grow, always filling it
+      full-height regardless of how little was typed - overridden with
+      `flex: none` on this one.
 
 ### Next — the designer suite
 

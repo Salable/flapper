@@ -787,12 +787,15 @@ main.landing .error {
 }
 
 /*
- * The compose popup: a real textarea dressed as the glass it's headed for,
- * because typing straight onto the canvas (the previous approach) has no
- * cursor, no selection, no paste - one key to one cell and nothing else.
- * The live preview above is the actual engine laying the same text out with
- * the same align/valign/wrap this popup is about to post, so what's shown
- * here is what lands, the same promise the canvas used to make.
+ * The compose popup: the textarea itself is the board now, not a plain box
+ * beside one. `.compose-board` is sized to exactly `cols` characters wide
+ * and `rows` lines tall in its own font (inline styles set the font-size,
+ * line-height and pixel height in one place - see ComposeModal.tsx), so a
+ * line wraps here roughly where it will wrap on the glass. `.compose-board-
+ * dots` is a same-sized, same-font `<pre>` behind the textarea showing a
+ * placeholder for every cell; the textarea's own background stays
+ * transparent so the dots a message hasn't reached yet still show through,
+ * and real text simply draws over the ones it has.
  */
 .compose-modal {
   display: flex;
@@ -800,22 +803,68 @@ main.landing .error {
   gap: var(--space-3);
 }
 
-.compose-textarea {
-  width: 100%;
-  resize: vertical;
-  font: 400 15px / 1.5 var(--font-mono);
-  letter-spacing: var(--track-wide);
-  text-transform: uppercase;
-  color: var(--ink);
+.compose-board-frame {
+  display: flex;
+  justify-content: center;
   background: rgba(0, 0, 0, 0.42);
   border: 1px solid var(--edge);
   border-radius: var(--radius-md);
-  padding: 10px 12px;
+  padding: 14px;
 }
 
-.compose-textarea:focus-visible {
+.compose-board {
+  position: relative;
+  font-family: var(--font-mono);
+  color: var(--ink);
+  text-transform: uppercase;
+}
+
+.compose-board-dots {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  font: inherit;
+  color: rgba(236, 231, 221, 0.16);
+  white-space: pre;
+  pointer-events: none;
+  user-select: none;
+}
+
+.compose-board-inner {
+  position: relative;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.compose-board-input {
+  /* Not flex: 1 (the global `textarea` rule further up this file) - that
+     grows any textarea to fill its flex parent, which is exactly what would
+     defeat Vertical: it would always be full-height regardless of the one
+     line typed into it, leaving no free space for justify-content to place
+     it in. Sized to its own content instead - see the auto-grow effect. */
+  flex: none;
+  width: 100%;
+  max-height: 100%;
+  margin: 0;
+  padding: 0;
+  border: none;
+  resize: none;
+  overflow-y: auto;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-transform: inherit;
+}
+
+.compose-board-input::placeholder {
+  color: var(--muted);
+  text-transform: none;
+}
+
+.compose-board-input:focus-visible {
   outline: 2px solid var(--amber);
-  outline-offset: 1px;
+  outline-offset: 2px;
 }
 
 .compose-modal-layout {
