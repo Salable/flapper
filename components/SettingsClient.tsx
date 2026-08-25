@@ -59,19 +59,17 @@ export function SettingsClient({ board: initial }: { board: Board }) {
   // The theme draft lives here, above the tabs: Tabs remounts its panel on a
   // switch, and a half-edited theme (an uploaded logo) must survive one.
   const [themeDraft, setThemeDraft] = useState<ThemeDraft>(() => draftFromConfig(initial.config));
-  // The grid, mirrored up out of DisplayConfig so the preview beside the
-  // controls can show the board at the size it actually is. Columns and rows
-  // used to sit 1,900px below the layout stage, which meant the two decisions
-  // that together make the board's shape could never be seen at once.
-  const [grid, setGrid] = useState<{ cols: number; rows: number }>(() => ({
-    ...gridForConfig(initial.config),
-  }));
-  // The shape of the screen the board is being designed for, mirrored up for
-  // the same reason: the layout stage was a hard-coded 16:9 rectangle, so a
-  // portrait wall could not be designed against at all.
-  const [screen, setScreen] = useState<{ w: number; h: number }>(
-    () => (initial.config.screen as { w: number; h: number } | undefined) ?? { w: 16, h: 9 },
-  );
+  /*
+   * The grid, read straight from `board.config` on every render rather than
+   * copied into its own state. It used to be mirrored up out of DisplayConfig
+   * so the preview beside the controls could show the board at the size it
+   * actually is - but DisplayConfig no longer owns the screen or the card
+   * size (BoardSidebar does), so a state that only DisplayConfig's onChange
+   * kept fresh would go stale the moment the sidebar changed either one: the
+   * preview would keep showing the old grid until the page reloaded. Derived
+   * fresh, it cannot disagree with what `board.config` actually says.
+   */
+  const grid = gridForConfig(board.config);
   // What the preview board is showing. It starts as enough of the ring to judge
   // a pack and becomes whatever the designer types onto the board itself.
   const [previewText, setPreviewText] = useState(PREVIEW_TEXT);
@@ -463,21 +461,17 @@ export function SettingsClient({ board: initial }: { board: Board }) {
                     <DisplayConfig
                       slug={board.slug}
                       initial={board.config}
-                      onChange={(config) => {
-                        setGrid({
-                          ...gridForConfig(config),
-                        });
-                        const next = config.screen as { w: number; h: number } | undefined;
-                        if (next) setScreen(next);
-                        /*
-                         * And into the board itself, because the panel beside
-                         * this reads the board's config for the shape. Without
-                         * it the two disagreed: the Display tab would say 20x1
-                         * on a 100:3 screen while the panel still said 20x11
-                         * on the default.
-                         */
-                        setBoard((prev) => ({ ...prev, config: { ...prev.config, ...config } }));
-                      }}
+                      /*
+                       * `config` here is only ever {align, valign, wrap,
+                       * ambientMs} - DisplayConfig no longer owns the screen
+                       * or the card size, so it cannot report a stale copy of
+                       * either back over whatever the sidebar just set. `grid`
+                       * needs no updating from here at all: it is derived
+                       * fresh from `board.config` above, every render.
+                       */
+                      onChange={(config) =>
+                        setBoard((prev) => ({ ...prev, config: { ...prev.config, ...config } }))
+                      }
                     />
                   </div>
                 </div>

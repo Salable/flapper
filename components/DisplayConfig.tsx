@@ -8,25 +8,12 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { Button } from '@/components/ui/Button';
-import { Checkbox, Field, RangeSlider, Select, TextInput } from '@/components/ui/Field';
-import { Segmented } from '@/components/ui/bits';
-import {
-  MAX_COLS,
-  MAX_ROWS,
-  gridFor,
-  screenLabel,
-  CARD_SIZE_IDS,
-  DEFAULT_CARD_SIZE,
-  DEFAULT_SCREEN as DEFAULT_SCREEN_SHAPE,
-} from '@/lib/board/geometry.mjs';
+import { Field, Select } from '@/components/ui/Field';
+import { screenOf, cardSizeOf, gridForConfig, screenLabel } from '@/lib/board/geometry.mjs';
 import { DEFAULTS } from '@/lib/board/flipboard.js';
-import { CONTROLLER_DEFAULTS } from '@/lib/board/controller.mjs';
 import { TEMPLATES } from '@/lib/board-types/templates.mjs';
 
 type Config = Record<string, unknown>;
-
-const ms = (value: number) => `${value}ms`;
 
 /** The human name of the template a board was made from, if it remembers one. */
 function templateName(id: unknown) {
@@ -34,14 +21,7 @@ function templateName(id: unknown) {
   return TEMPLATES.get(id)?.name ?? '';
 }
 
-/**
- * The screens a board actually gets put on. A shape is what turns a column
- * count into a row count: with square cards, a board that fills the screen has
- * rows = cols / (screen width / screen height). So the designer picks the
- * screen and how big a card should be, and the grid follows - rather than
- * choosing 20x8 and finding out on the wall that it letterboxes.
- */
-/** What each step on the scale is called on screen. */
+/** What each step on the card-size scale is called on screen. */
 const SIZE_LABELS: Record<string, string> = {
   huge: 'Huge',
   large: 'Large',
@@ -49,14 +29,6 @@ const SIZE_LABELS: Record<string, string> = {
   small: 'Small',
   tiny: 'Tiny',
 };
-
-const SCREENS = [
-  { value: '16:9', label: '16:9', w: 16, h: 9 },
-  { value: '4:3', label: '4:3', w: 4, h: 3 },
-  { value: '9:16', label: '9:16', w: 9, h: 16 },
-  { value: '1:1', label: 'Square', w: 1, h: 1 },
-  { value: 'custom', label: 'Custom', w: 0, h: 0 },
-] as const;
 
 
 export function DisplayConfig({
@@ -69,34 +41,32 @@ export function DisplayConfig({
   /** Every change, so a live preview beside the controls can follow the grid. */
   onChange?: (config: Config) => void;
 }) {
+  /*
+   * Only what this panel actually edits: how content sits, and how often the
+   * board fidgets. Screen and card size are read-only here - see "The board
+   * this makes" below - because they are edited from the board's own panel
+   * now (BoardSidebar). This state used to hold a mount-time snapshot of
+   * them too, and reporting the whole thing on every unrelated change (an
+   * Align edit, say) meant a stale copy could overwrite whatever the
+   * sidebar had just set. Kept to the four fields it owns, that cannot
+   * happen.
+   */
   const defaults: Config = {
-    cols: DEFAULTS.cols,
-    rows: DEFAULTS.rows,
-    dwellMs: CONTROLLER_DEFAULTS.dwellMs,
     align: DEFAULTS.align,
     valign: DEFAULTS.valign,
     wrap: DEFAULTS.wrap,
-    fastStepMs: DEFAULTS.fastStepMs,
-    landStepMs: DEFAULTS.landStepMs,
-    sweepMs: DEFAULTS.sweepMs,
-    staggerMode: DEFAULTS.staggerMode,
-    alwaysFlip: DEFAULTS.alwaysFlip,
     ambientMs: 0,
   };
-  const [config, setConfig] = useState<Config>({ ...defaults, ...initial });
-  const [error, setError] = useState('');
-  type Screen = { w: number; h: number };
-  const stored = (initial.screen ?? null) as Partial<Screen> | null;
-  const [screen, setScreenState] = useState<Screen>({
-    w: stored?.w ?? DEFAULT_SCREEN_SHAPE.w,
-    h: stored?.h ?? DEFAULT_SCREEN_SHAPE.h,
+  const [config, setConfig] = useState<Config>({
+    align: initial.align ?? defaults.align,
+    valign: initial.valign ?? defaults.valign,
+    wrap: initial.wrap ?? defaults.wrap,
+    ambientMs: initial.ambientMs ?? defaults.ambientMs,
   });
+  const [error, setError] = useState('');
   // Where this board's shape came from, so the numbers below can be accounted
   // for rather than just found.
   const fromTemplate = templateName(initial.template);
-  const [custom, setCustom] = useState(false);
-  const preset = SCREENS.find((s) => s.value !== 'custom' && s.w === screen.w && s.h === screen.h);
-  const screenKey = custom || !preset ? 'custom' : preset.value;
 
   // A ref so the effect below does not re-run every time the parent hands down
   // a fresh closure, which is every render.
@@ -104,53 +74,16 @@ export function DisplayConfig({
   onChangeRef.current = onChange;
 
   /*
-   * The grid is an outcome, and this is the whole of the arithmetic.
-   *
-   * A board used to be authored as a column count and a row count, with the
-   * screen as a hint. That has it backwards twice over: it asks somebody to do
-   * the arithmetic the app already does, and it makes "how big is a card" mean
-   * something different on every screen. Now the two real facts go in - how big
-   * the glass is, and how big a card should be - and cols x rows falls out.
-   * Nothing in the system authors a grid any more: not this editor, not a
-   * template, not the API.
+   * The board's shape, read straight from `initial` on every render rather
+   * than copied into state at mount. Editing it lives in BoardSidebar now -
+   * this is purely a report, so it has to follow `initial` live or it goes
+   * stale the moment the sidebar changes something this component never
+   * hears about.
    */
-  const cardSize = CARD_SIZE_IDS.includes(String(config.cardSize))
-    ? String(config.cardSize)
-    : DEFAULT_CARD_SIZE;
-  const grid = gridFor(cardSize, screen);
+  const screen = screenOf(initial);
+  const cardSize = cardSizeOf(initial);
+  const grid = gridForConfig(initial);
   const shape = screenLabel(screen);
-
-  /** A card size, and the grid it makes on this screen - one write. */
-  function pickSize(size: string) {
-    const next = gridFor(size, screen);
-    patch({ cardSize: size, cols: next.cols, rows: next.rows });
-  }
-
-  /*
-   * The custom pair, held while it is typed.
-   *
-   * These used to save on every keystroke, one field at a time - so typing
-   * 300 into the width of a 16:9 board saved a 100:3 screen on the way past,
-   * and the board briefly became one row tall. A shape is two numbers and is
-   * committed as two numbers, on Enter or on leaving the field.
-   */
-  const [draftW, setDraftW] = useState(String(screen.w));
-  const [draftH, setDraftH] = useState(String(screen.h));
-
-  function commitCustom() {
-    const w = Number(draftW);
-    const h = Number(draftH);
-    if (!Number.isFinite(w) || w <= 0 || !Number.isFinite(h) || h <= 0) return;
-    if (w === screen.w && h === screen.h) return;
-    applyScreen({ w, h });
-  }
-
-  /** A screen, and the grid it makes at this card size - one write. */
-  function applyScreen(next: Screen) {
-    setScreenState(next);
-    const made = gridFor(cardSize, next);
-    patch({ screen: next, cols: made.cols, rows: made.rows });
-  }
 
   /**
    * Tell the parent what the config is now, after a commit rather than during
@@ -161,34 +94,6 @@ export function DisplayConfig({
   useEffect(() => {
     onChangeRef.current?.(config);
   }, [config]);
-
-  function setScreen(next: { w: number; h: number }) {
-    setCustom(false);
-    applyScreen({ ...screen, w: next.w, h: next.h });
-  }
-
-  function pickScreen(value: string) {
-    // Custom was unreachable: it returned early, and the width and height
-    // fields only rendered when the stored shape happened not to match a
-    // preset - which nothing could bring about. Choosing it is now a state of
-    // its own, so the fields appear and you can type any shape you like.
-    if (value === 'custom') {
-      setCustom(true);
-      /*
-       * Refreshed from the current screen, not left at whatever was last
-       * typed. Picking 4:3 and then opening Custom showed 300 and 20 from an
-       * earlier custom shape - the stored screen had moved on, the fields
-       * had not - so committing either one unchanged would have silently put
-       * a 300-wide or 20-tall screen back after choosing 4:3.
-       */
-      setDraftW(String(screen.w));
-      setDraftH(String(screen.h));
-      return;
-    }
-    const found = SCREENS.find((s) => s.value === value);
-    if (!found) return;
-    setScreen({ w: found.w, h: found.h });
-  }
 
   /*
    * One field or several, but always one request.
@@ -223,37 +128,6 @@ export function DisplayConfig({
     }
   }
 
-  const range = (
-    id: string,
-    labelText: string,
-    key: string,
-    min: number,
-    max: number,
-    step: number,
-    format: (value: number) => string,
-  ) => (
-    <Field
-      label={
-        <>
-          {labelText} <span className="muted">{format(Number(config[key]))}</span>
-          <span className="field-range">
-            {format(min)}–{format(max)}
-          </span>
-        </>
-      }
-      htmlFor={id}
-    >
-      <RangeSlider
-        id={id}
-        min={min}
-        max={max}
-        step={step}
-        value={Number(config[key])}
-        onChange={(event) => patch(key, Number(event.target.value))}
-      />
-    </Field>
-  );
-
   const select = (id: string, labelText: string, key: string, options: [string, string][], help?: string) => (
     <Field label={labelText} htmlFor={id} hint={help}>
       <Select id={id} value={String(config[key])} onChange={(event) => patch(key, event.target.value)}>
@@ -277,84 +151,12 @@ export function DisplayConfig({
             its card size came from. Nothing here is fixed - change any of it.
           </p>
         )}
-        <Field
-          label="Screen it goes on"
-          hint="The shape of the wall or panel you are designing for. The display always fills its own window."
-        >
-          <Segmented
-            options={SCREENS.map((s) => ({ value: s.value, label: s.label }))}
-            value={screenKey}
-            onChange={pickScreen}
-          />
-        </Field>
-        {screenKey === 'custom' && (
-          <div className="geometry-custom">
-            <Field
-              label="Screen width"
-              htmlFor="cfg-screen-w"
-              hint="Any units - centimetres, pixels, or just the proportions. Only the ratio matters."
-            >
-              <TextInput
-                id="cfg-screen-w"
-                type="number"
-                min={1}
-                value={draftW}
-                onChange={(event) => setDraftW(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') commitCustom();
-                }}
-                onBlur={commitCustom}
-              />
-            </Field>
-            <Field label="Screen height" htmlFor="cfg-screen-h">
-              <TextInput
-                id="cfg-screen-h"
-                type="number"
-                min={1}
-                value={draftH}
-                onChange={(event) => setDraftH(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') commitCustom();
-                }}
-                onBlur={commitCustom}
-              />
-            </Field>
-          </div>
-        )}
-        <Field
-          label={
-            <>
-              Card size{' '}
-              <span className="muted">
-                {SIZE_LABELS[cardSize]}
-              </span>
-            </>
-          }
-          hint="How big a card is on the glass. A real size, so it reads the same from the back of the room whatever screen it goes on - a bigger screen holds more of them rather than bigger ones."
-        >
-          <div className="geometry-sizes">
-            {CARD_SIZE_IDS.map((id: string) => {
-              const grid = gridFor(id, screen);
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  className={`geometry-size${cardSize === id ? ' is-on' : ''}`}
-                  aria-pressed={cardSize === id}
-                  onClick={() => pickSize(id)}
-                >
-                  <span className="geometry-size-name">{SIZE_LABELS[id]}</span>
-                  <span className="geometry-size-grid">
-                    {grid.cols} × {grid.rows}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </Field>
-        {/* The grid, as an outcome. Never an input: a column count is what the
-            screen and the card size come to, and typing one is doing arithmetic
-            the app has already done. */}
+        {/*
+          The screen and card size themselves are edited in the board's own
+          panel now (BoardSidebar), not here - this used to be a second,
+          duplicate editor for the same two fields, in a different widget
+          style, on the same page. What is left is the fact they come to.
+        */}
         <Field label="The board this makes">
           <p className="geometry-derived">
             <strong>

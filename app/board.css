@@ -1659,32 +1659,14 @@ main.landing .error {
 }
 
 
-/* Shape & size: the screen, the cards across, and the cards down that follow
-   from them. A column of fields rather than the auto-fit grid the rest of the
-   display settings use - these three read as one sentence and shouldn't wrap
-   into an arbitrary number of columns. */
+/* Shape & size: the template a board's card size came from, if any, and the
+   grid that comes of it. The screen and the card size themselves are edited
+   from the board's own panel (BoardSidebar) - this is a report, not a form. */
 .geometry {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
   align-self: stretch;
-}
-
-.geometry-custom {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: var(--space-3);
-}
-
-.geometry-rows {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-.geometry-rows .ui-range {
-  flex: 1 1 auto;
-  min-width: 0;
 }
 
 /* The preview's own bar: what the board is, and the two things you can do with
@@ -1852,65 +1834,6 @@ main.landing .error {
 .design-rename .ui-input {
   flex: 1 1 140px;
   min-width: 0;
-}
-
-/*
- * The card size scale: five steps, each showing the grid it makes on the
- * screen being designed for - so the consequence is visible at the moment of
- * choosing rather than after saving.
- */
-.geometry-sizes {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: stretch;
-  gap: var(--space-2);
-}
-
-.geometry-size {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--edge);
-  border-radius: var(--radius-sm);
-  background: var(--surface-1);
-  color: var(--ink);
-  cursor: pointer;
-  text-align: left;
-}
-
-.geometry-size:hover {
-  border-color: var(--edge-strong);
-}
-
-.geometry-size:focus-visible {
-  outline: 2px solid var(--ring);
-  outline-offset: 2px;
-}
-
-/* The one that is on: the board is currently this size. */
-.geometry-size.is-on {
-  border-color: var(--ink);
-  background: var(--shade);
-  color: var(--ink);
-}
-
-.geometry-size-name {
-  font: 600 var(--text-sm) / 1.2 var(--font-sans);
-}
-
-/* The card's real size, which is what makes the name mean something. */
-.geometry-size-mm {
-  font: 400 var(--text-xs) / 1.2 var(--font-sans);
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-}
-
-/* The grid this size produces - the number nobody should have to type. */
-.geometry-size-grid {
-  font: 400 var(--text-xs) / 1.2 var(--font-mono);
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
 }
 
 /* A number the app worked out, in the place a control would be. */
