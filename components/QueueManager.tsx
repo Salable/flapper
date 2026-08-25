@@ -258,115 +258,130 @@ export function QueueManager({
         error={error}
         onSubmit={send}
       />
-      <div className="design-surface">
-        <div className="design-preview">
+      {isSign ? (
+        /*
+         * No second column. A sign's queue box used to sit beside the
+         * preview and just say the same thing again in text - "on the
+         * glass", the one item, Blank it - which the real board a few
+         * pixels to its left was already showing. A sign has one slide;
+         * the slide is the point, so it gets the width.
+         */
+        <div className="sign-surface">
           <ThemePreview pack={pack} text={glassText} cols={cols} rows={rows} tilePx={56} ambientMs={ambientMs} />
           <div className="design-preview-bar">
             <p className="design-preview-caption">
               {cols} × {rows} cards{glassText === '' ? ' · the board is blank' : ''}
             </p>
           </div>
-          <Button variant="primary" onClick={() => setComposeOpen(true)}>
-            {isSign ? 'Change it' : 'Compose'}
-          </Button>
+          {error !== '' && <p className="error">{error}</p>}
+          <div className="sign-actions">
+            <Button variant="primary" onClick={() => setComposeOpen(true)}>
+              Change it
+            </Button>
+            <Button
+              variant="danger"
+              disabled={nothingOnBoard}
+              onClick={async () => {
+                if (await confirm({ title: 'Blank the board?', confirmLabel: 'Blank it', danger: true })) {
+                  act(() => post('/clear', 'POST', {}));
+                }
+              }}
+              title={nothingOnBoard ? 'The board is already blank' : 'Stop everything and blank the glass'}
+            >
+              Blank it
+            </Button>
+          </div>
         </div>
-        <div className="design-controls">
-          <section className="settings-block">
-            <h2>{isSign ? 'What it says' : 'Queue'}</h2>
-            {error !== '' && <p className="error">{error}</p>}
-            {items.length === 0 ? (
-              <p className="muted">
-                {isSign
-                  ? 'The board is blank. Compose something to put on it.'
-                  : snapshot?.currentState === 'holding'
+      ) : (
+        <div className="design-surface">
+          <div className="design-preview">
+            <ThemePreview pack={pack} text={glassText} cols={cols} rows={rows} tilePx={56} ambientMs={ambientMs} />
+            <div className="design-preview-bar">
+              <p className="design-preview-caption">
+                {cols} × {rows} cards{glassText === '' ? ' · the board is blank' : ''}
+              </p>
+            </div>
+            <Button variant="primary" onClick={() => setComposeOpen(true)}>
+              Compose
+            </Button>
+          </div>
+          <div className="design-controls">
+            <section className="settings-block">
+              <h2>Queue</h2>
+              {error !== '' && <p className="error">{error}</p>}
+              {items.length === 0 ? (
+                <p className="muted">
+                  {snapshot?.currentState === 'holding'
                     ? 'The queue has drained; the last message is standing on the glass.'
                     : 'Nothing queued. The board is blank until something is.'}
-              </p>
-            ) : (
-              <ol className="queue-list">
-                {items.map((item) => (
-                  <li key={item.id} className={item.id === playingId ? 'is-playing' : ''}>
-                    {editing?.id === item.id ? (
-                      <input
-                        className="queue-edit as-board"
-                        type="text"
-                        autoFocus
-                        value={editing.text}
-                        onChange={(event) => setEditing({ id: item.id, text: event.target.value })}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter') {
-                            act(() => post(`/queue/items/${item.id}`, 'PATCH', { text: editing.text }));
-                            setEditing(null);
-                          }
-                          if (event.key === 'Escape') setEditing(null);
-                        }}
-                        onBlur={() => setEditing(null)}
-                      />
-                    ) : (
-                      <span className="queue-text">
-                        {item.id === playingId && <b className="now">▶</b>}
-                        {item.id === holdingId && <b className="now">◼</b>}
-                        {label(item)}
-                      </span>
-                    )}
-                    <span className="queue-meta muted">
-                      {isSign ? '' : item.loop ? 'loop · ' : ''}
-                      {isSign ? 'on the glass' : item.source}
-                    </span>
-                    <span className="queue-actions">
-                      {/* Reorder, loop, edit-in-place, remove - all of it arranges
-                          or amends something that is waiting or already playing.
-                          A sign is neither: there is nothing behind it to reorder,
-                          and "remove" would empty the queue while the glass, which
-                          holds its last message, kept showing this one regardless -
-                          the panel would say blank while the wall did not. Change
-                          it (which replaces) and Blank it (which actually clears)
-                          are the only two things a sign's one item can mean. */}
-                      {!isSign && (
-                        <>
-                          <button title="Move up" aria-label="Move up" onClick={() => reorder(item, -1)} disabled={item.id === playingId}>
-                            ↑
-                          </button>
-                          <button title="Move down" aria-label="Move down" onClick={() => reorder(item, 1)} disabled={item.id === playingId}>
-                            ↓
-                          </button>
-                          <button
-                            title={item.loop ? 'Stop looping' : 'Loop'}
-                            aria-label={item.loop ? 'Stop looping' : 'Loop'}
-                            aria-pressed={item.loop}
-                            className={item.loop ? 'is-on' : ''}
-                            onClick={() => act(() => post(`/queue/items/${item.id}`, 'PATCH', { loop: !item.loop }))}
-                          >
-                            ↻
-                          </button>
-                          <button
-                            title="Edit"
-                            aria-label="Edit message"
-                            // A rows-mode item has text: '' - not undefined - so
-                            // this checked the wrong thing and offered to edit a
-                            // rows-based message as a single line, which would
-                            // have silently thrown its row structure away on save.
-                            disabled={!item.payload.text}
-                            onClick={() => setEditing({ id: item.id, text: item.payload.text ?? '' })}
-                          >
-                            ✎
-                          </button>
-                          <button title="Remove" aria-label="Remove from queue" onClick={() => act(() => post(`/queue/items/${item.id}`, 'DELETE'))}>
-                            ✕
-                          </button>
-                        </>
+                </p>
+              ) : (
+                <ol className="queue-list">
+                  {items.map((item) => (
+                    <li key={item.id} className={item.id === playingId ? 'is-playing' : ''}>
+                      {editing?.id === item.id ? (
+                        <input
+                          className="queue-edit as-board"
+                          type="text"
+                          autoFocus
+                          value={editing.text}
+                          onChange={(event) => setEditing({ id: item.id, text: event.target.value })}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter') {
+                              act(() => post(`/queue/items/${item.id}`, 'PATCH', { text: editing.text }));
+                              setEditing(null);
+                            }
+                            if (event.key === 'Escape') setEditing(null);
+                          }}
+                          onBlur={() => setEditing(null)}
+                        />
+                      ) : (
+                        <span className="queue-text">
+                          {item.id === playingId && <b className="now">▶</b>}
+                          {item.id === holdingId && <b className="now">◼</b>}
+                          {label(item)}
+                        </span>
                       )}
-                    </span>
-                  </li>
-                ))}
-              </ol>
-            )}
-            {/* Priority, hold and loop all arrange things that are waiting - a
-                sign has nothing waiting, so none of it applies; its one control
-                is the "Change it" button beside the preview above. Left here
-                rather than inside the modal: these decide where the message
-                that is about to be written will land, not how it is written. */}
-            {!isSign && (
+                      <span className="queue-meta muted">
+                        {item.loop ? 'loop · ' : ''}
+                        {item.source}
+                      </span>
+                      <span className="queue-actions">
+                        <button title="Move up" aria-label="Move up" onClick={() => reorder(item, -1)} disabled={item.id === playingId}>
+                          ↑
+                        </button>
+                        <button title="Move down" aria-label="Move down" onClick={() => reorder(item, 1)} disabled={item.id === playingId}>
+                          ↓
+                        </button>
+                        <button
+                          title={item.loop ? 'Stop looping' : 'Loop'}
+                          aria-label={item.loop ? 'Stop looping' : 'Loop'}
+                          aria-pressed={item.loop}
+                          className={item.loop ? 'is-on' : ''}
+                          onClick={() => act(() => post(`/queue/items/${item.id}`, 'PATCH', { loop: !item.loop }))}
+                        >
+                          ↻
+                        </button>
+                        <button
+                          title="Edit"
+                          aria-label="Edit message"
+                          // A rows-mode item has text: '' - not undefined - so
+                          // this checked the wrong thing and offered to edit a
+                          // rows-based message as a single line, which would
+                          // have silently thrown its row structure away on save.
+                          disabled={!item.payload.text}
+                          onClick={() => setEditing({ id: item.id, text: item.payload.text ?? '' })}
+                        >
+                          ✎
+                        </button>
+                        <button title="Remove" aria-label="Remove from queue" onClick={() => act(() => post(`/queue/items/${item.id}`, 'DELETE'))}>
+                          ✕
+                        </button>
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              )}
               <div className="compose-options">
                 <Field label="Priority" htmlFor="compose-priority">
                   <Select id="compose-priority" value={priority} onChange={(e) => setPriority(e.target.value)}>
@@ -387,15 +402,11 @@ export function QueueManager({
                 </Field>
                 <Checkbox id="compose-loop" label="Loop" checked={loop} onChange={(e) => setLoop(e.target.checked)} />
               </div>
-            )}
-            {!isSign && (
               <span className="muted">
                 Loop sends a played message to the back of the queue instead of removing it. A
                 band&apos;s only exit from a loop is removing the item or clearing.
               </span>
-            )}
-            <div className="actions">
-              {!isSign && (
+              <div className="actions">
                 <Button
                   size="sm"
                   onClick={() => act(() => post('/queue', 'DELETE'))}
@@ -408,30 +419,30 @@ export function QueueManager({
                 >
                   Flush pending
                 </Button>
-              )}
-              <Button
-                size="sm"
-                variant="danger"
-                disabled={nothingOnBoard}
-                onClick={async () => {
-                  if (
-                    await confirm({
-                      title: isSign ? 'Blank the board?' : 'Clear the queue and blank the board?',
-                      confirmLabel: isSign ? 'Blank it' : 'Clear board',
-                      danger: true,
-                    })
-                  ) {
-                    act(() => post('/clear', 'POST', {}));
-                  }
-                }}
-                title={nothingOnBoard ? 'The board is already blank' : 'Stop everything and blank the glass'}
-              >
-                {isSign ? 'Blank it' : 'Clear board'}
-              </Button>
-            </div>
-          </section>
+                <Button
+                  size="sm"
+                  variant="danger"
+                  disabled={nothingOnBoard}
+                  onClick={async () => {
+                    if (
+                      await confirm({
+                        title: 'Clear the queue and blank the board?',
+                        confirmLabel: 'Clear board',
+                        danger: true,
+                      })
+                    ) {
+                      act(() => post('/clear', 'POST', {}));
+                    }
+                  }}
+                  title={nothingOnBoard ? 'The board is already blank' : 'Stop everything and blank the glass'}
+                >
+                  Clear board
+                </Button>
+              </div>
+            </section>
+          </div>
         </div>
-      </div>
+      )}
     </>
   );
 }

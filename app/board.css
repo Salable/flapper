@@ -1530,6 +1530,26 @@ main.landing .error {
   }
 }
 
+/*
+ * A sign's own surface: no second column, because there is nothing in it a
+ * sign needs - no queue to list, and "what it says" is the preview right
+ * there. Full width instead of design-surface's two-column grid, so the one
+ * slide that is the entire point of a sign gets the room a queue's list
+ * would otherwise have taken.
+ */
+.sign-surface {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-width: 900px;
+}
+
+.sign-actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
 /* ---- Theme settings: the board's look, edited on a live board ---- */
 
 .error {

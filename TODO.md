@@ -174,6 +174,15 @@ the `cols × rows` colour grid, the renderer cannot tell the difference.
       explicitly turns off, the same way Priority/Hold/Loop already are.
       Not done yet: show "Sign" there instead, derived from `queueCap`
       the same way `isSign` already is everywhere else, not the type id.
+- [x] The "What it says" box beside a sign's preview asked outright: "you
+      see that thing - it's a slide label?" It was, and nothing else -
+      the same text the preview already showed, plus Blank it. Given a
+      whole surface of its own (`.sign-surface`, no second grid column)
+      rather than a design-controls column with one line in it: the
+      preview at full width, Change it and Blank it as one action row
+      beneath. Queue mode's own two-column layout (design-surface)
+      untouched - verified side by side on a sign and a cycle in the
+      same run.
 
 ### Next — the designer suite
 
