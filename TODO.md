@@ -472,6 +472,18 @@ back to the design's Hold instead of the board's.
       candidate caller and they draw on a canvas instead, which shows a design's
       behaviour as well as its colours. The canvas won on every surface, so a
       CSS tile in a design has nowhere left to be wanted.
+- [ ] **ComposeModal's "By character" wrap doesn't preview as character-wrap.**
+      `wrap={layout.wrap === 'none' ? 'off' : 'soft'}` maps both `word` and
+      `char` to the textarea's native `soft`, which only breaks on whitespace -
+      so picking "By character" changes what the server will do to the text
+      without changing how the compose box itself wraps it while typing.
+      Flagged in the file's own doc comment as an accepted approximation, not
+      confirmed as worth fixing yet.
+- [ ] **`.ui-chip-tip::after`'s flyout has no viewport-edge handling** —
+      `left: 0; width: max-content; max-width: 260px`, unclipped. A tip opened
+      near a narrow-viewport edge could push a few pixels of horizontal
+      scroll rather than being invisibly clipped as it was before dash pages
+      could scroll at all. Not reproduced live; speculative.
 
 ## Open questions — yours
 

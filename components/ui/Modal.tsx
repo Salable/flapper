@@ -40,7 +40,25 @@ export function Modal({
     // input) already took it; the panel must never win focus from a child.
     const panel = panelRef.current;
     if (panel && !panel.contains(document.activeElement)) panel.focus();
-    return () => window.removeEventListener('keydown', onKey);
+    // The page behind the backdrop used to be unscrollable for free - every
+    // dash page had `overflow: hidden` on <html>/<body> globally, meant only
+    // for the wall display. Now that it's scoped to the display, a modal has
+    // to lock scroll itself, or the page underneath moves under the fixed
+    // backdrop while it's open. Both elements, not just body: this app's
+    // scrolling element is <html> (document.scrollingElement), and hiding
+    // overflow on body alone measured as a no-op - window.scrollBy still
+    // moved the page.
+    const html = document.documentElement;
+    const body = document.body;
+    const previousHtmlOverflow = html.style.overflow;
+    const previousBodyOverflow = body.style.overflow;
+    html.style.overflow = 'hidden';
+    body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      html.style.overflow = previousHtmlOverflow;
+      body.style.overflow = previousBodyOverflow;
+    };
   }, [open]);
 
   if (!open) return null;

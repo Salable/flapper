@@ -62,7 +62,7 @@ const POLL_MS = 3000;
 
 export function QueueManager({
   slug,
-  cap = Infinity,
+  isSign = false,
   pack,
   cols,
   rows,
@@ -70,7 +70,10 @@ export function QueueManager({
   onSaved,
 }: {
   slug: string;
-  cap?: number;
+  /** Whether the board is a sign - a queue capped at one message. Passed in
+   * via lib/board/geometry.mjs's isSignConfig, the one place this is
+   * derived, rather than recomputed here from a raw cap. */
+  isSign?: boolean;
   /** The board's own design, so composing happens in it rather than beside it. */
   pack: ThemePack;
   cols: number;
@@ -93,12 +96,7 @@ export function QueueManager({
    * nothing waiting and never can be, so all of it is furniture - and the one
    * thing you actually want, changing what it says, was the hardest thing on
    * the panel to find.
-   *
-   * Derived from the cap rather than the template id, so a board is whatever
-   * its settings say: raise the cap and the queue appears, drop it to one and
-   * it becomes a sign again.
    */
-  const isSign = cap === 1;
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [composeOpen, setComposeOpen] = useState(false);
   const [sending, setSending] = useState(false);

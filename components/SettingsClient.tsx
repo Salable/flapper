@@ -81,9 +81,9 @@ export function SettingsClient({ board: initial }: { board: Board }) {
    */
   const grid = gridForConfig(board.config);
   // A board that holds one message is a sign; BoardSidebar and QueueManager
-  // derive the same fact via the same isSignConfig, from the cap rather than
-  // the template id, so a board is whatever its settings currently say.
-  const cap = Number(board.config?.queueCap) || Infinity;
+  // are both told the same fact via the same isSignConfig, from the cap
+  // rather than the template id, so a board is whatever its settings
+  // currently say.
   const isSign = isSignConfig(board.config);
 
   // Resolved after mount: the server does not know the public origin, and
@@ -246,8 +246,8 @@ export function SettingsClient({ board: initial }: { board: Board }) {
     <QueueManager
       slug={board.slug}
       // The panel drops everything that only makes sense with a queue
-      // behind it once cap is 1.
-      cap={cap}
+      // behind it once this is true.
+      isSign={isSign}
       // The board's own design, so composing happens on it - what look this
       // board wears is picked in the sidebar now, not a draft owned here.
       pack={resolveBoardTheme(board.config).pack}

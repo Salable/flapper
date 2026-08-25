@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { Button } from './Button';
 
 /** Small pieces that don't earn their own file. */
@@ -26,14 +26,20 @@ export function Chip({
   ...rest
 }: React.HTMLAttributes<HTMLSpanElement> & { tone?: 'neutral' | 'amber' | 'live' | 'danger'; tip?: string }) {
   const chip = <span className={`ui-chip ui-chip-${tone} ${className}`.trim()} title={tip} {...rest} />;
+  const tipId = useId();
   if (!tip) return chip;
   return (
-    // aria-label carries the tip to assistive tech - the CSS ::after that
-    // draws it visually is generated content, which screen readers do not
-    // reliably announce, and the chip's own title is overridden by this
-    // wrapper's accessible name once it's the focusable, labelled element.
-    <span className="ui-chip-tip" data-tip={tip} tabIndex={0} aria-label={tip}>
+    // aria-describedby, not aria-label: the wrapper's accessible name still
+    // has to be the chip's own text ("active", "Sign", ...) - a screen
+    // reader user needs that as much as a sighted one does. The tip is a
+    // description, so it's added via a real (visually hidden) node the CSS
+    // ::after can't stand in for, since generated content is not reliably
+    // announced.
+    <span className="ui-chip-tip" data-tip={tip} tabIndex={0} aria-describedby={tipId}>
       {chip}
+      <span id={tipId} className="sr-only">
+        {tip}
+      </span>
     </span>
   );
 }

@@ -406,6 +406,20 @@ a.ui-btn-danger {
      silently cancelling it. */
 }
 
+/* Present to assistive tech, invisible and out of layout for everyone else -
+   the accessible-name text a control needs but has no room to show. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .ui-chip-tip::after {
   content: attr(data-tip);
   position: absolute;
