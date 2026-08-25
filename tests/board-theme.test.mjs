@@ -135,6 +135,25 @@ test('a tint survives the round trip through a sparse override', () => {
   assert.equal(sparsify({ ...THEMES.sorbet }, THEMES.sorbet), null);
 });
 
+test('a background survives the round trip through a sparse override', () => {
+  // The same bug class the tint test above exists for, caught this time
+  // before it shipped: background is a third top-level field alongside
+  // tint and flight, threaded through the identical mergePack/sparsify/
+  // PACK_KEYS machinery - nothing stops a future edit to that machinery
+  // from forgetting it the way tint once was.
+  const preset = THEMES.classic;
+  const sparse = sparsify({ ...preset, background: '#1a2f4a' }, preset);
+  assert.deepEqual(sparse.background, '#1a2f4a', 'a background unlike the preset is stored');
+  assert.equal(mergePack(preset, sparse).background, '#1a2f4a', 'and comes back on merge');
+
+  // A preset that has one keeps it when a board overrides something else.
+  const merged = mergePack(THEMES.classic, { card: { fill: '#fff' } });
+  assert.equal(merged.background, THEMES.classic.background, "a preset's own background is not lost");
+
+  // And matching the preset stores nothing, as with every other field.
+  assert.equal(sparsify({ ...THEMES.classic }, THEMES.classic), null);
+});
+
 test('themeRev is stable across key order and an equivalent whole pack, and moves with content', async () => {
   const a = await themeRevOf({ theme: 'classic', themePack: { card: { fill: '#fff', radius: 0.1 } } });
   const b = await themeRevOf({ themePack: { card: { radius: 0.1, fill: '#fff' } }, theme: 'classic' });

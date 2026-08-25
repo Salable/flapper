@@ -139,7 +139,13 @@ export function DesignGallery() {
   // basedOn names a shipped theme or one of your own designs, whichever it
   // was made from - checked in that order since a shipped id can never
   // collide with a design's generated one.
-  const basedOnName = (id: string) => themes[id]?.name ?? mine?.find((design) => design.id === id)?.name ?? id;
+  // Neither a shipped theme nor one of your own current designs - the only
+  // way there is to have forked from one of your own and then deleted it.
+  // The id itself is never shown anywhere else in this UI (boards get
+  // friendly slugs; designs don't), so falling back to it here would be
+  // the one place a raw internal id leaked into view.
+  const basedOnName = (id: string) =>
+    themes[id]?.name ?? mine?.find((design) => design.id === id)?.name ?? 'a design you deleted';
 
   const packButton = (key: string) => (
     <button

@@ -29,13 +29,20 @@ test('every problem is reported, not just the first', () => {
     card: { fill: 'notacolour', radius: 2 },
     glyph: { font: 'Arial 12px' },
     ring: ' AB',
+    background: 'notacolour',
     states: { '#': {}, A: { art: 'missing' }, B: { glyph: { fill: 'nope' } } },
   });
   assert.equal(result.ok, false);
   const text = result.errors.join('\n');
-  for (const expected of ['id must', 'card.fill', 'card.radius', 'glyph.font', 'ring cannot', 'states["#"] is not in the ring', 'unknown art "missing"', 'states["B"].glyph.fill']) {
+  for (const expected of ['id must', 'card.fill', 'card.radius', 'glyph.font', 'ring cannot', 'background must be a colour', 'states["#"] is not in the ring', 'unknown art "missing"', 'states["B"].glyph.fill']) {
     assert.ok(text.includes(expected), `missing: ${expected}\n${text}`);
   }
+});
+
+test('background defaults, validates as a colour, and is settable like any other field', () => {
+  assert.equal(validatePack({ id: 'p' }).pack.background, '#0a0a0b');
+  assert.equal(validatePack({ id: 'p', background: '#123456' }).pack.background, '#123456');
+  assert.match(validatePack({ id: 'p', background: 'nope' }).errors.join(), /background must be a colour/);
 });
 
 test('non-object packs and sections are refused', () => {
@@ -95,14 +102,22 @@ test('the ids the drawn twins wore still resolve, but are not themes', () => {
 
 /** A 2D context that remembers what was asked of it. */
 function stubContext(log) {
-  const ctx = { canvas: {} };
+  const ctx = { canvas: {}, fillStyle: null };
   for (const method of [
-    'clearRect', 'fillRect', 'fill', 'beginPath', 'roundRect', 'rect', 'drawImage',
-    'fillText', 'strokeText', 'save', 'restore', 'translate', 'scale',
+    'clearRect', 'beginPath', 'roundRect', 'rect', 'drawImage',
+    'fillText', 'strokeText', 'save', 'restore', 'translate', 'scale', 'clip',
   ]) {
     ctx[method] = (...args) => log.push([method, ...args]);
   }
-  ctx.createLinearGradient = () => ({ addColorStop() {} });
+  // fillRect and fill matter for *what colour or gradient was set*, not
+  // just that they were called - fillStyle is a plain property assignment,
+  // invisible to the generic logging loop above, so these two log it too.
+  ctx.fillRect = (...args) => log.push(['fillRect', ctx.fillStyle, ...args]);
+  ctx.fill = (...args) => log.push(['fill', ctx.fillStyle, ...args]);
+  ctx.createLinearGradient = (...args) => {
+    const gradient = { args, stops: [], addColorStop: (offset, color) => gradient.stops.push([offset, color]) };
+    return gradient;
+  };
   return ctx;
 }
 
@@ -111,13 +126,42 @@ test('paintCard draws the card then the glyph, and nothing for blank', () => {
   let log = [];
   paintCard(stubContext(log), 100, 'A', resolveStateStyle(pack, 'A'));
   const calls = log.map((c) => c[0]);
-  assert.deepEqual(calls.filter((c) => c === 'fill').length, 3, 'edge, face, sheen');
+  // Sheen no longer contributes a `fill` call - with clip available (the
+  // stub now has it), it takes the two-fillRect stepped path below rather
+  // than the single-gradient `fill()` fallback, so this is edge and face
+  // only now.
+  assert.deepEqual(calls.filter((c) => c === 'fill').length, 2, 'edge, face');
   assert.ok(calls.indexOf('strokeText') < calls.indexOf('fillText'), 'stroke under fill');
   assert.deepEqual(log.find((c) => c[0] === 'fillText').slice(1, 2), ['A']);
 
   log = [];
   paintCard(stubContext(log), 100, ' ', resolveStateStyle(pack, ' '));
   assert.ok(!log.some((c) => c[0] === 'fillText' || c[0] === 'strokeText'));
+});
+
+test('paintCard bakes the sheen as a step at the card\'s own midpoint, clipped to the inset face', () => {
+  // The bug this catches: a single gradient across the whole card does not
+  // know the hinge line exists, so a card cut exactly in half at rest
+  // produced two slices that were pixel-for-pixel continuous - nothing in
+  // the image gave the cut anywhere to be. Two independent fillRects, one
+  // per half, is what gives the seam something to actually be.
+  const { pack } = validatePack({ id: 'p', card: { sheen: 0.2 } });
+  const log = [];
+  paintCard(stubContext(log), 100, 'A', resolveStateStyle(pack, 'A'));
+  assert.ok(log.some((c) => c[0] === 'clip'), 'clipped to the inset face before painting the sheen');
+
+  const fillRects = log.filter((c) => c[0] === 'fillRect');
+  // edge and face are plain roundedRect().fill()s, not fillRect - so every
+  // fillRect here belongs to the sheen step (or, later in the file for
+  // grunge/vignette, but grunge is gated on ctx.arc and vignette on
+  // ctx.createRadialGradient, both absent from this stub, so neither
+  // fires and every fillRect logged is unambiguously the sheen).
+  assert.equal(fillRects.length, 2, 'one fillRect per half');
+  const [top, bottom] = fillRects;
+  assert.deepEqual(top.slice(2), [0, 0, 100, 50], 'top half spans the card\'s own top to its midpoint');
+  assert.deepEqual(bottom.slice(2), [0, 50, 100, 50], 'bottom half spans the midpoint to the card\'s own bottom');
+  assert.ok(top[1] && top[1].stops.some(([, color]) => color.includes('255,255,255')), 'top half brightens');
+  assert.ok(bottom[1] && bottom[1].stops.some(([, color]) => color.includes('0,0,0')), 'bottom half darkens');
 });
 
 test('paintCard draws art instead of the glyph', () => {
@@ -171,6 +215,35 @@ test('ProceduralSkin at rest draws both halves of the current card; in flight, t
   draws = log.filter((c) => c[0] === 'drawImage');
   assert.equal(draws[0][1], skin.cards[0], 'the ring wraps');
   assert.equal(draws[2][1], skin.cards[0], 'late in the flap the falling face is the next bottom');
+});
+
+test('drawTile: the card under the flap darkens by motion.shading (not motion.shadow), the flap itself brightens, and the hinge band is a flat fill', () => {
+  // Three distinct values so a fillRect's alpha can only match one field -
+  // this is what actually catches the lighting model being wired to the
+  // wrong one of the three, which a call-sequence-only assertion cannot.
+  const { pack } = validatePack({ id: 'p', motion: { shading: 0.11, shadow: 0.33, highlight: 0.55 } });
+  const skin = new ProceduralSkin(pack, { createCanvas: fakeSkinCanvas([]) });
+  skin.prepare(100);
+  const log = [];
+  // progress 0.5 -> theta = π/2 -> sin θ = 1 exactly, so the alphas below
+  // are the field's own value times its fixed multiplier, no trig noise.
+  skin.drawTile(stubContext(log), 1, 0.5, 0, 0, 100);
+
+  assert.equal(log.filter((c) => c[0] === 'clip').length, 2, 'clipped twice - the under-flap shade, and the flap\'s own highlight; never the drawImage calls');
+
+  const fillRects = log.filter((c) => c[0] === 'fillRect');
+  const underFlap = fillRects.find((c) => c[1] === 'rgba(0,0,0,0.066)');
+  assert.ok(underFlap, `expected an rgba(0,0,0,0.066) fillRect (0.11 * 0.6 * 1) among ${JSON.stringify(fillRects.map((c) => c[1]))}`);
+  assert.deepEqual(underFlap.slice(2), [0, 0, 100, 100], 'spans the whole tile, under the flap drawn on top of it after');
+  assert.ok(!fillRects.some((c) => c[1] === 'rgba(0,0,0,0.198)'), 'motion.shadow (0.33) never darkens the card under the flap - that is motion.shading\'s job now');
+
+  const flapHighlight = fillRects.find((c) => c[1] && typeof c[1] === 'object' && c[1].stops.some(([, color]) => color === 'rgba(255,255,255,0.550)'));
+  assert.ok(flapHighlight, 'the flap itself brightens by motion.highlight (0.55), as a gradient sheen, not a flat darken');
+
+  const band = 100 * pack.hinge.thickness;
+  const hingeFill = fillRects.find((c) => c[1] === pack.hinge.fill);
+  assert.ok(hingeFill, 'the hinge band is filled with a plain colour string, not a gradient - no feather left to build one from');
+  assert.deepEqual(hingeFill.slice(2), [0, 50 - band / 2, 100, band], 'centred on the tile\'s own midpoint');
 });
 
 test('Carnival colours the flight, not the letters', () => {

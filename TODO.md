@@ -470,11 +470,14 @@ back to the design's Hold instead of the board's.
 Raised directly: a resting tile read as one flat plastic rectangle rather than
 two hinged vanes, and the whole board looked too clean to have hung anywhere.
 
-- [x] `hinge.highlight` (the top vane's bevel, already coded and drawable) and
+- [x] `hinge.highlight` (a vane's bevel, already coded and drawable) and
       real pin sizes now have actual defaults instead of `null` /
       too-small-to-see - Classic and any pack that never touched `hinge` were
       the only ones this changed; the four packs that already set their own
-      `highlight` were untouched.
+      `highlight` were untouched. Positioned on the *lower* vane's top edge -
+      it was drawn on the upper vane at first, which turned out to be the
+      actual cause of a hinge that measured dead centre but read as sitting
+      high, fixed once caught and described where that fix landed.
 - [x] `card.vignette` and `card.grunge`, two new pack fields (defaults 0.22
       and 0.14) - light falling off toward the card's edge, and a scatter of
       dark specks plus a couple of soft pooled smudges. Baked into `paintCard`
@@ -540,14 +543,33 @@ API and re-sampling** (not guessed): `card.grunge`, `card.vignette`,
 `card.sheen` (all zeroed); `motion.shading`, `motion.shadow`,
 `motion.highlight` (all zeroed); `hinge.thickness`/`hinge.highlight`
 (thinned/disabled); `card.radius` (zeroed, making the clip a plain
-rectangle); the rounded clip in `drawTile` itself (temporarily removed by
-editing the code directly, not just the pack); `advanced.frameMs`
-(zeroed, uncapped rendering). The band survived every one of these,
-independently. Since every change from today's card-look and flap-lighting
-work is now ruled out, the cause is somewhere in what was already there
-before this session - most likely the static-halves compositing or the
-glyph/font rendering in `paintCard`, neither of which got a comparably
-thorough isolation pass.
+rectangle); `advanced.frameMs` (zeroed, uncapped rendering). The band
+survived every one of these, independently.
+
+**The clip specifically** has been ruled out three times now, against
+three different structures it has actually had, not just once against
+whichever one existed when this entry was first written - worth being
+explicit about, since the clip was rebuilt twice more after that first
+test and the earlier version of this note didn't say which structure the
+"removed it, still happened" test actually covered:
+
+1. First test: the clip as of `5f77bac` - one `ctx.clip()` wrapping the
+   *whole* tile (both static halves, the flap overlay, and the hinge/pins)
+   at the card's full outer radius. Removed entirely by editing the code;
+   band still reproduced.
+2. `6706063` narrowed that to the in-flight lighting only, at the card's
+   *inset* face rather than its outer edge - not re-tested at the time.
+3. Re-tested now, after `drawTile` was restructured again (this pass) so
+   the clip covers only the two lighting fillRects and never the
+   `drawImage` calls (static or flap) at all: reproduced again, 11/48
+   samples (~23%) across six single-click rounds - same rate as the
+   original test, same reproduction steps below.
+
+Since every change from today's card-look and flap-lighting work, across
+every structural revision of the clip, is now ruled out, the cause is
+somewhere in what was already there before this session - most likely the
+static-halves compositing or the glyph/font rendering in `paintCard`,
+neither of which got a comparably thorough isolation pass.
 
 **Not done**: root cause. This is logged in enough detail to pick back up
 without repeating the bisection - the next step that hasn't been tried is
@@ -556,6 +578,39 @@ in `paintCard` the same way the rest were ruled out, probably by rendering
 a single state directly to an offscreen canvas outside `drawTile`
 entirely and comparing it pixel-for-pixel against the same state sampled
 mid-animation.
+
+## From the multi-pronged review of the flip-mechanism rebuild
+
+Found by a 7-lens parallel review (canvas geometry, pack schema, React/UI,
+test coverage, consistency drift, performance, docs accuracy) with every
+finding independently adversarially verified before anything below was
+acted on. 16 of 18 confirmed findings were fixed directly (the clip
+wrapping the flap's own `drawImage` too, `shade()`'s dead `dark` param,
+`Math.sin(theta)` recomputed four times over, `background`'s missing test
+coverage and MCP schema mention, `basedOnName` leaking a raw id when its
+source design was deleted, and the stale docs above); the two below were
+deliberately left rather than fixed blind.
+
+- [ ] **The face-clip added to `drawTile` is a real per-frame cost, not a
+      false alarm** - an extra `ctx.save()`/`roundedRect()`/`ctx.clip()`
+      pair now runs for every in-flight tile, every repaint, where none
+      ran before this session's card-look work. Not fixed: it's the direct
+      cost of the correctness fix it exists for (lighting staying inside
+      the card's edge rather than washing over it) - removing the clip
+      means reintroducing the bug it fixes, not a free win.
+- [ ] **That clip path is rebuilt from scratch every frame though it's
+      identical for every tile at a given size** - `roundedRect()`'s
+      `beginPath()`+`arcTo()`/`roundRect()` calls could be built once (a
+      cached `Path2D`, alongside the per-state cards `prepare()` already
+      caches) and reused via `ctx.clip(path)` instead. Not done: real
+      complexity for a low-severity finding - three separate cached paths
+      would be needed (the full inset face for the under-flap shade, plus
+      two asymmetric three-sided rects for the flap's own highlight, one
+      per half), each has to stay in sync with `prepare()`'s own resize
+      handling, and `Path2D` needs the same feature-detection care every
+      other optional canvas API in this file already gets. Worth doing if
+      the plain per-frame cost above turns out to matter in practice on
+      real wall hardware; not worth the risk blind.
 
 ## Left by the code review
 
