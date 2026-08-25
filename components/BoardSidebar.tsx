@@ -107,6 +107,11 @@ export function BoardSidebar({
             onChange={(event) => {
               if (event.target.value === 'custom') {
                 setCustom(true);
+                // Refreshed from the current screen - see DisplayConfig's
+                // pickScreen, which has the identical control and the same
+                // fix for the same reason.
+                setDraftW(String(screen.w));
+                setDraftH(String(screen.h));
                 return;
               }
               setCustom(false);

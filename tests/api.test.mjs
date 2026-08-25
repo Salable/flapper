@@ -1264,3 +1264,34 @@ test('idle displays poll lazily: the command stream slows to seconds once nothin
   assert.ok(slept.slice(0, 10).every((ms) => ms === 750), 'brisk while fresh');
   assert.ok(slept.slice(-5).every((ms) => ms >= 8000), `lazy once idle, got ${slept.slice(-5)}`);
 });
+
+test('a rejected replace on a sign leaves the old message, not a blank board', async () => {
+  /*
+   * QueueManager clears a sign before posting its replacement, because a
+   * queue of one is full the moment it says anything. If the replacement is
+   * then refused - too long, or the network - the board had already been
+   * cleared and nothing put it back: WELCOME would vanish and stay gone. The
+   * UI restores it on a failed post; this pins the API half, that a clear
+   * followed by an over-length post really does leave the queue empty, which
+   * is the state the restore step exists to recover from.
+   */
+  const board = await makeBoard({ template: 'sign' });
+  const before = (await jsonOf(call(getQueue, ctx(board.slug), '/queue'))).body;
+  assert.equal(before.items[0].payload.text, 'WELCOME');
+
+  const cleared = await jsonOf(
+    call(clearBoard, ctx(board.slug), '/x', { method: 'POST', body: {}, key: board.apiKey }),
+  );
+  assert.equal(cleared.status, 200, JSON.stringify(cleared.body));
+  const tooLong = await jsonOf(
+    call(postMessage, ctx(board.slug), '/message', {
+      method: 'POST',
+      body: { text: 'X'.repeat(20001), loop: true },
+      key: board.apiKey,
+    }),
+  );
+  assert.equal(tooLong.status, 413);
+
+  const after = (await jsonOf(call(getQueue, ctx(board.slug), '/queue'))).body;
+  assert.equal(after.items.length, 0, 'the API leaves it empty - restoring is the caller\'s job');
+})

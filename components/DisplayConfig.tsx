@@ -174,6 +174,15 @@ export function DisplayConfig({
     // its own, so the fields appear and you can type any shape you like.
     if (value === 'custom') {
       setCustom(true);
+      /*
+       * Refreshed from the current screen, not left at whatever was last
+       * typed. Picking 4:3 and then opening Custom showed 300 and 20 from an
+       * earlier custom shape - the stored screen had moved on, the fields
+       * had not - so committing either one unchanged would have silently put
+       * a 300-wide or 20-tall screen back after choosing 4:3.
+       */
+      setDraftW(String(screen.w));
+      setDraftH(String(screen.h));
       return;
     }
     const found = SCREENS.find((s) => s.value === value);

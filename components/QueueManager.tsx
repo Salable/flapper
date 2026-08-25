@@ -103,10 +103,19 @@ export function QueueManager({ slug, cap = Infinity }: { slug: string; cap?: num
        * to a sign would be refused with "none can be rolled off". Clearing
        * first is what changing a sign means anyway.
        */
+      // What is on the glass right now, so it can go back if the replacement
+      // fails - clearing first means there is a moment with nothing on it,
+      // and a rejected post (too long, or the network) should not leave the
+      // board silently blank rather than showing what it said before.
+      const previous = items[0]?.payload.text;
       act(async () => {
         const cleared = await post('/clear', 'POST', {});
         if (!cleared.ok) return cleared;
-        return post('/queue/items', 'POST', { text, loop: true });
+        const posted = await post('/queue/items', 'POST', { text, loop: true });
+        if (!posted.ok && previous !== undefined) {
+          await post('/queue/items', 'POST', { text: previous, loop: true }).catch(() => {});
+        }
+        return posted;
       });
       setText('');
       return;
