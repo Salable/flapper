@@ -148,6 +148,18 @@ the `cols × rows` colour grid, the renderer cannot tell the difference.
       (board)` that both it and ThemePreview now call, so a board fidgets
       the same way wherever it is watched - `ambientMs` threaded down
       Settings → QueueManager → ThemePreview.
+- [x] Three small sidebar findings, fixed together: Edit and Remove on a
+      sign's one item were never gated behind `isSign` the way reorder/loop
+      already are - Remove in particular would empty the queue while the
+      display, which holds its last message, kept showing it regardless,
+      so the panel said blank when the wall did not. Both hidden now;
+      Change it and Blank it are what a sign's one item can mean. "Live
+      queue" and "active"/"paused" got a `title` explaining what they
+      actually are, since neither is a term this build has defined
+      anywhere a first-time reader would see it. And Start from/Screen/
+      Card size/Fidget apply themselves with no Save button and, until
+      now, no confirmation either - a "Saved." notice (self-clearing,
+      `flashNotice` in SettingsClient) now says so.
 
 ### Next — the designer suite
 
@@ -434,6 +446,13 @@ back to the design's Hold instead of the board's.
    traced by a stroke 2.2% of tile width goes sub-pixel on a small board
    regardless of typeface. Fixable with a solid fill or a heavier stroke -
    not done, since it changes how Canary looks.
+5. **Types of Fidget, not just a rate.** Today "Fidget" is one knob - off, or
+   every N seconds - and idle.mjs picks what happens each tick with no say
+   from the board: flicker odds, how far a sweep travels, whether a sweep
+   happens at all. A named style or two (say, a twitchier one for a busy
+   space, a sweep-only one for something meant to be watched) plus the
+   existing interval as intensity, rather than the interval alone standing
+   in for both "how often" and "how much".
 
 ## Refused by design, not missing
 

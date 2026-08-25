@@ -306,6 +306,14 @@ export function QueueManager({
                       {isSign ? 'on the glass' : item.source}
                     </span>
                     <span className="queue-actions">
+                      {/* Reorder, loop, edit-in-place, remove - all of it arranges
+                          or amends something that is waiting or already playing.
+                          A sign is neither: there is nothing behind it to reorder,
+                          and "remove" would empty the queue while the glass, which
+                          holds its last message, kept showing this one regardless -
+                          the panel would say blank while the wall did not. Change
+                          it (which replaces) and Blank it (which actually clears)
+                          are the only two things a sign's one item can mean. */}
                       {!isSign && (
                         <>
                           <button title="Move up" aria-label="Move up" onClick={() => reorder(item, -1)} disabled={item.id === playingId}>
@@ -323,23 +331,23 @@ export function QueueManager({
                           >
                             ↻
                           </button>
+                          <button
+                            title="Edit"
+                            aria-label="Edit message"
+                            // A rows-mode item has text: '' - not undefined - so
+                            // this checked the wrong thing and offered to edit a
+                            // rows-based message as a single line, which would
+                            // have silently thrown its row structure away on save.
+                            disabled={!item.payload.text}
+                            onClick={() => setEditing({ id: item.id, text: item.payload.text ?? '' })}
+                          >
+                            ✎
+                          </button>
+                          <button title="Remove" aria-label="Remove from queue" onClick={() => act(() => post(`/queue/items/${item.id}`, 'DELETE'))}>
+                            ✕
+                          </button>
                         </>
                       )}
-                      <button
-                        title="Edit"
-                        aria-label="Edit message"
-                        // A rows-mode item has text: '' - not undefined - so
-                        // this checked the wrong thing and offered to edit a
-                        // rows-based message as a single line, which would
-                        // have silently thrown its row structure away on save.
-                        disabled={!item.payload.text}
-                        onClick={() => setEditing({ id: item.id, text: item.payload.text ?? '' })}
-                      >
-                        ✎
-                      </button>
-                      <button title="Remove" aria-label="Remove from queue" onClick={() => act(() => post(`/queue/items/${item.id}`, 'DELETE'))}>
-                        ✕
-                      </button>
                     </span>
                   </li>
                 ))}

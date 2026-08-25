@@ -131,9 +131,19 @@ export function BoardSidebar({
         {boardUrl !== '' && <CopyButton value={boardUrl} label="Copy URL" />}
       </div>
       <div className="board-side-chips">
-        <Chip>{typeName}</Chip>
-        {status !== 'active' ? <Chip tone="danger">paused</Chip> : <Chip tone="live">active</Chip>}
-        {isPrivate && <Chip>private</Chip>}
+        <Chip title="How this board plays what's posted to it - a rolling queue that plays as it arrives. A sign is one of these with its queue capped at one message.">
+          {typeName}
+        </Chip>
+        {status !== 'active' ? (
+          <Chip tone="danger" title="Paused in General: every display shows a paused card and ignores new messages. The queue is kept exactly as it is.">
+            paused
+          </Chip>
+        ) : (
+          <Chip tone="live" title="Live: displays play what's posted and accept new messages.">
+            active
+          </Chip>
+        )}
+        {isPrivate && <Chip title="Only reachable with the board's API key - see General.">private</Chip>}
       </div>
       {/* What decides how this board looks and behaves, in the one place
           that is always on screen - no separate tab to go and find. */}

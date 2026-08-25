@@ -8,7 +8,7 @@
  * visit.
  */
 
-import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
 import { gridForConfig } from '@/lib/board/geometry.mjs';
 import { resolveBoardTheme } from '@/lib/board/board-theme.mjs';
 import { useRouter } from 'next/navigation';
@@ -51,6 +51,18 @@ export function SettingsClient({ board: initial }: { board: Board }) {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
+  const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** A notice that clears itself - for a confirmation nobody needs to
+   * dismiss, as opposed to "New key minted" below, which stays until
+   * something else happens. */
+  function flashNotice(text: string) {
+    if (noticeTimer.current !== null) clearTimeout(noticeTimer.current);
+    setNotice(text);
+    noticeTimer.current = setTimeout(() => {
+      noticeTimer.current = null;
+      setNotice((current) => (current === text ? '' : current));
+    }, 2000);
+  }
   const [exported, setExported] = useState<string | null>(null);
   /*
    * The grid, read straight from `board.config` on every render rather than
@@ -65,6 +77,9 @@ export function SettingsClient({ board: initial }: { board: Board }) {
   // rendering it there would make hydration disagree with the glass.
   const [origin, setOrigin] = useState('');
   useEffect(() => setOrigin(window.location.origin), []);
+  useEffect(() => () => {
+    if (noticeTimer.current !== null) clearTimeout(noticeTimer.current);
+  }, []);
   const boardUrl = `${origin}/b/${board.slug}`;
   const displayUrl = board.private ? `${boardUrl}?key=${board.apiKey}` : boardUrl;
   const apiBase = `${origin}/api/b/${board.slug}`;
@@ -125,6 +140,11 @@ export function SettingsClient({ board: initial }: { board: Board }) {
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
       setBoard((prev) => ({ ...prev, config: { ...prev.config, ...(payload.config ?? patch) } }));
+      // The sidebar applies Start from/Screen/Card size/Fidget the moment
+      // you pick them - no Save button anywhere to confirm the click did
+      // something. Without this, the only sign it worked was the preview
+      // quietly updating a moment later.
+      flashNotice('Saved.');
     } catch (err: any) {
       setError(err.message);
     }
