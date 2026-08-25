@@ -11,6 +11,10 @@ export interface CardStyle {
   radius: number;
   inset: number;
   sheen: number;
+  /** Light falling off toward the card's edge, 0 to 1. */
+  vignette: number;
+  /** Scattered dark specks and pooled smudges, 0 to 1. */
+  grunge: number;
 }
 
 export interface HingeStyle {
@@ -130,6 +134,8 @@ export interface ThemePack {
   states: Record<string, StateOverride>;
   art: Record<string, string>;
   fonts: PackFont[];
+  /** The space around and between the cards - the gaps and the outer padding. */
+  background: Color;
   tint: Tint | null;
   /**
    * Colours a tile passes through on its way, by ring position, applied only

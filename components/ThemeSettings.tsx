@@ -275,6 +275,10 @@ export function ThemeSettings({
 
               <div className="theme-groups">
                 <fieldset className="theme-group">
+                  <legend>Board</legend>
+                  {colour('Background', 'background')}
+                </fieldset>
+                <fieldset className="theme-group">
                   <legend>Card</legend>
                   {colour('Face', 'card.fill')}
                   {colour('Edge', 'card.edge')}
