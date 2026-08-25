@@ -37,7 +37,7 @@ export default async function DesignsPage() {
           </>
         }
       />
-      <main className="dash">
+      <main className="dash designs">
         <h2 className="dash-title">Designs</h2>
         <p className="muted">
           What a board can be dressed in. Every card is drawn from that design&rsquo;s own pack, so

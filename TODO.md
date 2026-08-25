@@ -187,6 +187,14 @@ the `cols × rows` colour grid, the renderer cannot tell the difference.
       a sign - same mistake as the chip, just missed there. "Board" now,
       derived from the same `cap === 1` SettingsClient already computes
       for QueueManager's own `cap` prop, not a second copy of the check.
+- [x] /designs: reported as "narrow" with an "ugly overflow scroll" -
+      the second part turned out to be `.dash`'s own inner scrollbar
+      (it scrolls itself, not the page), which just reads as odd rather
+      than broken once there's room; the first part was real: `.dash`'s
+      shared 920px cap left design-gallery's card grid (minmax(320px,
+      1fr)) fitting only two per row on any screen, wide monitor or not.
+      `.dash.designs` at 1400px instead - verified at 1600px viewport,
+      four cards per row, no overflow, correctly centred.
 
 ### Next — the designer suite
 

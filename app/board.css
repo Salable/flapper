@@ -994,6 +994,18 @@ main.landing .error {
   max-width: 760px;
 }
 
+/* ---- /designs ---- */
+
+/*
+ * A gallery of cards wants room .dash's default 920px never gave it -
+ * design-gallery's own grid (minmax(320px, 1fr)) only ever fit two per row
+ * in that width, on any screen, leaving a two-card column awkwardly
+ * narrow on anything wider than a laptop.
+ */
+.dash.designs {
+  max-width: 1400px;
+}
+
 .doc-link {
   border: 1px solid var(--edge);
   border-radius: 6px;
