@@ -14,7 +14,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Button } from '@/components/ui/Button';
+import { Button, LinkButton } from '@/components/ui/Button';
 import { Field, Select, RangeSlider } from '@/components/ui/Field';
 import { Segmented } from '@/components/ui/bits';
 import { ColorInput } from '@/components/ui/ColorInput';
@@ -90,6 +90,7 @@ export function ThemeSettings({
   config,
   onSaved,
   saveTo,
+  pickOnly = false,
 }: {
   slug: string;
   draft: ThemeDraft;
@@ -111,6 +112,16 @@ export function ThemeSettings({
     dirty: boolean;
     save: (draft: ThemeDraft) => Promise<void>;
   };
+  /**
+   * Pick a design, do not edit one. A board wears a design; making one - the
+   * colours, the wash, a per-character override - is a Designs job, done
+   * once, on a thing you can name and reuse, not redone from scratch on every
+   * board that happens to want it. This board's Display tab used the whole
+   * editor to do both, which meant customising a look here never reached
+   * anywhere else, and any of ten boards wanting the same tweak paid for it
+   * ten times.
+   */
+  pickOnly?: boolean;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -230,14 +241,16 @@ export function ThemeSettings({
 
   return (
     <section className="settings-block theme-settings">
-      <h2>Theme</h2>
+      <h2>{pickOnly ? 'Design' : 'Theme'}</h2>
 
       <Field
         label="Start from"
         hint={
           saveTo
             ? 'Replaces this design with the one you pick. A starting point, copied in - nothing stays linked.'
-            : "Replaces this board's look with the one you pick. Your own designs are copied in - editing here afterwards changes the board, never the design."
+            : pickOnly
+              ? "Replaces this board's look with the one you pick. To make your own, go to Designs."
+              : "Replaces this board's look with the one you pick. Your own designs are copied in - editing here afterwards changes the board, never the design."
         }
       >
         <Select
@@ -269,280 +282,293 @@ export function ThemeSettings({
         </Select>
       </Field>
 
-      <div className="theme-groups">
-        <fieldset className="theme-group">
-          <legend>Card</legend>
-          {colour('Face', 'card.fill')}
-          {colour('Edge', 'card.edge')}
-          {slider('Corner radius', 'card.radius')}
-          {slider('Sheen', 'card.sheen')}
-        </fieldset>
-        <fieldset className="theme-group">
-          <legend>Glyph</legend>
-          {colour('Ink', 'glyph.fill')}
-          {colour('Outline', 'glyph.stroke', true)}
-          {slider('Outline width', 'glyph.strokeWidth', 0.002)}
-          <Field label="Face" htmlFor="th-font-family">
-            <Select
-              id="th-font-family"
-              value={font.family ?? 'custom'}
-              onChange={(e) => {
-                if (e.target.value !== 'custom') setFont({ family: e.target.value });
-              }}
-            >
-              {FONT_CHOICES.map((choice) => (
-                <option key={choice.id} value={choice.id}>{choice.label}</option>
-              ))}
-              {font.family === null && <option value="custom">Custom: {font.stack}</option>}
-            </Select>
-          </Field>
-          <Field label="Weight" htmlFor="th-font-weight">
-            <Select id="th-font-weight" value={font.weight} onChange={(e) => setFont({ weight: e.target.value })}>
-              {FONT_WEIGHTS.map((w) => (
-                <option key={w} value={w}>{w}</option>
-              ))}
-            </Select>
-          </Field>
-          <Field label={<>Size <span className="muted">{font.size}em</span></>} htmlFor="th-font-size">
-            <RangeSlider id="th-font-size" min={0.4} max={1.2} step={0.02} value={font.size} onChange={(e) => setFont({ size: Number(e.target.value) })} />
-          </Field>
-          {slider('Baseline', 'glyph.baseline', 0.005)}
-        </fieldset>
-        <fieldset className="theme-group">
-          <legend>Hinge</legend>
-          {colour('Band', 'hinge.fill')}
-          {colour('Highlight', 'hinge.highlight', true)}
-          {colour('Pins', 'hinge.pin')}
-          {slider('Band height', 'hinge.thickness', 0.005)}
-        </fieldset>
-        <fieldset className="theme-group">
-          <legend>Light</legend>
-          {slider('Shading', 'motion.shading')}
-          {slider('Shadow', 'motion.shadow')}
-          {slider('Highlight', 'motion.highlight')}
-        </fieldset>
-        <fieldset className="theme-group">
-          <legend>Wash</legend>
-          <Field
-            label="Across the grid"
-            hint="A colour per card, so the board carries a gradient. Real boards have identical tiles, so this is deliberately not one."
-          >
-            <Segmented
-              options={[
-                { value: 'none', label: 'None' },
-                { value: 'gradient', label: 'Gradient' },
-                { value: 'corners', label: 'Corners' },
-                { value: 'runner', label: 'Runner' },
-              ]}
-              value={kind}
-              onChange={(next) => field('tint')(next === 'none' ? null : { ...WASHES[next] })}
-            />
-          </Field>
-          {kind === 'gradient' && (
-            <>
-              {colour('From', 'tint.gradient.from')}
-              {colour('To', 'tint.gradient.to')}
-              <Field
-                label={
-                  <>
-                    Angle <span className="muted">{Math.round(Number(tint?.gradient?.angle) || 0)}°</span>
-                    <span className="field-range">0–360</span>
-                  </>
-                }
-                htmlFor="th-tint-angle"
-              >
-                <RangeSlider
-                  id="th-tint-angle"
-                  min={0}
-                  max={360}
-                  step={5}
-                  value={Number(tint?.gradient?.angle) || 0}
-                  onChange={(e) => field('tint.gradient.angle')(Number(e.target.value))}
+      {!pickOnly && (
+        <>
+              <div className="theme-groups">
+                <fieldset className="theme-group">
+                  <legend>Card</legend>
+                  {colour('Face', 'card.fill')}
+                  {colour('Edge', 'card.edge')}
+                  {slider('Corner radius', 'card.radius')}
+                  {slider('Sheen', 'card.sheen')}
+                </fieldset>
+                <fieldset className="theme-group">
+                  <legend>Glyph</legend>
+                  {colour('Ink', 'glyph.fill')}
+                  {colour('Outline', 'glyph.stroke', true)}
+                  {slider('Outline width', 'glyph.strokeWidth', 0.002)}
+                  <Field label="Face" htmlFor="th-font-family">
+                    <Select
+                      id="th-font-family"
+                      value={font.family ?? 'custom'}
+                      onChange={(e) => {
+                        if (e.target.value !== 'custom') setFont({ family: e.target.value });
+                      }}
+                    >
+                      {FONT_CHOICES.map((choice) => (
+                        <option key={choice.id} value={choice.id}>{choice.label}</option>
+                      ))}
+                      {font.family === null && <option value="custom">Custom: {font.stack}</option>}
+                    </Select>
+                  </Field>
+                  <Field label="Weight" htmlFor="th-font-weight">
+                    <Select id="th-font-weight" value={font.weight} onChange={(e) => setFont({ weight: e.target.value })}>
+                      {FONT_WEIGHTS.map((w) => (
+                        <option key={w} value={w}>{w}</option>
+                      ))}
+                    </Select>
+                  </Field>
+                  <Field label={<>Size <span className="muted">{font.size}em</span></>} htmlFor="th-font-size">
+                    <RangeSlider id="th-font-size" min={0.4} max={1.2} step={0.02} value={font.size} onChange={(e) => setFont({ size: Number(e.target.value) })} />
+                  </Field>
+                  {slider('Baseline', 'glyph.baseline', 0.005)}
+                </fieldset>
+                <fieldset className="theme-group">
+                  <legend>Hinge</legend>
+                  {colour('Band', 'hinge.fill')}
+                  {colour('Highlight', 'hinge.highlight', true)}
+                  {colour('Pins', 'hinge.pin')}
+                  {slider('Band height', 'hinge.thickness', 0.005)}
+                </fieldset>
+                <fieldset className="theme-group">
+                  <legend>Light</legend>
+                  {slider('Shading', 'motion.shading')}
+                  {slider('Shadow', 'motion.shadow')}
+                  {slider('Highlight', 'motion.highlight')}
+                </fieldset>
+                <fieldset className="theme-group">
+                  <legend>Wash</legend>
+                  <Field
+                    label="Across the grid"
+                    hint="A colour per card, so the board carries a gradient. Real boards have identical tiles, so this is deliberately not one."
+                  >
+                    <Segmented
+                      options={[
+                        { value: 'none', label: 'None' },
+                        { value: 'gradient', label: 'Gradient' },
+                        { value: 'corners', label: 'Corners' },
+                        { value: 'runner', label: 'Runner' },
+                      ]}
+                      value={kind}
+                      onChange={(next) => field('tint')(next === 'none' ? null : { ...WASHES[next] })}
+                    />
+                  </Field>
+                  {kind === 'gradient' && (
+                    <>
+                      {colour('From', 'tint.gradient.from')}
+                      {colour('To', 'tint.gradient.to')}
+                      <Field
+                        label={
+                          <>
+                            Angle <span className="muted">{Math.round(Number(tint?.gradient?.angle) || 0)}°</span>
+                            <span className="field-range">0–360</span>
+                          </>
+                        }
+                        htmlFor="th-tint-angle"
+                      >
+                        <RangeSlider
+                          id="th-tint-angle"
+                          min={0}
+                          max={360}
+                          step={5}
+                          value={Number(tint?.gradient?.angle) || 0}
+                          onChange={(e) => field('tint.gradient.angle')(Number(e.target.value))}
+                        />
+                      </Field>
+                    </>
+                  )}
+                  {kind === 'corners' && (
+                    <>
+                      {colour('Top left', 'tint.corners.tl')}
+                      {colour('Top right', 'tint.corners.tr')}
+                      {colour('Bottom left', 'tint.corners.bl')}
+                      {colour('Bottom right', 'tint.corners.br')}
+                    </>
+                  )}
+                  {kind === 'runner' && (
+                    <>
+                      {colour('The light', 'tint.runner.colour')}
+                      <Field
+                        label={
+                          <>
+                            Tail <span className="muted">{Number(tint?.runner?.length) || 1}</span>
+                            <span className="field-range">1–20 cards</span>
+                          </>
+                        }
+                        htmlFor="th-runner-length"
+                      >
+                        <RangeSlider
+                          id="th-runner-length"
+                          min={1}
+                          max={20}
+                          step={1}
+                          value={Number(tint?.runner?.length) || 1}
+                          onChange={(e) => field('tint.runner.length')(Number(e.target.value))}
+                        />
+                      </Field>
+                      <Field
+                        label={
+                          <>
+                            One lap <span className="muted">{Math.round((Number(tint?.runner?.periodMs) || 9000) / 1000)}s</span>
+                            <span className="field-range">1–60s</span>
+                          </>
+                        }
+                        htmlFor="th-runner-period"
+                      >
+                        <RangeSlider
+                          id="th-runner-period"
+                          min={1000}
+                          max={60000}
+                          step={500}
+                          value={Number(tint?.runner?.periodMs) || 9000}
+                          onChange={(e) => field('tint.runner.periodMs')(Number(e.target.value))}
+                        />
+                      </Field>
+                    </>
+                  )}
+                  {kind !== 'none' && (
+                    <>
+                      <Field
+                        label={
+                          <>
+                            Strength{' '}
+                            <span className="muted">{strengthOf(tint).toFixed(2)}</span>
+                            <span className="field-range">0–1</span>
+                          </>
+                        }
+                        htmlFor="th-tint-strength"
+                      >
+                        <RangeSlider
+                          id="th-tint-strength"
+                          min={0}
+                          max={1}
+                          step={0.05}
+                          value={strengthOf(tint)}
+                          onChange={(e) => field('tint.strength')(Number(e.target.value))}
+                        />
+                      </Field>
+                      <Field
+                        label="How it applies"
+                        htmlFor="th-tint-mode"
+                        hint="Colour the face leaves a pure black or white glyph alone, so the letters stay readable."
+                      >
+                        <Select
+                          id="th-tint-mode"
+                          value={String(tint?.mode ?? 'overlay')}
+                          onChange={(e) => field('tint.mode')(e.target.value)}
+                        >
+                          {TINT_MODE_LABELS.map(([value, label]) => (
+                            <option key={value} value={value}>
+                              {label}
+                            </option>
+                          ))}
+                        </Select>
+                      </Field>
+                    </>
+                  )}
+                </fieldset>
+              </div>
+        
+              <fieldset className="theme-group theme-glyphs">
+                <legend>One character</legend>
+                <div className="theme-ring" role="listbox" aria-label="Characters">
+                  {RING.map((s) => {
+                    const touched = Boolean(draft.pack.states?.[s.char]);
+                    return (
+                      <button
+                        key={s.name}
+                        type="button"
+                        role="option"
+                        aria-selected={s.char === selected}
+                        className={`theme-ring-cell${s.char === selected ? ' is-on' : ''}${touched ? ' is-touched' : ''}`}
+                        onClick={() => setSelected(s.char)}
+                        title={s.name}
+                      >
+                        {s.char === ' ' ? '␣' : s.char}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="theme-glyph-fields">
+                  <Field label={`Ink for ${selected === ' ' ? 'blank' : selected}`} htmlFor="th-state-ink">
+                    <ColorInput id="th-state-ink" value={state.glyph?.fill ?? null} allowNone noneLabel="Inherit" onChange={(v) => update(setStateField(draft, selected, 'glyph.fill', v))} />
+                  </Field>
+                  <Field label="Face" htmlFor="th-state-face">
+                    <ColorInput id="th-state-face" value={state.card?.fill ?? null} allowNone noneLabel="Inherit" onChange={(v) => update(setStateField(draft, selected, 'card.fill', v))} />
+                  </Field>
+                  <Field
+                    label="Image instead of the glyph"
+                    hint={`PNG, WebP, JPEG or SVG; resized to 128 px and kept under ${Math.round(THEME_LIMITS.maxArtBytes / 1024)} KB.`}
+                  >
+                    <div className="theme-art">
+                      {artKey && draft.pack.art?.[artKey] && <img className="theme-art-thumb" src={draft.pack.art[artKey]} alt="" />}
+                      <input ref={fileRef} type="file" accept="image/*" onChange={(e) => upload(e.target.files?.[0])} />
+                      {artKey && (
+                        <Button size="sm" variant="ghost" onClick={() => update(detachArt(draft, selected))}>
+                          Remove image
+                        </Button>
+                      )}
+                    </div>
+                  </Field>
+                  {Boolean(draft.pack.states?.[selected]) && (
+                    <Button size="sm" variant="ghost" onClick={() => update(clearState(draft, selected))}>
+                      Clear overrides for {selected === ' ' ? 'blank' : selected}
+                    </Button>
+                  )}
+                </div>
+              </fieldset>
+        
+              <details className="theme-advanced">
+                <summary>Advanced: the pack as JSON</summary>
+                <textarea
+                  className="ui-input ui-textarea theme-json"
+                  spellCheck={false}
+                  rows={18}
+                  value={json ?? JSON.stringify(draft.pack, null, 2)}
+                  onChange={(e) => setJson(e.target.value)}
                 />
-              </Field>
-            </>
-          )}
-          {kind === 'corners' && (
-            <>
-              {colour('Top left', 'tint.corners.tl')}
-              {colour('Top right', 'tint.corners.tr')}
-              {colour('Bottom left', 'tint.corners.bl')}
-              {colour('Bottom right', 'tint.corners.br')}
-            </>
-          )}
-          {kind === 'runner' && (
-            <>
-              {colour('The light', 'tint.runner.colour')}
-              <Field
-                label={
-                  <>
-                    Tail <span className="muted">{Number(tint?.runner?.length) || 1}</span>
-                    <span className="field-range">1–20 cards</span>
-                  </>
-                }
-                htmlFor="th-runner-length"
-              >
-                <RangeSlider
-                  id="th-runner-length"
-                  min={1}
-                  max={20}
-                  step={1}
-                  value={Number(tint?.runner?.length) || 1}
-                  onChange={(e) => field('tint.runner.length')(Number(e.target.value))}
-                />
-              </Field>
-              <Field
-                label={
-                  <>
-                    One lap <span className="muted">{Math.round((Number(tint?.runner?.periodMs) || 9000) / 1000)}s</span>
-                    <span className="field-range">1–60s</span>
-                  </>
-                }
-                htmlFor="th-runner-period"
-              >
-                <RangeSlider
-                  id="th-runner-period"
-                  min={1000}
-                  max={60000}
-                  step={500}
-                  value={Number(tint?.runner?.periodMs) || 9000}
-                  onChange={(e) => field('tint.runner.periodMs')(Number(e.target.value))}
-                />
-              </Field>
-            </>
-          )}
-          {kind !== 'none' && (
-            <>
-              <Field
-                label={
-                  <>
-                    Strength{' '}
-                    <span className="muted">{strengthOf(tint).toFixed(2)}</span>
-                    <span className="field-range">0–1</span>
-                  </>
-                }
-                htmlFor="th-tint-strength"
-              >
-                <RangeSlider
-                  id="th-tint-strength"
-                  min={0}
-                  max={1}
-                  step={0.05}
-                  value={strengthOf(tint)}
-                  onChange={(e) => field('tint.strength')(Number(e.target.value))}
-                />
-              </Field>
-              <Field
-                label="How it applies"
-                htmlFor="th-tint-mode"
-                hint="Colour the face leaves a pure black or white glyph alone, so the letters stay readable."
-              >
-                <Select
-                  id="th-tint-mode"
-                  value={String(tint?.mode ?? 'overlay')}
-                  onChange={(e) => field('tint.mode')(e.target.value)}
-                >
-                  {TINT_MODE_LABELS.map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-            </>
-          )}
-        </fieldset>
-      </div>
-
-      <fieldset className="theme-group theme-glyphs">
-        <legend>One character</legend>
-        <div className="theme-ring" role="listbox" aria-label="Characters">
-          {RING.map((s) => {
-            const touched = Boolean(draft.pack.states?.[s.char]);
-            return (
-              <button
-                key={s.name}
-                type="button"
-                role="option"
-                aria-selected={s.char === selected}
-                className={`theme-ring-cell${s.char === selected ? ' is-on' : ''}${touched ? ' is-touched' : ''}`}
-                onClick={() => setSelected(s.char)}
-                title={s.name}
-              >
-                {s.char === ' ' ? '␣' : s.char}
-              </button>
-            );
-          })}
-        </div>
-        <div className="theme-glyph-fields">
-          <Field label={`Ink for ${selected === ' ' ? 'blank' : selected}`} htmlFor="th-state-ink">
-            <ColorInput id="th-state-ink" value={state.glyph?.fill ?? null} allowNone noneLabel="Inherit" onChange={(v) => update(setStateField(draft, selected, 'glyph.fill', v))} />
-          </Field>
-          <Field label="Face" htmlFor="th-state-face">
-            <ColorInput id="th-state-face" value={state.card?.fill ?? null} allowNone noneLabel="Inherit" onChange={(v) => update(setStateField(draft, selected, 'card.fill', v))} />
-          </Field>
-          <Field
-            label="Image instead of the glyph"
-            hint={`PNG, WebP, JPEG or SVG; resized to 128 px and kept under ${Math.round(THEME_LIMITS.maxArtBytes / 1024)} KB.`}
-          >
-            <div className="theme-art">
-              {artKey && draft.pack.art?.[artKey] && <img className="theme-art-thumb" src={draft.pack.art[artKey]} alt="" />}
-              <input ref={fileRef} type="file" accept="image/*" onChange={(e) => upload(e.target.files?.[0])} />
-              {artKey && (
-                <Button size="sm" variant="ghost" onClick={() => update(detachArt(draft, selected))}>
-                  Remove image
-                </Button>
-              )}
-            </div>
-          </Field>
-          {Boolean(draft.pack.states?.[selected]) && (
-            <Button size="sm" variant="ghost" onClick={() => update(clearState(draft, selected))}>
-              Clear overrides for {selected === ' ' ? 'blank' : selected}
-            </Button>
-          )}
-        </div>
-      </fieldset>
-
-      <details className="theme-advanced">
-        <summary>Advanced: the pack as JSON</summary>
-        <textarea
-          className="ui-input ui-textarea theme-json"
-          spellCheck={false}
-          rows={18}
-          value={json ?? JSON.stringify(draft.pack, null, 2)}
-          onChange={(e) => setJson(e.target.value)}
-        />
-        <div className="actions">
-          <Button
-            size="sm"
-            onClick={() => {
-              if (json === null) return;
-              try {
-                const parsed = JSON.parse(json);
-                setError('');
-                setJson(null);
-                update({ theme: draft.theme, pack: { ...themes[draft.theme], ...parsed } });
-              } catch (err: any) {
-                setError(`JSON: ${err.message}`);
-              }
-            }}
-            disabled={json === null}
-          >
-            Apply JSON
-          </Button>
-          {json !== null && (
-            <Button size="sm" variant="ghost" onClick={() => setJson(null)}>
-              Discard
-            </Button>
-          )}
-        </div>
-      </details>
+                <div className="actions">
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      if (json === null) return;
+                      try {
+                        const parsed = JSON.parse(json);
+                        setError('');
+                        setJson(null);
+                        update({ theme: draft.theme, pack: { ...themes[draft.theme], ...parsed } });
+                      } catch (err: any) {
+                        setError(`JSON: ${err.message}`);
+                      }
+                    }}
+                    disabled={json === null}
+                  >
+                    Apply JSON
+                  </Button>
+                  {json !== null && (
+                    <Button size="sm" variant="ghost" onClick={() => setJson(null)}>
+                      Discard
+                    </Button>
+                  )}
+                </div>
+              </details>
+        </>
+      )}
+      {pickOnly && (
+        <p className="theme-pickonly-hint muted">
+          Colours, wash, type and per-character overrides live in{' '}
+          <LinkButton size="sm" href="/designs">
+            Designs
+          </LinkButton>
+          {' '}- make or edit one there, then start from it here.
+        </p>
+      )}
 
       {!patch.ok && <p className="error">{patch.errors.join('; ')}</p>}
       {error !== '' && <p className="error">{error}</p>}
       <div className="actions">
         <Button variant="primary" onClick={save} disabled={busy || !dirty || !patch.ok}>
-          {saveTo ? saveTo.label : 'Save theme'}
+          {saveTo ? saveTo.label : pickOnly ? 'Apply design' : 'Save theme'}
         </Button>
         <Button variant="ghost" onClick={() => update(presetDraft(draft.theme))} disabled={busy}>
           Reset to {themes[draft.theme].name}

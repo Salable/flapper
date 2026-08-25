@@ -1423,6 +1423,12 @@ main.landing .error {
   margin-top: 6px;
 }
 
+/* What replaces the editing groups when a board only picks a design. */
+.theme-pickonly-hint {
+  margin: 0;
+  font: 400 var(--text-sm) / 1.5 var(--font-sans);
+}
+
 .theme-groups {
   align-self: stretch;
   display: grid;

@@ -456,6 +456,9 @@ export function SettingsClient({ board: initial }: { board: Board }) {
                       onDraft={setThemeDraft}
                       config={board.config}
                       onSaved={(config) => setBoard((prev) => ({ ...prev, config }))}
+                      // A board wears a design; it does not build one. See the
+                      // prop's doc-comment in ThemeSettings.
+                      pickOnly
                     />
                     <DisplayConfig
                       slug={board.slug}
