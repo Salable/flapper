@@ -154,11 +154,13 @@ the `cols × rows` colour grid, the renderer cannot tell the difference.
       display, which holds its last message, kept showing it regardless,
       so the panel said blank when the wall did not. Both hidden now;
       Change it and Blank it are what a sign's one item can mean. "Live
-      queue" and "active"/"paused" got a `title` explaining what they
-      actually are, since neither is a term this build has defined
-      anywhere a first-time reader would see it. And Start from/Screen/
-      Card size/Fidget apply themselves with no Save button and, until
-      now, no confirmation either - a "Saved." notice (self-clearing,
+      queue" and "active"/"paused" got an explanation, since neither is a
+      term this build has defined anywhere a first-time reader would see
+      it - as a native `title` first, then dropped in favour of a CSS
+      tooltip (`Chip`'s new `tip` prop) once a real hover in a real
+      browser did not show one at all. And Start from/Screen/Card size/
+      Fidget apply themselves with no Save button and, until now, no
+      confirmation either - a "Saved." notice (self-clearing,
       `flashNotice` in SettingsClient) now says so.
 
 ### Next — the designer suite

@@ -12,12 +12,26 @@ export function Card({
   return <div className={`ui-card ${className}`.trim()} {...rest} />;
 }
 
+/**
+ * `tip`, not `title`: a native title tooltip needs the browser's own hover
+ * delay and does not reliably paint (a real hover in a real browser did not
+ * show one at all in testing here) - CSS the page controls instead, shown
+ * on hover or keyboard focus so it isn't mouse-only. `title` is still set
+ * from the same string, as a redundant native fallback, never the only copy.
+ */
 export function Chip({
   tone = 'neutral',
   className = '',
+  tip,
   ...rest
-}: React.HTMLAttributes<HTMLSpanElement> & { tone?: 'neutral' | 'amber' | 'live' | 'danger' }) {
-  return <span className={`ui-chip ui-chip-${tone} ${className}`.trim()} {...rest} />;
+}: React.HTMLAttributes<HTMLSpanElement> & { tone?: 'neutral' | 'amber' | 'live' | 'danger'; tip?: string }) {
+  const chip = <span className={`ui-chip ui-chip-${tone} ${className}`.trim()} title={tip} {...rest} />;
+  if (!tip) return chip;
+  return (
+    <span className="ui-chip-tip" data-tip={tip} tabIndex={0}>
+      {chip}
+    </span>
+  );
 }
 
 export function Segmented({

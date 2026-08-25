@@ -395,6 +395,44 @@ a.ui-btn-danger {
   border: 1px solid var(--danger-dim);
 }
 
+/* A chip's `tip` - CSS-drawn, not the native title tooltip it also carries,
+   because the native one turned out not to reliably show at all. */
+.ui-chip-tip {
+  position: relative;
+  display: inline-flex;
+  outline: none;
+}
+
+.ui-chip-tip::after {
+  content: attr(data-tip);
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 30;
+  width: max-content;
+  max-width: 260px;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--edge-strong);
+  background: var(--surface-1);
+  color: var(--ink);
+  font: 400 var(--text-xs) / 1.45 var(--font-sans);
+  text-transform: none;
+  letter-spacing: normal;
+  white-space: normal;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-4px);
+  transition: opacity 120ms ease, transform 120ms ease;
+}
+
+.ui-chip-tip:hover::after,
+.ui-chip-tip:focus-visible::after {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 .ui-segmented {
   display: inline-flex;
   gap: 2px;
