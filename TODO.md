@@ -512,6 +512,51 @@ two hinged vanes, and the whole board looked too clean to have hung anywhere.
       MCP schema has never offered either. A real gap, not a staleness bug,
       and a bigger one (new fields, not a removal) - left for its own pass.
 
+## A real bug, found but not yet fixed: a black band mid-flip
+
+Not this session's work - confirmed pre-existing by bisecting every change
+made here today, one at a time, and it survives all of them.
+
+**What**: during a flip, a thin fully-black (`rgb(0,0,0)`) horizontal band
+sometimes appears inside the card face, well away from the hinge and the
+outer edge - not a corner-clip leak (already fixed, verified separately),
+not a rendering illusion. Confirmed with raw `ctx.getImageData` reads
+against the live canvas, not screenshots - screenshots were the first clue
+but PNG re-encoding was ruled out as the explanation before treating this
+as real.
+
+**How to reproduce**: a design at "Cards across" = 1 (one huge card), click
+Flip again, sample the canvas repeatedly through the animation (every
+~60-90ms) reading a column of pixels between roughly y=30-130 (tile-local,
+i.e. canvas y=36-136 after the 6px padding) for a run of 5+ pixels reading
+below `rgb(5,5,5)`. Reproduces under both rapid double-click (forcing a
+full 42-state ring wrap) and, more importantly, **ordinary single clicks
+one at a time** - roughly 1 in 5 samples across six separate single-flip
+rounds in the last test run. This is common enough to matter, not a rare
+edge case.
+
+**Ruled out, each tested in isolation by PATCHing a design's pack via the
+API and re-sampling** (not guessed): `card.grunge`, `card.vignette`,
+`card.sheen` (all zeroed); `motion.shading`, `motion.shadow`,
+`motion.highlight` (all zeroed); `hinge.thickness`/`hinge.highlight`
+(thinned/disabled); `card.radius` (zeroed, making the clip a plain
+rectangle); the rounded clip in `drawTile` itself (temporarily removed by
+editing the code directly, not just the pack); `advanced.frameMs`
+(zeroed, uncapped rendering). The band survived every one of these,
+independently. Since every change from today's card-look and flap-lighting
+work is now ruled out, the cause is somewhere in what was already there
+before this session - most likely the static-halves compositing or the
+glyph/font rendering in `paintCard`, neither of which got a comparably
+thorough isolation pass.
+
+**Not done**: root cause. This is logged in enough detail to pick back up
+without repeating the bisection - the next step that hasn't been tried is
+isolating the static-halves `drawImage` pair and the glyph `fillText` call
+in `paintCard` the same way the rest were ruled out, probably by rendering
+a single state directly to an offscreen canvas outside `drawTile`
+entirely and comparing it pixel-for-pixel against the same state sampled
+mid-animation.
+
 ## Left by the code review
 
 - [x] **`lib/board/face.mjs` had no production caller** — deleted, with its
