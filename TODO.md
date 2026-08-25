@@ -172,8 +172,10 @@ the `cols × rows` colour grid, the renderer cannot tell the difference.
       all. Active - yes, real state for any board. "Live queue" - no, and
       worse than unnecessary: it names the mechanism (a queue) a sign
       explicitly turns off, the same way Priority/Hold/Loop already are.
-      Not done yet: show "Sign" there instead, derived from `queueCap`
-      the same way `isSign` already is everywhere else, not the type id.
+      Now shows "Sign" instead, derived the same way `isSign` already is
+      everywhere else (from `queueCap`, not the type id) - its own tip
+      explaining Queue size is the lever, rather than the old tip trying
+      to explain both a queue and a sign under one label.
 - [x] The "What it says" box beside a sign's preview asked outright: "you
       see that thing - it's a slide label?" It was, and nothing else -
       the same text the preview already showed, plus Blank it. Given a

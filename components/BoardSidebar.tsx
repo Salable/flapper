@@ -88,6 +88,11 @@ export function BoardSidebar({
   const screen = screenOf(config);
   const shape = screenLabel(screen);
   const grid = gridForConfig(config);
+  // Derived from the cap, not the type id or the template - the same test
+  // QueueManager and SettingsClient's own tab label already make, so a
+  // board that has raised or dropped its cap is called what it currently
+  // is here too, not what it was made as.
+  const isSign = (Number(config.queueCap) || Infinity) === 1;
   const onList = SCREENS.some((option) => option.w === screen.w && option.h === screen.h);
   const [custom, setCustom] = useState(false);
   // The pair being typed, so neither half is saved on its own.
@@ -146,9 +151,13 @@ export function BoardSidebar({
         {boardUrl !== '' && <CopyButton value={boardUrl} label="Copy URL" />}
       </div>
       <div className="board-side-chips">
-        <Chip tip="How this board plays what's posted to it - a rolling queue that plays as it arrives. A sign is one of these with its queue capped at one message.">
-          {typeName}
-        </Chip>
+        {isSign ? (
+          <Chip tip="A queue capped at one message, so posting always replaces rather than adds. Raise Queue size in General to turn it into a rolling queue.">
+            Sign
+          </Chip>
+        ) : (
+          <Chip tip="How this board plays what's posted to it - a rolling queue that plays as it arrives.">{typeName}</Chip>
+        )}
         {status !== 'active' ? (
           <Chip tone="danger" tip="Paused in General: every display shows a paused card and ignores new messages. The queue is kept exactly as it is.">
             paused
