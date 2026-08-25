@@ -15,7 +15,6 @@ html,
 body {
   height: 100%;
   margin: 0;
-  overflow: hidden;
   display: flex;
   flex-direction: column;
   background: var(--bg);
@@ -24,6 +23,21 @@ body {
   -webkit-font-smoothing: antialiased;
   user-select: none;
   cursor: default;
+}
+
+/*
+ * The wall display (#stage, BoardApp's own root) is glass, not a page - it
+ * must never show a scrollbar, whatever the board's shape. Scoped to it
+ * specifically rather than blanket on every page: every app-shell page
+ * (dashboard, settings, designs, docs...) had inherited this too, which is
+ * why none of them could scroll the actual page - each had to fake it with
+ * its own overflow-y: auto instead (.dash), a scrollbar that belongs to a
+ * div in the middle of the page rather than the browser's own edge, sized
+ * and positioned to whatever that div's own width happens to be rather
+ * than the viewport's.
+ */
+body:has(#stage) {
+  overflow: hidden;
 }
 
 
@@ -508,11 +522,16 @@ main.landing .error {
 .app-shell {
   display: flex;
   flex-direction: column;
-  height: 100%;
-  min-height: 0;
+  min-height: 100%;
 }
 
 .app-bar {
+  /* Pinned by position, not by a scroll region of its own - the page
+     scrolls normally now (see the html/body rule above), and a sticky
+     header keeps it in view the same way any ordinary page would. */
+  position: sticky;
+  top: 0;
+  z-index: 10;
   flex: none;
   display: flex;
   align-items: center;
@@ -581,8 +600,9 @@ main.landing .error {
 }
 
 .dash {
+  /* No overflow-y: auto - the page scrolls now, not this div (see the
+     html/body and .app-bar rules above). */
   flex: 1 1 auto;
-  overflow-y: auto;
   width: 100%;
   max-width: 920px;
   margin: 0 auto;

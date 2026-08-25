@@ -187,14 +187,24 @@ the `cols × rows` colour grid, the renderer cannot tell the difference.
       a sign - same mistake as the chip, just missed there. "Board" now,
       derived from the same `cap === 1` SettingsClient already computes
       for QueueManager's own `cap` prop, not a second copy of the check.
-- [x] /designs: reported as "narrow" with an "ugly overflow scroll" -
-      the second part turned out to be `.dash`'s own inner scrollbar
-      (it scrolls itself, not the page), which just reads as odd rather
-      than broken once there's room; the first part was real: `.dash`'s
-      shared 920px cap left design-gallery's card grid (minmax(320px,
-      1fr)) fitting only two per row on any screen, wide monitor or not.
-      `.dash.designs` at 1400px instead - verified at 1600px viewport,
-      four cards per row, no overflow, correctly centred.
+- [x] /designs: reported as "narrow" with an "ugly overflow scroll", and
+      pushed back on when the first pass called the scroll acceptable -
+      rightly. `.dash`'s shared 920px cap leaving design-gallery's grid
+      only two cards per row was real (see below), but the scrollbar
+      turned out to be a real, root-level bug, not just an odd-looking
+      div: `html, body { overflow: hidden }` was global, so every
+      app-shell page - not only designs - has never been able to scroll
+      itself; `.dash { overflow-y: auto }` existed purely as the
+      workaround, a scrollbar that belongs to a centred, capped-width div
+      rather than the browser's own edge. Only #stage (the wall display)
+      actually needs the page frozen. Rescoped to `body:has(#stage)`,
+      `.dash`'s own overflow removed, `.app-bar` made `position: sticky`
+      so it still stays put on an ordinary scroll. Verified both ends:
+      designs scrolls the real page now (body scrollHeight > viewport,
+      app-bar pinned through it), and a board's display still reports
+      `overflow: hidden` on body, untouched. `.dash.designs` at 1400px
+      for the grid itself - four cards per row at 1600px, three at 1200,
+      no overflow at either, correctly centred.
 
 ### Next — the designer suite
 
