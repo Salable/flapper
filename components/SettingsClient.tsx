@@ -8,7 +8,7 @@
  * visit.
  */
 
-import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
 import { gridForConfig } from '@/lib/board/geometry.mjs';
 import { resolveBoardTheme } from '@/lib/board/board-theme.mjs';
 import { useRouter } from 'next/navigation';
@@ -52,6 +52,26 @@ export function SettingsClient({ board: initial }: { board: Board }) {
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const [exported, setExported] = useState<string | null>(null);
+  /*
+   * One shared "Saved", one shared corner - not a badge that only lived
+   * beside the sidebar's own fields and read as "saving works here, not
+   * when you change what the board actually says". Fixed to the viewport
+   * so it holds still regardless of where on the page the change came
+   * from, or how far down the page you've scrolled.
+   */
+  const [saved, setSaved] = useState(false);
+  const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  function flashSaved() {
+    if (savedTimer.current !== null) clearTimeout(savedTimer.current);
+    setSaved(true);
+    savedTimer.current = setTimeout(() => setSaved(false), 4000);
+  }
+  useEffect(
+    () => () => {
+      if (savedTimer.current !== null) clearTimeout(savedTimer.current);
+    },
+    [],
+  );
   /*
    * The grid, read straight from `board.config` on every render rather than
    * copied into its own state - the sidebar is what sets the screen and the
@@ -229,6 +249,7 @@ export function SettingsClient({ board: initial }: { board: Board }) {
       cols={grid.cols}
       rows={grid.rows}
       ambientMs={Number(board.config?.ambientMs) || 0}
+      onSaved={flashSaved}
     />
   );
 
@@ -339,6 +360,9 @@ export function SettingsClient({ board: initial }: { board: Board }) {
   return (
     <div className="app-shell">
       {dialog}
+      <div className={`saved-toast${saved ? ' is-shown' : ''}`} role="status" aria-live="polite">
+        Saved
+      </div>
       <Modal open={exported !== null} title="Queue export" wide onClose={() => setExported(null)}>
         <code className="curl" style={{ maxHeight: '50vh', overflowY: 'auto' }}>
           {exported}
@@ -377,6 +401,7 @@ export function SettingsClient({ board: initial }: { board: Board }) {
               boardUrl={origin === '' ? '' : boardUrl}
               config={board.config}
               onConfig={saveShape}
+              onSaved={flashSaved}
             />
           }
           after={

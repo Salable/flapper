@@ -160,11 +160,14 @@ the `cols × rows` colour grid, the renderer cannot tell the difference.
       tooltip (`Chip`'s new `tip` prop) once a real hover in a real
       browser did not show one at all. And Start from/Screen/Card size/
       Fidget apply themselves with no Save button and, until now, no
-      confirmation either - first as a page-top notice nobody watching
-      the sidebar they had just touched ever saw, moved into the sidebar
-      itself (`onConfig` now resolves to whether it worked, so a small
-      self-clearing "Saved" sits right beside the cards-count line those
-      same fields decide).
+      confirmation either - went through three placements before landing:
+      a page-top notice nobody watching the sidebar ever saw, then a badge
+      beside the sidebar's own cards-count line that read as "saving works
+      here, not when you change what the board actually says" the moment
+      it was compared against composing - one shared "Saved" toast, fixed
+      to a real corner of the viewport, that both `onConfig` (the sidebar)
+      and a successful compose fire through the same `onSaved` callback
+      from SettingsClient.
 - [x] Asked outright whether a sign needs "Live queue" and "active" at
       all. Active - yes, real state for any board. "Live queue" - no, and
       worse than unnecessary: it names the mechanism (a queue) a sign

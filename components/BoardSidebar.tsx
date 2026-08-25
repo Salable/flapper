@@ -8,7 +8,7 @@ import {
   cardSizeOf,
   CARD_SIZE_IDS,
 } from '@/lib/board/geometry.mjs';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Field, Select, TextInput } from '@/components/ui/Field';
 import { THEMES, THEME_IDS, DEFAULT_THEME } from '@/lib/board/themes.mjs';
 import { presetDraft, draftToPatch } from '@/lib/board/theme-editor.mjs';
@@ -48,6 +48,7 @@ export function BoardSidebar({
   boardUrl,
   config,
   onConfig,
+  onSaved,
 }: {
   name: string;
   slug: string;
@@ -60,31 +61,21 @@ export function BoardSidebar({
   /** The board's config, for the shape it is designed for. */
   config: Record<string, unknown>;
   /** Save a change to the two settings that decide the board's shape.
-   * Resolves to whether it worked, so this panel can confirm it right where
-   * you made the change - `void` still accepted, for a caller with nothing
-   * to report either way. */
+   * Resolves to whether it worked - `void` still accepted, for a caller
+   * with nothing to report either way. */
   onConfig: (patch: Record<string, unknown>) => Promise<boolean> | void;
-}) {
-  /*
-   * "Saved", right beside the fields it is about - not a notice at the top
-   * of the page, which nobody watching the field they had just changed ever
-   * saw. Every field in this panel applies itself with no Save button, so
-   * this is the only confirmation any of them get.
+  /**
+   * Told, not shown: the confirmation itself is one shared corner toast
+   * (SettingsClient), the same one Queue's own compose flags - not a
+   * badge that only exists here and only for these four fields, which
+   * read as "saving works in the sidebar, not when you actually change
+   * what it says" the moment you compared the two.
    */
-  const [saved, setSaved] = useState(false);
-  const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(
-    () => () => {
-      if (savedTimer.current !== null) clearTimeout(savedTimer.current);
-    },
-    [],
-  );
+  onSaved?: () => void;
+}) {
   async function apply(patch: Record<string, unknown>) {
     const ok = await onConfig(patch);
-    if (ok === false) return;
-    if (savedTimer.current !== null) clearTimeout(savedTimer.current);
-    setSaved(true);
-    savedTimer.current = setTimeout(() => setSaved(false), 1500);
+    if (ok !== false) onSaved?.();
   }
   /*
    * The screen, beside the type and the created date, because it is the fact
@@ -276,7 +267,6 @@ export function BoardSidebar({
         </Field>
         <p className="board-side-grid muted">
           {grid.cols} × {grid.rows} cards{!chosen && ' · default screen'}
-          {saved && <span className="board-side-saved"> · Saved</span>}
         </p>
         <Field
           label="Fidget"

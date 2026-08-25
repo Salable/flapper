@@ -67,6 +67,7 @@ export function QueueManager({
   cols,
   rows,
   ambientMs = 0,
+  onSaved,
 }: {
   slug: string;
   cap?: number;
@@ -77,6 +78,10 @@ export function QueueManager({
   /** The board's Fidget setting, so the "what's on the glass" preview
    * fidgets too - see ThemePreview's own doc for why. */
   ambientMs?: number;
+  /** The same shared "Saved" the sidebar flags - composing is saving too,
+   * and showing confirmation in one place but not the other reads as
+   * "this part doesn't actually save". */
+  onSaved?: () => void;
 }) {
   const apiBase = `/api/b/${slug}`;
   /*
@@ -188,7 +193,10 @@ export function QueueManager({
     // Stay open on failure - error is already set by act(), and the modal
     // shows it right beside the text that caused it rather than sending the
     // reader hunting for a message that landed outside a popup that closed.
-    if (ok) setComposeOpen(false);
+    if (ok) {
+      setComposeOpen(false);
+      onSaved?.();
+    }
   }
 
   function reorder(item: QueueItem, direction: -1 | 1) {

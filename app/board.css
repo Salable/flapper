@@ -119,6 +119,39 @@ body {
   opacity: 1;
 }
 
+/*
+ * The settings page's own toast: one shared "Saved", fixed to a real
+ * corner of the viewport rather than living beside whichever field
+ * happened to trigger it - the sidebar's own fields and the queue's
+ * compose flow both fire the same one, from SettingsClient, so saving
+ * reads as one consistent fact about the page rather than something a
+ * couple of fields do and the rest quietly don't.
+ */
+.saved-toast {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  padding: 8px 16px;
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(125, 196, 122, 0.4);
+  background: var(--surface-1);
+  color: var(--live);
+  font: 600 var(--text-xs) / 1 var(--font-mono);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 200ms ease, transform 200ms ease;
+  pointer-events: none;
+  z-index: 50;
+}
+
+.saved-toast.is-shown {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 /* ---- controls ---- */
 
 #controls {
@@ -1930,13 +1963,6 @@ main.landing .error {
   margin: 0;
   font: 400 var(--text-sm) / 1.4 var(--font-mono);
   font-variant-numeric: tabular-nums;
-}
-
-/* Confirms a change to Start from/Screen/Card size/Fidget - all of which
-   apply themselves with no Save button - right beside the fact (this cards
-   count) those same fields decide, rather than at the top of the page. */
-.board-side-saved {
-  color: var(--live);
 }
 
 
