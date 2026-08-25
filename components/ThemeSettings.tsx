@@ -31,7 +31,7 @@ import {
   detachArt,
   clearState,
   parseFont,
-  buildFont,
+  setGlyphFont,
   draftToPatch,
   savedPatch,
   FONT_CHOICES,
@@ -154,7 +154,11 @@ export function ThemeSettings({
   const num = (path: string) => Number(path.split('.').reduce((o: any, k) => o?.[k], draft.pack));
 
   const font = parseFont(draft.pack.glyph.font);
-  const setFont = (change: Partial<typeof font>) => field('glyph.font')(buildFont({ ...font, ...change }));
+  // Updates pack.fonts in the same draft as glyph.font - a built-in face
+  // that needs an embedded file (anything past Arimo does) would otherwise
+  // be chosen here and never actually load, silently falling back to
+  // whatever comes next in its CSS stack.
+  const setFont = (change: Partial<typeof font>) => update(setGlyphFont(draft, change));
 
   const tint = (draft.pack as any).tint as Record<string, any> | null | undefined;
   const kind = washKind(tint);

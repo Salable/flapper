@@ -14,8 +14,10 @@ import {
   draftToPatch,
   savedPatch,
   FONT_CHOICES,
+  setGlyphFont,
 } from '../lib/board/theme-editor.mjs';
 import { THEMES } from '../lib/board/themes.mjs';
+import { validatePack } from '../lib/board/theme-pack.mjs';
 
 const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
 
@@ -76,8 +78,10 @@ test('art attaches by ring index and is pruned when nothing uses it', () => {
 });
 
 test('fonts parse into the three controls and build back', () => {
-  assert.deepEqual(parseFont(THEMES.classic.glyph.font), { weight: '700', size: 0.86, family: 'arimo', stack: FONT_CHOICES[0].stack });
-  assert.deepEqual(parseFont('bold 0.9em Georgia, "Times New Roman", serif'), { weight: '700', size: 0.9, family: 'georgia', stack: FONT_CHOICES[1].stack });
+  // By id, not position - the list grows as faces are added.
+  const stackOf = (id) => FONT_CHOICES.find((c) => c.id === id).stack;
+  assert.deepEqual(parseFont(THEMES.classic.glyph.font), { weight: '700', size: 0.86, family: 'arimo', stack: stackOf('arimo') });
+  assert.deepEqual(parseFont('bold 0.9em Georgia, "Times New Roman", serif'), { weight: '700', size: 0.9, family: 'georgia', stack: stackOf('georgia') });
   assert.equal(parseFont('1em Comic Sans MS').family, null, 'unknown faces are custom');
   assert.equal(buildFont({ weight: '500', size: 0.8, family: 'courier' }), '500 0.8em "Courier New", Courier, monospace');
   assert.equal(buildFont({ weight: '500', size: 0.8, family: null, stack: 'Comic Sans MS' }), '500 0.8em Comic Sans MS');
@@ -89,3 +93,36 @@ test('an invalid draft reports the validator\'s words rather than a patch', () =
   assert.equal(bad.ok, false);
   assert.match(bad.errors.join(), /card.fill/);
 });
+
+test('choosing a built-in face updates pack.fonts to match, in the same draft', () => {
+  /*
+   * The Face dropdown used to write only glyph.font - fine while Arimo was
+   * the only face needing an actual file, since Georgia/Courier/System are
+   * system stacks with nothing to load. Add a face that needs a real file
+   * and picking it from the dropdown would set a font-family the pack never
+   * registers, silently falling back to the stack's next name.
+   */
+  const draft = presetDraft('classic');
+  assert.deepEqual(draft.pack.fonts.map((f) => f.family), ['Arimo', 'Arimo', 'Arimo']);
+
+  const withWorkSans = setGlyphFont(draft, { family: 'work-sans' });
+  assert.match(withWorkSans.pack.glyph.font, /"Work Sans"/);
+  assert.deepEqual(withWorkSans.pack.fonts.map((f) => f.family), ['Work Sans', 'Work Sans', 'Work Sans']);
+  assert.equal(validatePack(withWorkSans.pack).ok, true);
+
+  // Swapping to a system stack needs no file at all - the old built-in's
+  // entries are dropped and nothing replaces them.
+  const toSystem = setGlyphFont(withWorkSans, { family: 'system' });
+  assert.deepEqual(toSystem.pack.fonts, []);
+
+  // And swapping back to Arimo restores its own three weights, not a stale
+  // copy of whatever passed through in between.
+  const backToArimo = setGlyphFont(toSystem, { family: 'arimo' });
+  assert.deepEqual(backToArimo.pack.fonts.map((f) => f.weight), ['400', '500', '700']);
+
+  // A custom font posted directly (not through this dropdown, e.g. an
+  // agent's own upload) is never touched by picking a built-in face.
+  const withCustom = { ...draft, pack: { ...draft.pack, fonts: [...draft.pack.fonts, { family: 'Custom', src: '/fonts/custom/Custom.woff2', weight: '400' }] } };
+  const stillHasCustom = setGlyphFont(withCustom, { family: 'oswald' });
+  assert.ok(stillHasCustom.pack.fonts.some((f) => f.family === 'Custom'));
+})

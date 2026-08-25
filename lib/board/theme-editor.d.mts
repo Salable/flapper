@@ -33,5 +33,6 @@ export function detachArt(draft: ThemeDraft, char: string): ThemeDraft;
 export function clearState(draft: ThemeDraft, char: string): ThemeDraft;
 export function parseFont(font: string): ParsedFont;
 export function buildFont(font: { weight: string; size: number; family: string | null; stack?: string }): string;
+export function setGlyphFont(draft: ThemeDraft, change: Partial<ParsedFont>): ThemeDraft;
 export function draftToPatch(draft: ThemeDraft): { ok: true; theme: string; themePack: PackInput | null } | { ok: false; errors: string[] };
 export function savedPatch(config: ThemeConfig | null | undefined): { theme: string; themePack: PackInput | null };
