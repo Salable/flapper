@@ -631,7 +631,7 @@ test('capabilities and config round-trip through Postgres, and nudge displays', 
   const patched = await jsonOf(
     call(patchConfig, ctx(board.slug), '/config', {
       method: 'PATCH',
-      body: { cardSize: 'small', dwellMs: 1500 },
+      body: { cardSize: 'small' },
       key: board.apiKey,
     }),
   );

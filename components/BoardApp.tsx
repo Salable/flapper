@@ -23,6 +23,7 @@ import { Player } from '@/lib/board/player.mjs';
 import { useStatePublisher } from '@/hooks/useStatePublisher';
 import { loadBoardSkin, onAssetProgress } from '@/components/flapper/assets';
 import { resolveBoardTheme } from '@/lib/board/board-theme.mjs';
+import { PACK_DEFAULTS } from '@/lib/board/theme-pack.mjs';
 import type { ThemePack } from '@/lib/board/theme-pack.mjs';
 import {
   FlapSound,
@@ -48,6 +49,23 @@ const TOAST_MS = 1800;
 function sanitizeConfig(config: any) {
   const { regions: _regions, footerRows: _footerRows, ...rest } = config ?? {};
   return { ...rest, ...gridForConfig(rest), footerRows: 0 };
+}
+
+/**
+ * How the board moves, from the design rather than the board.
+ *
+ * Hold, Scroll speed, Landing, Sweep, Sweep shape and Always flip are
+ * `pack.advanced` now - a property of the design being worn, not of this
+ * board's own config - so they reach the controller from here instead of
+ * from sanitizeConfig above. Read on every theme resolution, so a design
+ * change updates them the same way it updates the colours.
+ */
+function advancedFrom(pack: ThemePack) {
+  // Merged against the pack's own defaults, never a bare read - an
+  // explicit `undefined` in the spread that reaches Flipboard.setOptions
+  // (Object.assign) or Controller.configure overwrites a good default
+  // with nothing, which is worse than the field being absent.
+  return { ...PACK_DEFAULTS.advanced, ...((pack as any)?.advanced ?? {}) };
 }
 
 export function BoardApp({
@@ -156,7 +174,10 @@ export function BoardApp({
             // config, not whatever the server says the pack is.
             const resolved = resolveBoardTheme({ theme: body.theme, themePack: body.themePack });
             const nextSkin = await loadBoardSkin(body.rev, resolved.pack);
-            if (!cancelled && rev === wanted) board.setSkin(nextSkin);
+            if (!cancelled && rev === wanted) {
+              board.setSkin(nextSkin);
+              controller.configure(advancedFrom(resolved.pack));
+            }
           })
           .catch((error: any) => {
             if (rev === wanted) rev = previous;
@@ -263,6 +284,7 @@ export function BoardApp({
       };
 
       const controller = new Controller(board, {});
+      controller.configure(advancedFrom(initialThemeRef.current.pack));
       controller.onChange = (state: any) => {
         onStateRef.current?.({
           ...state,

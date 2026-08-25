@@ -38,6 +38,26 @@ export interface MotionStyle {
   perspective: number;
 }
 
+/**
+ * How the physical board moves: the flip's mechanical feel, and how long a
+ * message sits once landed. `advanced` for now - see TODO.md, "Board motion
+ * belongs to the design".
+ */
+export interface AdvancedStyle {
+  /** How long a message holds once landed, in ms. */
+  dwellMs: number;
+  /** Duration of a step while a tile is mid-flip, in ms. */
+  fastStepMs: number;
+  /** Duration of a tile's final, landing step, in ms. */
+  landStepMs: number;
+  /** Total stagger across the whole board when many tiles flip together, in ms. */
+  sweepMs: number;
+  /** The pattern the stagger follows across the grid. */
+  staggerMode: 'none' | 'column' | 'row' | 'diagonal' | 'random';
+  /** Force every tile through a full revolution, even when unchanged. */
+  alwaysFlip: boolean;
+}
+
 export interface StateOverride {
   card?: Partial<CardStyle>;
   glyph?: Partial<GlyphStyle>;
@@ -104,6 +124,7 @@ export interface ThemePack {
   hinge: HingeStyle;
   glyph: GlyphStyle;
   motion: MotionStyle;
+  advanced: AdvancedStyle;
   states: Record<string, StateOverride>;
   art: Record<string, string>;
   fonts: PackFont[];
@@ -118,11 +139,12 @@ export interface ThemePack {
 }
 
 /** What validatePack accepts: any subset, plus per-state overrides. */
-export type PackInput = Partial<Omit<ThemePack, 'card' | 'hinge' | 'glyph' | 'motion'>> & {
+export type PackInput = Partial<Omit<ThemePack, 'card' | 'hinge' | 'glyph' | 'motion' | 'advanced'>> & {
   card?: Partial<CardStyle>;
   hinge?: Partial<HingeStyle>;
   glyph?: Partial<GlyphStyle>;
   motion?: Partial<MotionStyle>;
+  advanced?: Partial<AdvancedStyle>;
 };
 
 export interface RingState {
@@ -131,7 +153,8 @@ export interface RingState {
 }
 
 export const DEFAULT_CYCLE: readonly RingState[];
-export const PACK_DEFAULTS: Readonly<Pick<ThemePack, 'card' | 'hinge' | 'glyph' | 'motion' | 'fonts'>>;
+export const PACK_DEFAULTS: Readonly<Pick<ThemePack, 'card' | 'hinge' | 'glyph' | 'motion' | 'advanced' | 'fonts'>>;
+export const STAGGER_MODES: readonly AdvancedStyle['staggerMode'][];
 export const RANGES: Readonly<Record<string, readonly number[]>>;
 
 export function isColor(value: unknown): boolean;

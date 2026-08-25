@@ -71,6 +71,13 @@
       "when": 1787578189585,
       "tag": "0009_no-stored-layout",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1787578189586,
+      "tag": "0010_motion-on-the-design",
+      "breakpoints": true
     }
   ]
 }

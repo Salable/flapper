@@ -15,12 +15,12 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button, LinkButton } from '@/components/ui/Button';
-import { Field, Select, RangeSlider } from '@/components/ui/Field';
+import { Field, Select, RangeSlider, Checkbox } from '@/components/ui/Field';
 import { Segmented } from '@/components/ui/bits';
 import { ColorInput } from '@/components/ui/ColorInput';
 import { fileToArt } from '@/components/flapper/rasterize';
 import { THEMES, THEME_IDS, DEFAULT_THEME } from '@/lib/board/themes.mjs';
-import { RANGES, type ThemePack } from '@/lib/board/theme-pack.mjs';
+import { RANGES, STAGGER_MODES, type ThemePack } from '@/lib/board/theme-pack.mjs';
 import { THEME_LIMITS, stableStringify } from '@/lib/board/board-theme.mjs';
 import { RING } from '@/lib/board/ring.mjs';
 import {
@@ -335,6 +335,38 @@ export function ThemeSettings({
                   {slider('Shading', 'motion.shading')}
                   {slider('Shadow', 'motion.shadow')}
                   {slider('Highlight', 'motion.highlight')}
+                </fieldset>
+                <fieldset className="theme-group">
+                  {/* How the physical board moves - the flip's mechanical
+                      feel, and how long a message sits once landed. A
+                      design's property now, not a per-board one: see
+                      TODO.md, "Board motion belongs to the design". */}
+                  <legend>Advanced</legend>
+                  {slider('Hold', 'advanced.dwellMs', 25)}
+                  {slider('Scroll speed', 'advanced.fastStepMs')}
+                  {slider('Landing', 'advanced.landStepMs')}
+                  {slider('Sweep', 'advanced.sweepMs', 5)}
+                  <Field label="Sweep shape" htmlFor="th-stagger">
+                    <Select
+                      id="th-stagger"
+                      value={draft.pack.advanced.staggerMode}
+                      onChange={(e) => field('advanced.staggerMode')(e.target.value)}
+                    >
+                      {STAGGER_MODES.map((mode: string) => (
+                        <option key={mode} value={mode}>
+                          {mode === 'none' ? 'None' : mode[0].toUpperCase() + mode.slice(1)}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                  <Field label="Always flip" htmlFor="th-always-flip">
+                    <Checkbox
+                      id="th-always-flip"
+                      label="Every tile does a full revolution, even unchanged"
+                      checked={Boolean(draft.pack.advanced.alwaysFlip)}
+                      onChange={(e) => field('advanced.alwaysFlip')(e.target.checked)}
+                    />
+                  </Field>
                 </fieldset>
                 <fieldset className="theme-group">
                   <legend>Wash</legend>

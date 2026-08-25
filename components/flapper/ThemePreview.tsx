@@ -9,6 +9,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Flipboard } from '@/lib/board/flipboard.js';
+import { PACK_DEFAULTS } from '@/lib/board/theme-pack.mjs';
 import { loadProcedural } from '@/components/flapper/assets';
 import type { ThemePack } from '@/lib/board/theme-pack.mjs';
 import { Button } from '@/components/ui/Button';
@@ -121,10 +122,25 @@ export function ThemePreview({
         .then((skin) => {
           if (cancelled) return;
           if (!boardRef.current) {
+            /*
+             * The flip's mechanical feel comes from the pack too - Scroll
+             * speed, Landing, Sweep, Sweep shape, Always flip - so a design
+             * being edited previews how it moves, not just what colour it is.
+             * `dwellMs` is not here: that is a queue's pacing between
+             * messages, and this preview has no queue, just a demo replay.
+             */
+            // Merged against the pack's own defaults so an incomplete pack
+            // cannot spread `undefined` over Flipboard's own defaults.
+            const advanced = { ...PACK_DEFAULTS.advanced, ...((pack as any)?.advanced ?? {}) };
             boardRef.current = new Flipboard(canvas, skin, {
               cols,
               rows,
               padding: 6,
+              fastStepMs: advanced.fastStepMs,
+              landStepMs: advanced.landStepMs,
+              sweepMs: advanced.sweepMs,
+              staggerMode: advanced.staggerMode,
+              alwaysFlip: advanced.alwaysFlip,
               // Told, not measured - see Flipboard.resize.
               ...(fixed ? { cssSize: { width, height } } : {}),
             });

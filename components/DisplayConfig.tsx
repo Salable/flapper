@@ -364,8 +364,14 @@ export function DisplayConfig({
           </p>
         </Field>
       </div>
+      {/*
+        Hold, Scroll speed, Landing, Sweep, Sweep shape and Always flip lived
+        here and are gone: they are how the board moves, which is the
+        design's business, not this board's - see TODO.md, "Board motion
+        belongs to the design". Align, Vertical and Wrap stay: they are how
+        this content sits, per board, WYSIWYG.
+      */}
       <div className="config-grid">
-        {range('cfg-dwell', 'Hold', 'dwellMs', 0, 8000, 100, ms)}
         {select('cfg-align', 'Align', 'align', [
           ['left', 'Left'],
           ['center', 'Center'],
@@ -381,24 +387,6 @@ export function DisplayConfig({
           ['char', 'Char'],
           ['none', 'None'],
         ])}
-        {range('cfg-fast', 'Scroll speed', 'fastStepMs', 25, 200, 5, ms)}
-        {range('cfg-land', 'Landing', 'landStepMs', 40, 500, 10, ms)}
-        {range('cfg-sweep', 'Sweep', 'sweepMs', 0, 2000, 25, ms)}
-        {select('cfg-stagger', 'Sweep shape', 'staggerMode', [
-          ['diagonal', 'Diagonal'],
-          ['column', 'Column'],
-          ['row', 'Row'],
-          ['random', 'Random'],
-          ['none', 'None'],
-        ])}
-        <div className="ui-field">
-          <Checkbox
-            id="cfg-always"
-            label="Always flip"
-            checked={Boolean(config.alwaysFlip)}
-            onChange={(event) => patch('alwaysFlip', event.target.checked)}
-          />
-        </div>
         <Field
           label={
             <>
