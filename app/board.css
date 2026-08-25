@@ -1932,6 +1932,13 @@ main.landing .error {
   font-variant-numeric: tabular-nums;
 }
 
+/* Confirms a change to Start from/Screen/Card size/Fidget - all of which
+   apply themselves with no Save button - right beside the fact (this cards
+   count) those same fields decide, rather than at the top of the page. */
+.board-side-saved {
+  color: var(--live);
+}
+
 
 /* The two halves of a custom shape, side by side. */
 .board-side-custom {

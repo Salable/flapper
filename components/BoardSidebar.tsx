@@ -8,7 +8,7 @@ import {
   cardSizeOf,
   CARD_SIZE_IDS,
 } from '@/lib/board/geometry.mjs';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Field, Select, TextInput } from '@/components/ui/Field';
 import { THEMES, THEME_IDS, DEFAULT_THEME } from '@/lib/board/themes.mjs';
 import { presetDraft, draftToPatch } from '@/lib/board/theme-editor.mjs';
@@ -59,9 +59,33 @@ export function BoardSidebar({
   boardUrl: string;
   /** The board's config, for the shape it is designed for. */
   config: Record<string, unknown>;
-  /** Save a change to the two settings that decide the board's shape. */
-  onConfig: (patch: Record<string, unknown>) => void;
+  /** Save a change to the two settings that decide the board's shape.
+   * Resolves to whether it worked, so this panel can confirm it right where
+   * you made the change - `void` still accepted, for a caller with nothing
+   * to report either way. */
+  onConfig: (patch: Record<string, unknown>) => Promise<boolean> | void;
 }) {
+  /*
+   * "Saved", right beside the fields it is about - not a notice at the top
+   * of the page, which nobody watching the field they had just changed ever
+   * saw. Every field in this panel applies itself with no Save button, so
+   * this is the only confirmation any of them get.
+   */
+  const [saved, setSaved] = useState(false);
+  const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (savedTimer.current !== null) clearTimeout(savedTimer.current);
+    },
+    [],
+  );
+  async function apply(patch: Record<string, unknown>) {
+    const ok = await onConfig(patch);
+    if (ok === false) return;
+    if (savedTimer.current !== null) clearTimeout(savedTimer.current);
+    setSaved(true);
+    savedTimer.current = setTimeout(() => setSaved(false), 1500);
+  }
   /*
    * The screen, beside the type and the created date, because it is the fact
    * that decides what the board looks like - and until it was said here, the
@@ -84,7 +108,7 @@ export function BoardSidebar({
     const h = Number(draftH);
     if (!Number.isFinite(w) || w <= 0 || !Number.isFinite(h) || h <= 0) return;
     if (w === screen.w && h === screen.h) return;
-    onConfig({ screen: { w, h } });
+    apply({ screen: { w, h } });
   }
 
   /*
@@ -118,7 +142,7 @@ export function BoardSidebar({
     const draft = chosen ? { theme: chosen.basedOn ?? DEFAULT_THEME, pack: chosen.pack } : presetDraft(value);
     const patch = draftToPatch(draft);
     if (!patch.ok) return;
-    onConfig({ theme: patch.theme, themePack: patch.themePack });
+    apply({ theme: patch.theme, themePack: patch.themePack });
   }
 
   const themes: Record<string, any> = THEMES;
@@ -188,7 +212,7 @@ export function BoardSidebar({
               }
               setCustom(false);
               const found = SCREENS.find((option) => `${option.w}:${option.h}` === event.target.value);
-              if (found) onConfig({ screen: { w: found.w, h: found.h } });
+              if (found) apply({ screen: { w: found.w, h: found.h } });
             }}
           >
             {SCREENS.map((option) => (
@@ -241,7 +265,7 @@ export function BoardSidebar({
           <Select
             id="side-cardsize"
             value={cardSizeOf(config)}
-            onChange={(event) => onConfig({ cardSize: event.target.value })}
+            onChange={(event) => apply({ cardSize: event.target.value })}
           >
             {CARD_SIZE_IDS.map((id: string) => (
               <option key={id} value={id}>
@@ -252,6 +276,7 @@ export function BoardSidebar({
         </Field>
         <p className="board-side-grid muted">
           {grid.cols} × {grid.rows} cards{!chosen && ' · default screen'}
+          {saved && <span className="board-side-saved"> · Saved</span>}
         </p>
         <Field
           label="Fidget"
@@ -261,7 +286,7 @@ export function BoardSidebar({
           <Select
             id="side-ambient"
             value={String(Number(config.ambientMs) || 0)}
-            onChange={(event) => onConfig({ ambientMs: Number(event.target.value) })}
+            onChange={(event) => apply({ ambientMs: Number(event.target.value) })}
           >
             <option value="0">Off - perfectly still</option>
             <option value="15000">Every 15 seconds</option>

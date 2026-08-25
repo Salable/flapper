@@ -160,8 +160,17 @@ the `cols × rows` colour grid, the renderer cannot tell the difference.
       tooltip (`Chip`'s new `tip` prop) once a real hover in a real
       browser did not show one at all. And Start from/Screen/Card size/
       Fidget apply themselves with no Save button and, until now, no
-      confirmation either - a "Saved." notice (self-clearing,
-      `flashNotice` in SettingsClient) now says so.
+      confirmation either - first as a page-top notice nobody watching
+      the sidebar they had just touched ever saw, moved into the sidebar
+      itself (`onConfig` now resolves to whether it worked, so a small
+      self-clearing "Saved" sits right beside the cards-count line those
+      same fields decide).
+- [x] Asked outright whether a sign needs "Live queue" and "active" at
+      all. Active - yes, real state for any board. "Live queue" - no, and
+      worse than unnecessary: it names the mechanism (a queue) a sign
+      explicitly turns off, the same way Priority/Hold/Loop already are.
+      Not done yet: show "Sign" there instead, derived from `queueCap`
+      the same way `isSign` already is everywhere else, not the type id.
 
 ### Next — the designer suite
 
