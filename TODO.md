@@ -138,6 +138,16 @@ the `cols × rows` colour grid, the renderer cannot tell the difference.
       changes, so a plain grid resize called neither. The `[cols, rows]`
       effect now calls `setText` again (snapped, not flown in - a resize
       is a discontinuity) right after resizing.
+- [x] Fidget did not seem to be enabled - true in the one place it was
+      checked: the settings-page "what it says" preview never ran ambient
+      motion, only the real display did, so watching a sign there while
+      Fidget was set showed a board that never moved. (The mechanism
+      itself was fine - confirmed by instrumenting BoardApp's own timer,
+      which fired exactly on schedule.) `components/flapper/ambient.ts`
+      pulls the ambient logic out of BoardApp into a shared `createAmbient
+      (board)` that both it and ThemePreview now call, so a board fidgets
+      the same way wherever it is watched - `ambientMs` threaded down
+      Settings → QueueManager → ThemePreview.
 
 ### Next — the designer suite
 

@@ -66,6 +66,7 @@ export function QueueManager({
   pack,
   cols,
   rows,
+  ambientMs = 0,
 }: {
   slug: string;
   cap?: number;
@@ -73,6 +74,9 @@ export function QueueManager({
   pack: ThemePack;
   cols: number;
   rows: number;
+  /** The board's Fidget setting, so the "what's on the glass" preview
+   * fidgets too - see ThemePreview's own doc for why. */
+  ambientMs?: number;
 }) {
   const apiBase = `/api/b/${slug}`;
   /*
@@ -248,7 +252,7 @@ export function QueueManager({
       />
       <div className="design-surface">
         <div className="design-preview">
-          <ThemePreview pack={pack} text={glassText} cols={cols} rows={rows} tilePx={56} />
+          <ThemePreview pack={pack} text={glassText} cols={cols} rows={rows} tilePx={56} ambientMs={ambientMs} />
           <div className="design-preview-bar">
             <p className="design-preview-caption">
               {cols} × {rows} cards{glassText === '' ? ' · the board is blank' : ''}

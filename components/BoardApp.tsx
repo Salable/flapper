@@ -18,10 +18,10 @@ import { useEffect, useRef, useState } from 'react';
 import { Flipboard } from '@/lib/board/flipboard.js';
 import { gridForConfig } from '@/lib/board/geometry.mjs';
 import { Controller } from '@/lib/board/controller.mjs';
-import { idleAction, withFlicker } from '@/lib/board/idle.mjs';
 import { Player } from '@/lib/board/player.mjs';
 import { useStatePublisher } from '@/hooks/useStatePublisher';
 import { loadBoardSkin, onAssetProgress } from '@/components/flapper/assets';
+import { createAmbient } from '@/components/flapper/ambient';
 import { resolveBoardTheme } from '@/lib/board/board-theme.mjs';
 import { PACK_DEFAULTS } from '@/lib/board/theme-pack.mjs';
 import type { ThemePack } from '@/lib/board/theme-pack.mjs';
@@ -116,7 +116,7 @@ export function BoardApp({
     let cancelled = false;
     // Assigned once the board exists; the cleanup below has to be able to reach
     // it, and the board is built inside an async block.
-    let stopAmbient: (restore?: boolean) => void = () => {};
+    let ambient: ReturnType<typeof createAmbient> | null = null;
     let source: EventSource | null = null;
     let boardObserver: ResizeObserver | null = null;
     let ratioQuery: MediaQueryList | null = null;
@@ -185,103 +185,13 @@ export function BoardApp({
           });
       };
       /*
-       * Ambient motion while the glass is holding.
-       *
-       * A board standing on one message is dead in a way a real installation
-       * never is: idle.mjs already models the alternative - mostly stillness,
-       * the occasional tile misfiring to a wrong character and correcting
-       * itself all the way round, and now and then a whole sweep - and until
-       * now it only ran on the wordmark, which is not what it was written for.
-       *
-       * It works on what is physically on the glass (`board.page`) and puts it
-       * back afterwards, and it only ever runs when nothing else is moving.
-       * The restore is guarded: if anything else painted the board in the
-       * meantime the flicker is abandoned rather than stamped over the top of
-       * whatever arrived, which is the one way this could have hurt.
-       *
-       * Off unless a board asks for it. A wall in an office should not clack
-       * once a minute all night because a default said so.
+       * Ambient motion while the glass is holding - see components/flapper/
+       * ambient.ts for the mechanism (shared with the settings-page
+       * preview, so a board fidgets the same way wherever it is watched).
+       * Off unless a board asks for it: a wall in an office should not
+       * clack once a minute all night because a default said so.
        */
-      let ambientTimer: ReturnType<typeof setInterval> | null = null;
-      let restoreTimer: ReturnType<typeof setTimeout> | null = null;
-      let ambientTick = 0;
-      /** Put the words back, if a flicker is still showing. */
-      let undoFlicker: (() => void) | null = null;
-      /*
-       * `restore` is false on the way out.
-       *
-       * Doing the restore matters when the board carries on living - a sync
-       * nudge lands inside the flicker window and would otherwise strand the
-       * deliberately-wrong character. It is wrong when the board is being
-       * discarded: setPage on a board nobody owns any more starts a fresh frame
-       * loop against an orphaned canvas, and on the initialRev path a
-       * replacement board is already being built for the same element, so two
-       * boards would draw to one canvas.
-       */
-      stopAmbient = (restore = true) => {
-        if (ambientTimer !== null) clearInterval(ambientTimer);
-        if (restoreTimer !== null) clearTimeout(restoreTimer);
-        ambientTimer = null;
-        restoreTimer = null;
-        const undo = undoFlicker;
-        undoFlicker = null;
-        if (restore) undo?.();
-      };
-      const startAmbient = (everyMs: number) => {
-        stopAmbient();
-        // onConfig can land after the effect has been torn down - the queue
-        // fetch that triggers it may still be in flight - and an interval
-        // started then would tick against a detached canvas for ever.
-        if (cancelled) return;
-        if (!Number.isFinite(everyMs) || everyMs < 5000) return;
-        ambientTimer = setInterval(() => {
-          if (board.isAnimating() || restoreTimer !== null) return;
-          const page = board.page;
-          if (!page || page.every((line: string) => line.trim() === '')) return;
-          ambientTick += 1;
-          /*
-           * Flat, not newline-joined. A page is rows of exactly `cols`
-           * characters, so index/cols and index%cols put a character back where
-           * it came from - whereas joining on newlines puts separators into the
-           * pool idleAction picks from, and it only skips spaces. On a board
-           * holding a short message the separators outnumber the letters, so
-           * more than half of all flickers landed on one, `split` came back a
-           * row short, and the restore guard could not match a page with the
-           * wrong number of rows. The board simply shifted up and stayed there.
-           */
-          const width = page[0]?.length ?? 0;
-          if (width === 0 || page.some((line: string) => line.length !== width)) return;
-          const flat = page.join('');
-          const action = idleAction(flat, board.charset, ambientTick);
-          if (action.kind === 'sweep') {
-            // Restore whatever the board was set to, not a hard-coded false: a
-            // board configured to always flip would have quietly lost it.
-            const wasAlwaysFlip = board.opts.alwaysFlip;
-            board.setOptions({ alwaysFlip: true });
-            board.setPage(page);
-            board.setOptions({ alwaysFlip: wasAlwaysFlip });
-            return;
-          }
-          if (action.kind !== 'flicker') return;
-          const changed = withFlicker(flat, action);
-          const flickered = page.map((_: string, row: number) =>
-            changed.slice(row * width, (row + 1) * width),
-          );
-          board.setPage(flickered);
-          const restore = () => {
-            // Only if nothing else has painted since. A message that arrived
-            // mid-flicker must not be replaced by the words it interrupted.
-            const now = board.page;
-            if (now && now.join('\u0000') === flickered.join('\u0000')) board.setPage(page);
-          };
-          undoFlicker = restore;
-          restoreTimer = setTimeout(() => {
-            restoreTimer = null;
-            undoFlicker = null;
-            restore();
-          }, 900);
-        }, everyMs);
-      };
+      ambient = createAmbient(board);
 
       const controller = new Controller(board, {});
       controller.configure(advancedFrom(initialThemeRef.current.pack));
@@ -323,7 +233,7 @@ export function BoardApp({
           try {
             applyTheme(meta?.themeRev);
             controller.configure(sanitizeConfig(config));
-            startAmbient(Number((config as any)?.ambientMs) || 0);
+            ambient?.start(Number((config as any)?.ambientMs) || 0);
           } catch (error: any) {
             console.warn(`flapper: stored config refused - ${error.message}`);
           }
@@ -412,7 +322,7 @@ export function BoardApp({
       stopProgress();
       // Not the restore: the board is going away, and painting it on the way
       // out would arm a frame loop on a canvas nobody owns.
-      stopAmbient(false);
+      ambient?.destroy();
       source?.close();
       boardObserver?.disconnect();
       if (ratioQuery && onRatioChange) ratioQuery.removeEventListener('change', onRatioChange);

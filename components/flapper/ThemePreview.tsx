@@ -11,6 +11,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Flipboard } from '@/lib/board/flipboard.js';
 import { PACK_DEFAULTS } from '@/lib/board/theme-pack.mjs';
 import { loadProcedural } from '@/components/flapper/assets';
+import { createAmbient } from '@/components/flapper/ambient';
 import type { ThemePack } from '@/lib/board/theme-pack.mjs';
 import { Button } from '@/components/ui/Button';
 
@@ -29,6 +30,7 @@ export function ThemePreview({
   bar = true,
   fixed = false,
   loop = 0,
+  ambientMs = 0,
 }: {
   pack: ThemePack;
   /**
@@ -71,9 +73,18 @@ export function ThemePreview({
    * everything else wants.
    */
   loop?: number;
+  /**
+   * The board's own Fidget setting, so what a sign is actually doing on the
+   * glass - twitching a tile now and then, sweeping about once in twelve -
+   * is also what this preview shows rather than something perfectly still
+   * that the real display never is. 0 (the default) is off, same as
+   * everywhere else Fidget is off unless a board asks for it.
+   */
+  ambientMs?: number;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const boardRef = useRef<any>(null);
+  const ambientRef = useRef<ReturnType<typeof createAmbient> | null>(null);
   const [error, setError] = useState('');
   /*
    * Whether the board exists yet, so the size effect below can wait for it.
@@ -150,6 +161,7 @@ export function ThemePreview({
             // again if the box does not change afterwards.
             if (!fixed) requestAnimationFrame(() => boardRef.current?.resize());
             boardRef.current.setText(firstText.current);
+            ambientRef.current = createAmbient(boardRef.current);
             setReady(true);
           } else {
             boardRef.current.setSkin(skin);
@@ -218,11 +230,21 @@ export function ThemePreview({
     return () => observer.disconnect();
   }, []);
 
+  // Restarted whenever the setting changes, not just set once - editing
+  // Fidget in the sidebar must be visible in this same preview without
+  // reopening it.
+  useEffect(() => {
+    if (!ready) return;
+    ambientRef.current?.start(ambientMs);
+  }, [ambientMs, ready]);
+
   // On the way out, for good. A board with anything left to draw otherwise
   // keeps a frame loop alive on a canvas nobody can see, for the life of the
   // tab, one per visit to the page.
   useEffect(
     () => () => {
+      ambientRef.current?.destroy();
+      ambientRef.current = null;
       boardRef.current?.stop?.();
       boardRef.current = null;
     },

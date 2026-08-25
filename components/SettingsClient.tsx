@@ -219,6 +219,7 @@ export function SettingsClient({ board: initial }: { board: Board }) {
       pack={resolveBoardTheme(board.config).pack}
       cols={grid.cols}
       rows={grid.rows}
+      ambientMs={Number(board.config?.ambientMs) || 0}
     />
   );
 
