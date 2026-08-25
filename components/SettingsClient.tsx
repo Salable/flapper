@@ -1,18 +1,20 @@
 'use client';
 
 /**
- * The control room, in three tabs: Queue (what plays), Display (how it
- * looks), General (identity, privacy, access, pause/export, deletion).
- * Owner-only - the server component gates before this renders.
+ * The control room, in two tabs: Queue (what plays and how it's composed),
+ * General (identity, privacy, access, pause/export, deletion). What look and
+ * shape the board wears lives in the sidebar beside these tabs, not its own
+ * tab - it is a fact about the board you always want visible, not a form you
+ * visit.
  */
 
 import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { gridForConfig } from '@/lib/board/geometry.mjs';
+import { resolveBoardTheme } from '@/lib/board/board-theme.mjs';
 import { useRouter } from 'next/navigation';
 import { AppBar } from '@/components/AppBar';
 import { QueueManager } from '@/components/QueueManager';
 import { BOARD_TYPE_CLIENTS } from '@/components/board-types/registry';
-import { DisplayConfig } from '@/components/DisplayConfig';
 import { Tabs } from '@/components/ui/Tabs';
 import { Modal } from '@/components/ui/Modal';
 import { Button, LinkButton } from '@/components/ui/Button';
@@ -20,9 +22,6 @@ import { Field, TextInput } from '@/components/ui/Field';
 import { Chip, CopyButton, KeyReveal } from '@/components/ui/bits';
 import { BoardSidebar } from '@/components/BoardSidebar';
 import { TypeSettings } from '@/components/TypeSettings';
-import { ThemeSettings, type ThemeDraft } from '@/components/ThemeSettings';
-import { ThemePreview } from '@/components/flapper/ThemePreview';
-import { draftFromConfig } from '@/lib/board/theme-editor.mjs';
 import type { TypeMeta } from '@/components/board-types/type-meta';
 import { maskSecret } from '@/lib/api/mask.mjs';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
@@ -42,9 +41,6 @@ type Board = {
   createdAt: number;
 };
 
-/* Enough of the ring to judge a pack: letters, digits, and the punctuation
-   that has its own card. */
-const PREVIEW_TEXT = 'FLAPPER 2026!\nTHE QUICK BROWN\nFOX .,!()';
 
 export function SettingsClient({ board: initial }: { board: Board }) {
   const router = useRouter();
@@ -56,23 +52,14 @@ export function SettingsClient({ board: initial }: { board: Board }) {
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const [exported, setExported] = useState<string | null>(null);
-  // The theme draft lives here, above the tabs: Tabs remounts its panel on a
-  // switch, and a half-edited theme (an uploaded logo) must survive one.
-  const [themeDraft, setThemeDraft] = useState<ThemeDraft>(() => draftFromConfig(initial.config));
   /*
    * The grid, read straight from `board.config` on every render rather than
-   * copied into its own state. It used to be mirrored up out of DisplayConfig
-   * so the preview beside the controls could show the board at the size it
-   * actually is - but DisplayConfig no longer owns the screen or the card
-   * size (BoardSidebar does), so a state that only DisplayConfig's onChange
-   * kept fresh would go stale the moment the sidebar changed either one: the
-   * preview would keep showing the old grid until the page reloaded. Derived
-   * fresh, it cannot disagree with what `board.config` actually says.
+   * copied into its own state - the sidebar is what sets the screen and the
+   * card size now, so a mirrored copy here would go stale the moment it did,
+   * and the compose canvas beside the queue would disagree with the board's
+   * real size until the page reloaded. Derived fresh, it cannot.
    */
   const grid = gridForConfig(board.config);
-  // What the preview board is showing. It starts as enough of the ring to judge
-  // a pack and becomes whatever the designer types onto the board itself.
-  const [previewText, setPreviewText] = useState(PREVIEW_TEXT);
 
   // Resolved after mount: the server does not know the public origin, and
   // rendering it there would make hydration disagree with the glass.
@@ -120,29 +107,6 @@ export function SettingsClient({ board: initial }: { board: Board }) {
       setError(err.message);
     }
     setBusy(false);
-  }
-
-  /* The design surface's way out: what you typed onto the preview goes to the
-     real board, through the same endpoint the compose box uses. */
-  async function sendPreviewToBoard() {
-    setBusy(true);
-    setError('');
-    try {
-      const response = await fetch(`/api/b/${board.slug}/message`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ rows: previewText.split('\n'), priority: 'now' }),
-      });
-      if (!response.ok) {
-        const payload = await response.json().catch(() => ({}));
-        throw new Error(payload.error || `HTTP ${response.status}`);
-      }
-      setNotice('On the board.');
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setBusy(false);
-    }
   }
 
   /**
@@ -250,6 +214,11 @@ export function SettingsClient({ board: initial }: { board: Board }) {
       // A board that holds one message is a sign; the panel drops everything
       // that only makes sense with a queue behind it.
       cap={Number(board.config?.queueCap) || Infinity}
+      // The board's own design, so composing happens on it - what look this
+      // board wears is picked in the sidebar now, not a draft owned here.
+      pack={resolveBoardTheme(board.config).pack}
+      cols={grid.cols}
+      rows={grid.rows}
     />
   );
 
@@ -410,73 +379,6 @@ export function SettingsClient({ board: initial }: { board: Board }) {
           }
           tabs={[
             { id: 'queue', label: 'Queue', content: queueTab },
-            {
-              id: 'display',
-              label: 'Display',
-              content: (
-                <div className="design-surface">
-                  <div className="design-preview">
-                    <ThemePreview
-                      pack={themeDraft.pack}
-                      text={previewText}
-                      cols={grid.cols}
-                      rows={grid.rows}
-                      tilePx={56}
-                      onText={setPreviewText}
-                    />
-                    <div className="design-preview-bar">
-                      <p className="design-preview-caption">
-                        {grid.cols} × {grid.rows} cards · click the board and type
-                      </p>
-                      <div className="design-preview-actions">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => setPreviewText(PREVIEW_TEXT)}
-                          disabled={previewText === PREVIEW_TEXT}
-                        >
-                          Reset words
-                        </Button>
-                        <Button
-                          size="sm"
-                          disabled={busy || previewText.trim() === ''}
-                          onClick={() => sendPreviewToBoard()}
-                        >
-                          Put this on the board
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="design-controls">
-                    <ThemeSettings
-                      slug={board.slug}
-                      draft={themeDraft}
-                      onDraft={setThemeDraft}
-                      config={board.config}
-                      onSaved={(config) => setBoard((prev) => ({ ...prev, config }))}
-                      // A board wears a design; it does not build one. See the
-                      // prop's doc-comment in ThemeSettings.
-                      pickOnly
-                    />
-                    <DisplayConfig
-                      slug={board.slug}
-                      initial={board.config}
-                      /*
-                       * `config` here is only ever {align, valign, wrap,
-                       * ambientMs} - DisplayConfig no longer owns the screen
-                       * or the card size, so it cannot report a stale copy of
-                       * either back over whatever the sidebar just set. `grid`
-                       * needs no updating from here at all: it is derived
-                       * fresh from `board.config` above, every render.
-                       */
-                      onChange={(config) =>
-                        setBoard((prev) => ({ ...prev, config: { ...prev.config, ...config } }))
-                      }
-                    />
-                  </div>
-                </div>
-              ),
-            },
             { id: 'general', label: 'General', content: generalTab },
           ]}
         />

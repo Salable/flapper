@@ -1295,3 +1295,31 @@ test('a rejected replace on a sign leaves the old message, not a blank board', a
   const after = (await jsonOf(call(getQueue, ctx(board.slug), '/queue'))).body;
   assert.equal(after.items.length, 0, 'the API leaves it empty - restoring is the caller\'s job');
 })
+
+test('a rows-mode item is stored with rows nested under options, not at the top', async () => {
+  /*
+   * rowsOption reads `body.rows` at the top level - that is what a caller
+   * posts. textOptions then builds `{ text: '', options: { rows, ... } }` for
+   * storage, whichever mode was used - so what comes back from GET /queue is
+   * not the same shape you posted. A UI reading `item.payload.rows` directly
+   * (the natural first guess) sees undefined for every rows-mode item and
+   * silently shows nothing, which is exactly what happened here before this
+   * was pinned: the queue list read the wrong path and showed every
+   * rows-mode item as blank.
+   */
+  const board = await makeBoard();
+  const posted = await jsonOf(
+    call(postMessage, ctx(board.slug), '/message', {
+      method: 'POST',
+      body: { rows: ['HELLO', 'WORLD'] },
+      key: board.apiKey,
+    }),
+  );
+  assert.equal(posted.status, 202, JSON.stringify(posted.body));
+
+  const queue = (await jsonOf(call(getQueue, ctx(board.slug), '/queue'))).body;
+  const item = queue.items[0];
+  assert.equal(item.payload.rows, undefined, 'rows is not a top-level field on the stored payload');
+  assert.deepEqual(item.payload.options.rows, ['HELLO', 'WORLD']);
+  assert.equal(item.payload.text, '', 'text is always present, empty for a rows-mode item');
+})

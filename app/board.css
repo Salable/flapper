@@ -774,11 +774,17 @@ main.landing .error {
 
 /* ---- control room: queue + compose + display config ---- */
 
+/* Composing itself happens on the board now (see .design-preview) - this is
+   just what governs how a message is admitted once typed there. Separated
+   from the list above it the way the old compose box's border used to. */
 .compose-options {
   display: flex;
   gap: 14px;
   align-items: flex-end;
   flex-wrap: wrap;
+  padding-top: 14px;
+  margin-top: 4px;
+  border-top: 1px dashed var(--edge);
 }
 
 .queue-list {
@@ -1423,12 +1429,6 @@ main.landing .error {
   margin-top: 6px;
 }
 
-/* What replaces the editing groups when a board only picks a design. */
-.theme-pickonly-hint {
-  margin: 0;
-  font: 400 var(--text-sm) / 1.5 var(--font-sans);
-}
-
 .theme-groups {
   align-self: stretch;
   display: grid;
@@ -1522,21 +1522,6 @@ main.landing .error {
   width: 100%;
   margin-top: 8px;
   font-size: 12px;
-}
-
-/* The queue's tail: add a message under the list and watch it appear above. */
-.compose {
-  align-self: stretch;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding-top: 14px;
-  margin-top: 4px;
-  border-top: 1px dashed var(--edge);
-}
-
-.compose .field {
-  align-self: stretch;
 }
 
 /*

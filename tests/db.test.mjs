@@ -107,6 +107,29 @@ test('setConfig merges one level, regions per band', async () => {
   assert.deepEqual((await getById(db, board.id)).config, config);
 });
 
+test('two concurrent setConfig calls on unrelated fields both survive', async () => {
+  /*
+   * setConfig used to read the config, merge in JS, then write - a bare
+   * read-modify-write with no lock. Two callers changing different fields at
+   * once both read the same starting config before either wrote, and
+   * whichever write landed second silently discarded the other's change.
+   * The board's own sidebar now puts several independent controls (theme,
+   * screen, card size, fidget) within a click of each other, which is
+   * exactly the shape of thing that triggers it - so this runs several
+   * genuinely concurrent writers through the real function every time.
+   */
+  const board = await createBoard(db, { ownerId: 'u1' });
+  await Promise.all([
+    setConfig(db, board.id, { theme: 'canary' }),
+    setConfig(db, board.id, { ambientMs: 60000 }),
+    setConfig(db, board.id, { align: 'left' }),
+  ]);
+  const config = (await getById(db, board.id)).config;
+  assert.equal(config.theme, 'canary');
+  assert.equal(config.ambientMs, 60000);
+  assert.equal(config.align, 'left');
+})
+
 test('rotateKey mints a fresh key', async () => {
   const board = await createBoard(db, { ownerId: 'u1' });
   const rotated = await rotateKey(db, board.id);

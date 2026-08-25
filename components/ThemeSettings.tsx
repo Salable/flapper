@@ -90,7 +90,6 @@ export function ThemeSettings({
   config,
   onSaved,
   saveTo,
-  pickOnly = false,
 }: {
   slug: string;
   draft: ThemeDraft;
@@ -112,16 +111,6 @@ export function ThemeSettings({
     dirty: boolean;
     save: (draft: ThemeDraft) => Promise<void>;
   };
-  /**
-   * Pick a design, do not edit one. A board wears a design; making one - the
-   * colours, the wash, a per-character override - is a Designs job, done
-   * once, on a thing you can name and reuse, not redone from scratch on every
-   * board that happens to want it. This board's Display tab used the whole
-   * editor to do both, which meant customising a look here never reached
-   * anywhere else, and any of ten boards wanting the same tweak paid for it
-   * ten times.
-   */
-  pickOnly?: boolean;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -241,16 +230,14 @@ export function ThemeSettings({
 
   return (
     <section className="settings-block theme-settings">
-      <h2>{pickOnly ? 'Design' : 'Theme'}</h2>
+      <h2>Design</h2>
 
       <Field
         label="Start from"
         hint={
           saveTo
             ? 'Replaces this design with the one you pick. A starting point, copied in - nothing stays linked.'
-            : pickOnly
-              ? "Replaces this board's look with the one you pick. To make your own, go to Designs."
-              : "Replaces this board's look with the one you pick. Your own designs are copied in - editing here afterwards changes the board, never the design."
+            : "Replaces this board's look with the one you pick. Your own designs are copied in - editing here afterwards changes the board, never the design."
         }
       >
         <Select
@@ -282,8 +269,6 @@ export function ThemeSettings({
         </Select>
       </Field>
 
-      {!pickOnly && (
-        <>
               <div className="theme-groups">
                 <fieldset className="theme-group">
                   <legend>Card</legend>
@@ -584,23 +569,12 @@ export function ThemeSettings({
                   )}
                 </div>
               </details>
-        </>
-      )}
-      {pickOnly && (
-        <p className="theme-pickonly-hint muted">
-          Colours, wash, type and per-character overrides live in{' '}
-          <LinkButton size="sm" href="/designs">
-            Designs
-          </LinkButton>
-          {' '}- make or edit one there, then start from it here.
-        </p>
-      )}
 
       {!patch.ok && <p className="error">{patch.errors.join('; ')}</p>}
       {error !== '' && <p className="error">{error}</p>}
       <div className="actions">
         <Button variant="primary" onClick={save} disabled={busy || !dirty || !patch.ok}>
-          {saveTo ? saveTo.label : pickOnly ? 'Apply design' : 'Save theme'}
+          {saveTo ? saveTo.label : 'Save theme'}
         </Button>
         <Button variant="ghost" onClick={() => update(presetDraft(draft.theme))} disabled={busy}>
           Reset to {themes[draft.theme].name}
