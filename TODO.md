@@ -465,6 +465,33 @@ back to the design's Hold instead of the board's.
       board's own opts (which the fidget system reads) are populated from the
       resolved pack, so there is only ever one copy (`6aeb2a1`).
 
+## The card itself, not just the flip
+
+Raised directly: a resting tile read as one flat plastic rectangle rather than
+two hinged vanes, and the whole board looked too clean to have hung anywhere.
+
+- [x] `hinge.highlight` (the top vane's bevel, already coded and drawable) and
+      real pin sizes now have actual defaults instead of `null` /
+      too-small-to-see - Classic and any pack that never touched `hinge` were
+      the only ones this changed; the four packs that already set their own
+      `highlight` were untouched.
+- [x] `card.vignette` and `card.grunge`, two new pack fields (defaults 0.22
+      and 0.14) - light falling off toward the card's edge, and a scatter of
+      dark specks plus a couple of soft pooled smudges. Baked into `paintCard`
+      once per state, so it costs nothing at draw time and rides along on
+      both flap halves automatically.
+- [x] A soft shadow bleeding from a mid-flip tile into the gap below it, not
+      just the shading it already threw onto its own lower half - peaks with
+      the flap flat-on, same curve as the existing in-card shadow.
+- [ ] **Grunge is baked per state, not per grid position** - every tile
+      currently showing the same letter shares the exact same speckle
+      placement, since it draws from the one cached card for that state. A
+      real board's wear is per physical tile. Fixable (a shared noise texture
+      sampled by grid position instead, applied per frame in `drawTile`
+      rather than baked in `paintCard`) but costs a draw call per tile per
+      frame instead of nothing - not done since the baked version already
+      reads as worn at the strength shipped.
+
 ## Left by the code review
 
 - [x] **`lib/board/face.mjs` had no production caller** — deleted, with its

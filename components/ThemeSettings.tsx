@@ -280,6 +280,8 @@ export function ThemeSettings({
                   {colour('Edge', 'card.edge')}
                   {slider('Corner radius', 'card.radius')}
                   {slider('Sheen', 'card.sheen')}
+                  {slider('Vignette', 'card.vignette')}
+                  {slider('Grunge', 'card.grunge')}
                 </fieldset>
                 <fieldset className="theme-group">
                   <legend>Glyph</legend>
