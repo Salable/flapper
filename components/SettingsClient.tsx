@@ -9,7 +9,7 @@
  */
 
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
-import { gridForConfig } from '@/lib/board/geometry.mjs';
+import { gridForConfig, isSignConfig } from '@/lib/board/geometry.mjs';
 import { resolveBoardTheme } from '@/lib/board/board-theme.mjs';
 import { useRouter } from 'next/navigation';
 import { AppBar } from '@/components/AppBar';
@@ -80,11 +80,11 @@ export function SettingsClient({ board: initial }: { board: Board }) {
    * real size until the page reloaded. Derived fresh, it cannot.
    */
   const grid = gridForConfig(board.config);
-  // A board that holds one message is a sign; QueueManager derives the same
-  // fact the same way, from the cap rather than the template id, so a board
-  // is whatever its settings currently say.
+  // A board that holds one message is a sign; BoardSidebar and QueueManager
+  // derive the same fact via the same isSignConfig, from the cap rather than
+  // the template id, so a board is whatever its settings currently say.
   const cap = Number(board.config?.queueCap) || Infinity;
-  const isSign = cap === 1;
+  const isSign = isSignConfig(board.config);
 
   // Resolved after mount: the server does not know the public origin, and
   // rendering it there would make hydration disagree with the glass.

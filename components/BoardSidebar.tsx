@@ -6,6 +6,7 @@ import {
   screenOf,
   gridForConfig,
   cardSizeOf,
+  isSignConfig,
   CARD_SIZE_IDS,
 } from '@/lib/board/geometry.mjs';
 import { useEffect, useState } from 'react';
@@ -91,8 +92,9 @@ export function BoardSidebar({
   // Derived from the cap, not the type id or the template - the same test
   // QueueManager and SettingsClient's own tab label already make, so a
   // board that has raised or dropped its cap is called what it currently
-  // is here too, not what it was made as.
-  const isSign = (Number(config.queueCap) || Infinity) === 1;
+  // is here too, not what it was made as. Shared with both via
+  // isSignConfig, so the three can't quietly drift.
+  const isSign = isSignConfig(config);
   const onList = SCREENS.some((option) => option.w === screen.w && option.h === screen.h);
   const [custom, setCustom] = useState(false);
   // The pair being typed, so neither half is saved on its own.

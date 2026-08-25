@@ -136,7 +136,11 @@ export function ComposeModal({
     if (!el) return;
     el.style.height = 'auto';
     el.style.height = `${el.scrollHeight}px`;
-  }, [text, open]);
+    // layout.wrap is a dependency, not just text: switching Wrap changes the
+    // textarea's own `wrap` attribute, which changes scrollHeight for the
+    // same text (word-wrapped lines fold, "none" doesn't) - left out, the
+    // height only caught up on the next keystroke.
+  }, [text, open, layout.wrap]);
 
   function submit() {
     if (text.trim() === '') return;

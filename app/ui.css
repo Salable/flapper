@@ -400,7 +400,10 @@ a.ui-btn-danger {
 .ui-chip-tip {
   position: relative;
   display: inline-flex;
-  outline: none;
+  border-radius: var(--radius-pill);
+  /* No outline: none here - the app's one universal :focus-visible ring
+     (below) is what shows when this tab-stop is reached; this rule had been
+     silently cancelling it. */
 }
 
 .ui-chip-tip::after {

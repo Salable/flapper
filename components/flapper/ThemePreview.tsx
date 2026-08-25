@@ -192,13 +192,26 @@ export function ThemePreview({
    * than it reads as recognisably garbled. Explicit here: same text,
    * relaid for the grid it now has to fit, snapped rather than flown in -
    * a resize is a discontinuity, not a message worth watching travel.
+   *
+   * `showing` is read via `firstText` (a ref, already kept current every
+   * render for the build effect above) rather than closed over directly -
+   * putting the reactive value in this effect's own deps made it re-run on
+   * every *text* change too, not just genuine resizes, and immediate:true
+   * snapped the tiles to their target before the "flip it in again" effect
+   * below got a turn. `setPage` only advances a tile whose current state
+   * differs from its target (flipboard.js's `steps === 0` continue), so a
+   * tile already snapped there has nothing left to flip - every message
+   * change silently stopped animating in, all of it (posters, "Flip
+   * again", a design's own live preview) with no error and nothing to
+   * suggest why, since the end state was still correct - just no longer
+   * flown in.
    */
   useEffect(() => {
     const board = boardRef.current;
     if (!board) return;
     board.setOptions({ cols, rows });
-    board.setText(showing, { immediate: true });
-  }, [cols, rows, showing]);
+    board.setText(firstText.current, { immediate: true });
+  }, [cols, rows]);
 
   /*
    * Stop drawing while off screen.

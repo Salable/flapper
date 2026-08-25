@@ -28,7 +28,11 @@ export function Chip({
   const chip = <span className={`ui-chip ui-chip-${tone} ${className}`.trim()} title={tip} {...rest} />;
   if (!tip) return chip;
   return (
-    <span className="ui-chip-tip" data-tip={tip} tabIndex={0}>
+    // aria-label carries the tip to assistive tech - the CSS ::after that
+    // draws it visually is generated content, which screen readers do not
+    // reliably announce, and the chip's own title is overridden by this
+    // wrapper's accessible name once it's the focusable, labelled element.
+    <span className="ui-chip-tip" data-tip={tip} tabIndex={0} aria-label={tip}>
       {chip}
     </span>
   );

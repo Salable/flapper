@@ -328,7 +328,17 @@ export function QueueManager({
                           onChange={(event) => setEditing({ id: item.id, text: event.target.value })}
                           onKeyDown={(event) => {
                             if (event.key === 'Enter') {
-                              act(() => post(`/queue/items/${item.id}`, 'PATCH', { text: editing.text }));
+                              // Merged over the item's existing payload, not
+                              // sent as text alone - the handler rebuilds the
+                              // whole entry from whatever body it gets, so a
+                              // bare {text} would silently drop this item's
+                              // align/valign/wrap the moment you fixed a typo.
+                              act(() =>
+                                post(`/queue/items/${item.id}`, 'PATCH', {
+                                  ...payloadToBody(item.payload),
+                                  text: editing.text,
+                                }),
+                              );
                               setEditing(null);
                             }
                             if (event.key === 'Escape') setEditing(null);
