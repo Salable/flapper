@@ -637,6 +637,35 @@ deliberately left rather than fixed blind.
       scroll rather than being invisibly clipped as it was before dash pages
       could scroll at all. Not reproduced live; speculative.
 
+## Raised by Dan, 26 Aug 2026 — not yet scoped
+
+Six things flagged in one pass, not yet investigated or broken down. Logged
+in his own words; each needs its own look before it becomes real work.
+
+- [ ] **The text editor has fallen out of shape.** Not yet diagnosed - which
+      editor (compose, a design's own text field, something else) and what
+      "fallen out" means visually is still to be pinned down.
+- [ ] **The designer view uses clunky language.** A copy pass on
+      DesignEditor/DesignGallery's own wording - which strings, not yet
+      specified.
+- [ ] **The docs are probably a mess.** Broader than today's targeted
+      BOARD-API/QUEUES/SCREENS/agents-doc fixes (see the review section
+      above) - a real full-doc audit, not yet scoped.
+- [ ] **No way to set a slide or interrupter to be an API thing.** Same gap
+      the sheets rework already names as "Pushed" (see "A sheet has a
+      source" above) and "one addressable slot per sheet" under *Then —
+      sheets* - raised again here as a felt-now gap, not a duplicate ask.
+- [ ] **No transition animations.** See *Transitions and washes* above -
+      procedural washes as transitions are designed but not built.
+- [ ] **No fidget animations.** Flagged directly at odds with this file's
+      own "done" (`config.ambientMs`, wired end to end - see "The model, as
+      decided" above, and BoardSidebar's own Fidget field). Needs a live
+      check before assuming either: could be a real regression (fidget
+      stopped actually firing somewhere) or could mean something beyond
+      the twitch/sweep that exists today - the open "Types of Fidget, not
+      just a rate" question above is exactly that second reading. Not
+      assumed either way; check first.
+
 ## Found today, not fixed: Scheduled has no board preview at all
 
 *26 Aug 2026, incidental to the letterbox/screenAspect work below.* Asked to
