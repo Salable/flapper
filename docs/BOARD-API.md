@@ -359,6 +359,22 @@ replaces it outright (editing is re-saving, not a separate PATCH);
 20. Saving one never touches the glass — nothing is queued until
 `.../fire` is called on it by name.
 
+An interrupter fired with no `durationMs` blocks the rotation until
+something ends it — that something is `POST
+{apiBase}/interrupters/{name}/dismiss`:
+
+```bash
+curl -X POST {apiBase}/interrupters/fire-evacuate/dismiss -H 'authorization: Bearer KEY'
+```
+
+It removes every queued instance of that name, not just whichever one is
+on the glass — firing the same preset again while it is already live
+queues a second copy behind the first rather than replacing it, so
+dismissing only the head would just promote an identical clone into its
+place. No `404` for "nothing to dismiss" — a name with no live instance is
+a no-op, not an error. A timed interrupter (one with `durationMs`) needs
+none of this — it clears itself.
+
 Saved order is the only ranking a saved interrupter has — there is no
 rank field. `POST {apiBase}/interrupters/reorder` with `{"names": [...]}`
 (every saved name, once) sets it, and it *is* enforced: firing one is
@@ -430,6 +446,7 @@ Use `POST {apiBase}/clear` to stop everything, or edit the item.
 | `POST` | `/api/b/{slug}/interrupters` | key | save one — a name that exists already is replaced outright |
 | `DELETE` | `/api/b/{slug}/interrupters/{name}` | key | remove a saved interrupter |
 | `POST` | `/api/b/{slug}/interrupters/{name}/fire` | key | fire a saved one now — the only door from saved to the glass |
+| `POST` | `/api/b/{slug}/interrupters/{name}/dismiss` | key | end it — every queued instance of that name, not just the current one |
 | `POST` | `/api/b/{slug}/interrupters/reorder` | key | `{names: [...]}`, every saved name once — rail order, the only ranking one has |
 | `GET` | `/api/b/{slug}/export` | key | every queued item in a re-postable shape |
 | `PATCH` | `/api/b/{slug}/config` | key | grid, `theme`, `themePack`, motion, dwell (`footerRows` must stay 0; `regions.main.dwellMs` only) |

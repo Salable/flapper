@@ -43,13 +43,17 @@ exportable from the Settings tab.
   and fired later by name (`POST {apiBase}/interrupters/{name}/fire`) — see
   `docs/BOARD-API.md`. Duration is one or the other, not both: a hard
   time limit (shown, then gone outright the instant it's up), or the
-  switch (blocks the rotation entirely until dismissed or broken by a
-  higher rank) if left unset. The control room's Interruptions tab only
-  ever fires a saved one: there is no path from typed text straight to
-  the glass there, on purpose. Unlike a raw `interrupt: true` post, a
-  saved one *does* rank against the others: its position in the saved
-  list (`POST {apiBase}/interrupters/reorder`) decides who wins a clash —
-  firing one is refused if a higher one is currently showing.
+  switch (blocks the rotation entirely until dismissed — `POST
+  {apiBase}/interrupters/{name}/dismiss` — or broken by a higher rank) if
+  left unset. Dismissing clears every queued instance of that name, not
+  just whichever one is on the glass, since firing an already-live one
+  again queues a second copy behind the first instead of replacing it.
+  The control room's Interruptions tab only ever fires a saved one: there
+  is no path from typed text straight to the glass there, on purpose.
+  Unlike a raw `interrupt: true` post, a saved one *does* rank against the
+  others: its position in the saved list (`POST
+  {apiBase}/interrupters/reorder`) decides who wins a clash — firing one
+  is refused if a higher one is currently showing.
 - **`label`** names an item for people — what a list calls it — distinct
   from what it displays; nothing shown on the glass ever reads it.
 - The rotation is also capped, and the cap rolls rather than rejects: past
@@ -69,7 +73,11 @@ also gets a separate Interruptions tab, the same rail-and-panel shape but
 for saved interrupters: one tab per saved name, "+ Interrupt" to save a new
 one, and — only once something is selected — a Fire button. Saving and
 firing are two separate steps on purpose; nothing reaches the glass from
-this tab without a name behind it first.
+this tab without a name behind it first. Firing a "until dismissed" preset
+that is already live also surfaces a Dismiss button beside Fire — the only
+way off the glass for one, short of a higher-ranked interrupter firing over
+it — and mutes Fire itself, since firing it again would only queue an
+identical, invisible second copy.
 
 Everything the UI does is also on the API, and the API can do more (set
 `priority`, `interrupt`, `label`, or toggle `loop` on an existing item —

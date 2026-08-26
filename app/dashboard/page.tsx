@@ -38,9 +38,17 @@ export default async function DashboardPage() {
   const rows = await Promise.all(
     boards.map(async (board: any) => {
       let lines: string[] = [];
+      let slideCount = 0;
       try {
         const queue = await listQueue(db, board.id);
-        lines = (queue?.items ?? [])
+        const items = queue?.items ?? [];
+        // Every item, not just the previewed three - "Static"/"Live queue"
+        // used to stand in for this, but that was a guess from the same
+        // capped, filtered `lines` the preview draws from (3 items, blanks
+        // dropped), so it undercounted the moment a board held more than
+        // that or kept a blank slide on purpose.
+        slideCount = items.length;
+        lines = items
           .map((item: any) => item.payload?.text)
           .filter((text: unknown): text is string => typeof text === 'string' && text.trim() !== '')
           .slice(0, 3);
@@ -59,6 +67,7 @@ export default async function DashboardPage() {
         createdAt: board.createdAt.getTime(),
         pack,
         lines,
+        slideCount,
         // The two facts a board is shaped by. Not a grid: it does not have one
         // to send, and the card works it out the same way everything else does.
         screen: screenOf(board.config ?? {}),

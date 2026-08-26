@@ -352,16 +352,21 @@ Built exactly as described below, in the geometry rework
 (`4313bac`..`31f8c5b`): `cardSize` (Huge/Large/Medium/Small/Tiny) and `screen`
 (a shape - any two numbers, Custom included) are the only two things a board
 records; `cols`/`rows` are never stored anywhere, and the API refuses them
-outright if sent. The table held up exactly - verified against the real
-function, not just sketched:
+outright if sent. The table below is verified against the real function, not
+just sketched - regenerated 26 Aug 2026 after `colsForCardSize` started
+scaling cols with the screen's aspect ratio (see `lib/board/geometry.mjs`) so
+that a size's total card count stays roughly constant across orientations
+instead of ballooning in portrait; 16:9 is unchanged since it is what the
+five sizes are calibrated against, every other shape's numbers below are not
+what a flat cols-for-size lookup would have given:
 
 | Card size | 16:9 | 4:3 | 9:16 | Square |
 | --- | --- | --- | --- | --- |
-| Huge | 8 × 5 | 8 × 6 | 8 × 14 | 8 × 8 |
-| Large | 12 × 7 | 12 × 9 | 12 × 21 | 12 × 12 |
-| Medium | 20 × 11 | 20 × 15 | 20 × 36 | 20 × 20 |
-| Small | 32 × 18 | 32 × 24 | 32 × 40 | 32 × 32 |
-| Tiny | 48 × 27 | 48 × 36 | 48 × 40 | 48 × 40 |
+| Huge | 8 × 5 | 7 × 5 | 5 × 9 | 6 × 6 |
+| Large | 12 × 7 | 11 × 8 | 7 × 12 | 9 × 9 |
+| Medium | 20 × 11 | 17 × 13 | 11 × 20 | 15 × 15 |
+| Small | 32 × 18 | 28 × 21 | 18 × 32 | 24 × 24 |
+| Tiny | 48 × 27 | 42 × 32 | 27 × 40 | 36 × 36 |
 
 - [x] Replace "cards across" with a card size, and show the grid it produces
       (`4313bac`)
@@ -631,6 +636,25 @@ deliberately left rather than fixed blind.
       near a narrow-viewport edge could push a few pixels of horizontal
       scroll rather than being invisibly clipped as it was before dash pages
       could scroll at all. Not reproduced live; speculative.
+
+## Found today, not fixed: Scheduled has no board preview at all
+
+*26 Aug 2026, incidental to the letterbox/screenAspect work below.* Asked to
+account for everywhere a board is shown, so every `ThemePreview` and
+`Flipboard` call site got checked. Everywhere else - the real wall display,
+Settings, Board tab, Interruptions tab, dashboard cards - has one. The
+schedule-type board's own editor (`components/board-types/scheduled/
+ScheduleEditor.tsx`, and `components/board-types/shared/SharedQueueEditor.tsx`)
+does not: no `ThemePreview`, no `Flipboard`, nothing. Editing a schedule has
+no visual feedback of what the board will actually show, on any screen or
+card size.
+
+Not part of the letterbox fix and not touched by it - a real, separate gap,
+just found while auditing the same ground.
+
+- [ ] Give Scheduled's own editor a `ThemePreview`, screen-aware
+      (`screenAspect`) like the rest, showing whichever slot is selected/
+      current.
 
 ## Open questions — yours
 

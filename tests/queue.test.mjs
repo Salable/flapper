@@ -9,6 +9,7 @@ import {
   setNow,
   updateItem,
   removeItem,
+  removeByLabel,
   reorderItem,
   advance,
   flushPending,
@@ -30,6 +31,14 @@ beforeEach(async () => {
 });
 
 const msg = (text, extra = {}) => ({ payload: { text, options: {} }, ...extra });
+
+/** A fired saved interrupter's own shape - `interrupt: true` plus the
+ * preset's name as `label`, exactly what `fireInterrupter` builds and what
+ * `removeByLabel` matches against. */
+const interrupt = (text, label, extra = {}) => ({
+  payload: { text, options: { interrupt: true, label } },
+  ...extra,
+});
 
 async function state() {
   return listQueue(db, board.id);
@@ -187,6 +196,52 @@ test('removing the current item skips to the head; removing the last goes idle',
   queue = await state();
   assert.equal(queue.currentState, 'idle');
   assert.equal(queue.items.length, 0);
+});
+
+test('removeByLabel clears every instance of one fired interrupter, current and pending, and promotes the head', async () => {
+  await appendItem(db, board.id, msg('SLIDE'));
+  await setNow(db, board.id, interrupt('FIRE', 'FIRE'));
+  // A second fire while the first is still live - the duplicate a real
+  // re-click produces, since nothing at this layer refuses it.
+  await setNow(db, board.id, interrupt('FIRE', 'FIRE'));
+  let queue = await state();
+  assert.equal(
+    queue.items.filter((item) => item.payload.options.label === 'FIRE').length,
+    2,
+    'both fires queued their own instance',
+  );
+
+  const { removed } = await removeByLabel(db, board.id, 'FIRE');
+  assert.equal(removed, 2, 'both instances removed in one call');
+  queue = await state();
+  assert.equal(
+    queue.items.filter((item) => item.payload.options.label === 'FIRE').length,
+    0,
+    'neither instance survives - not just the one that was current',
+  );
+  assert.equal(queue.currentState, 'playing');
+  assert.deepEqual(order(queue), ['SLIDE'], 'the original slide, not a duplicate, took the head back');
+});
+
+test('removeByLabel matches case-insensitively and never touches a different label', async () => {
+  await setNow(db, board.id, interrupt('GOAL', 'GOAL'));
+  const { removed: none } = await removeByLabel(db, board.id, 'fire');
+  assert.equal(none, 0, 'nothing of that name exists');
+  let queue = await state();
+  assert.deepEqual(order(queue), ['GOAL'], "an unrelated dismiss leaves GOAL's own live instance alone");
+
+  const { removed } = await removeByLabel(db, board.id, 'goal');
+  assert.equal(removed, 1, 'case-insensitive match against the saved name GOAL');
+  queue = await state();
+  assert.equal(queue.items.length, 0);
+});
+
+test('removeByLabel is a no-op, not an error, when nothing of that name is queued', async () => {
+  await appendItem(db, board.id, msg('SLIDE'));
+  const { removed } = await removeByLabel(db, board.id, 'NEVER FIRED');
+  assert.equal(removed, 0);
+  const queue = await state();
+  assert.deepEqual(order(queue), ['SLIDE'], 'untouched');
 });
 
 test('reorder places after an anchor; the playing item is immovable', async () => {

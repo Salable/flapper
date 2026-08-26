@@ -8,6 +8,7 @@ import {
   gridFor,
   screenLabel,
   MAX_ROWS,
+  MAX_COLS,
 } from '../lib/board/geometry.mjs';
 
 test('a screen shape turns cards across into cards down', () => {
@@ -62,9 +63,11 @@ test('a screen is a shape in any units, and the board is scale all the way down'
   assert.deepEqual(screenLabel({ w: 1920, h: 1080 }), '16:9', 'and all reduce to the same shape');
 
   // A ticker over a door: 300cm by 20cm, which no aspect preset offers.
+  // Cols scales up for how wide this is (huge: 8 on a 16:9 wall, 24 here) -
+  // tiny wants more still, but 80 is the board's own hard cap.
   assert.equal(screenLabel({ w: 300, h: 20 }), '15:1');
-  assert.deepEqual(gridFor('tiny', { w: 300, h: 20 }), { cols: 48, rows: 3 });
-  assert.deepEqual(gridFor('huge', { w: 300, h: 20 }), { cols: 8, rows: 1 });
+  assert.deepEqual(gridFor('tiny', { w: 300, h: 20 }), { cols: MAX_COLS, rows: 5 });
+  assert.deepEqual(gridFor('huge', { w: 300, h: 20 }), { cols: 24, rows: 2 });
 
   // A shape it cannot make sense of falls back rather than throwing.
   for (const bad of [undefined, null, {}, { w: 0, h: 0 }, { w: NaN, h: 9 }]) {
@@ -72,4 +75,18 @@ test('a screen is a shape in any units, and the board is scale all the way down'
     assert.ok(Number.isInteger(grid.cols) && grid.cols >= 1, JSON.stringify(bad));
     assert.ok(Number.isInteger(grid.rows) && grid.rows >= 1, JSON.stringify(bad));
   }
+})
+
+test('rotating the same screen holds roughly the same number of cards', () => {
+  // The bug this guards: cols used to be flat regardless of shape, so
+  // turning a 16:9 wall to portrait 9:16 kept 20 across and let rows blow
+  // out to 36 to stay square - 720 cards for the same physical screen that
+  // held 220 landscape. Cols now scales with the shape instead, so the
+  // total stays close - exactly equal at these two, since 9:16 is 16:9
+  // exactly transposed.
+  const landscape = gridFor('medium', { w: 16, h: 9 });
+  const portrait = gridFor('medium', { w: 9, h: 16 });
+  assert.deepEqual(landscape, { cols: 20, rows: 11 });
+  assert.deepEqual(portrait, { cols: 11, rows: 20 });
+  assert.equal(landscape.cols * landscape.rows, portrait.cols * portrait.rows);
 })

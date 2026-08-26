@@ -34,6 +34,7 @@ import {
   saveInterrupter,
   deleteInterrupter,
   fireInterrupter,
+  dismissInterrupter,
   reorderInterrupters,
 } from '../lib/api/handlers.mjs';
 import { mintDisplayToken } from '../lib/api/display-token.mjs';
@@ -1355,6 +1356,68 @@ test('a saved interrupter with no Duration is the switch: max dwell, no expiry',
   const item = q.items.find((entry) => entry.id === fired.body.id);
   assert.equal(item.payload.options.dwellMs, MAX_DWELL_MS, 'blocks the rotation as long as the engine allows');
   assert.equal(item.expiresAtMs, null, 'no expiry - stands until dismissed or broken by a higher rank');
+});
+
+test('dismissing a saved interrupter clears every queued instance of it, not just the one showing', async () => {
+  // The bug this guards: firing an already-live "until dismissed" preset
+  // queues a second copy behind the first rather than replacing it (Fire
+  // has no way to know it's redundant at the API layer - only the UI mutes
+  // the button). Dismissing only the current item would just promote the
+  // duplicate into its place, which reads as "the button did nothing".
+  const board = await makeBoard({ slug: 'interrupter-dismiss' });
+  const key = board.apiKey;
+  await jsonOf(call(saveInterrupter, ctx(board.slug), '/x', { method: 'POST', key, body: { name: 'FIRE', text: 'FIRE' } }));
+
+  const first = await jsonOf(call(fireInterrupter, { ...ctx(board.slug), name: 'FIRE' }, '/x', { method: 'POST', key }));
+  assert.equal(first.status, 202, JSON.stringify(first.body));
+  const second = await jsonOf(call(fireInterrupter, { ...ctx(board.slug), name: 'FIRE' }, '/x', { method: 'POST', key }));
+  assert.equal(second.status, 202, JSON.stringify(second.body));
+
+  const before = (await jsonOf(call(getQueue, ctx(board.slug), '/x'))).body;
+  const firedIds = new Set([first.body.id, second.body.id]);
+  assert.equal(
+    before.items.filter((item) => firedIds.has(item.id)).length,
+    2,
+    'both fires queued their own instance - the duplicate this test exists to catch',
+  );
+
+  const dismissed = await jsonOf(call(dismissInterrupter, { ...ctx(board.slug), name: 'FIRE' }, '/x', { method: 'POST', key }));
+  assert.equal(dismissed.status, 200, JSON.stringify(dismissed.body));
+  assert.equal(dismissed.body.removed, 2, 'both instances removed in one call, not just the head');
+
+  const after = (await jsonOf(call(getQueue, ctx(board.slug), '/x'))).body;
+  assert.equal(
+    after.items.filter((item) => firedIds.has(item.id)).length,
+    0,
+    'neither instance survives - dismissing the head must not just promote the other one',
+  );
+  assert.equal(after.currentState, 'idle', 'nothing left to promote into the head');
+});
+
+test('dismissing an interrupter by name is case-insensitive, and never touches a different name', async () => {
+  const board = await makeBoard({ slug: 'interrupter-dismiss-case' });
+  const key = board.apiKey;
+  await jsonOf(call(saveInterrupter, ctx(board.slug), '/x', { method: 'POST', key, body: { name: 'FIRE', text: 'FIRE' } }));
+  await jsonOf(call(saveInterrupter, ctx(board.slug), '/x', { method: 'POST', key, body: { name: 'GOAL', text: 'GOAL' } }));
+  const fired = await jsonOf(call(fireInterrupter, { ...ctx(board.slug), name: 'GOAL' }, '/x', { method: 'POST', key }));
+  assert.equal(fired.status, 202, JSON.stringify(fired.body));
+
+  // "fire" - lowercase, unfired - must not touch GOAL's own live instance.
+  const dismissedWrongName = await jsonOf(
+    call(dismissInterrupter, { ...ctx(board.slug), name: 'fire' }, '/x', { method: 'POST', key }),
+  );
+  assert.equal(dismissedWrongName.status, 200, JSON.stringify(dismissedWrongName.body));
+  assert.equal(dismissedWrongName.body.removed, 0, 'FIRE was never fired - nothing of that name to remove');
+  const stillThere = (await jsonOf(call(getQueue, ctx(board.slug), '/x'))).body;
+  assert.ok(
+    stillThere.items.some((item) => item.id === fired.body.id),
+    "GOAL's own live instance is untouched by dismissing an unrelated, unfired name",
+  );
+
+  // "goal" - lowercase - must still match the saved name "GOAL".
+  const dismissed = await jsonOf(call(dismissInterrupter, { ...ctx(board.slug), name: 'goal' }, '/x', { method: 'POST', key }));
+  assert.equal(dismissed.status, 200, JSON.stringify(dismissed.body));
+  assert.equal(dismissed.body.removed, 1, 'case-insensitive match against the saved name GOAL');
 });
 
 test('concurrent saves to the same board do not clobber each other', async () => {

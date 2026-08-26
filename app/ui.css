@@ -28,6 +28,10 @@
 
 .ui-btn:disabled {
   opacity: 0.45;
+  /* Belt and braces: a disabled button should never register a hover no
+     matter what unguarded `button:hover` rule elsewhere forgets to check
+     :disabled - the mouse just can't reach it to trigger one. */
+  pointer-events: none;
 }
 
 .ui-btn:focus-visible {
@@ -61,8 +65,11 @@ a.ui-btn-danger {
   color: var(--danger);
 }
 
+/* var(--ink) again would be a no-op - primary's own resting background.
+   brightness() reads consistently as "lit up" against either theme's ink,
+   without a second hand-picked color to keep in step with it. */
 .ui-btn-primary:hover:not(:disabled) {
-  background: var(--ink);
+  filter: brightness(1.12);
 }
 
 .ui-btn-ghost {

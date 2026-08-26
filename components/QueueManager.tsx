@@ -82,6 +82,7 @@ export function QueueManager({
   pack,
   cols,
   rows,
+  screenAspect,
   ambientMs = 0,
   onSaved,
 }: {
@@ -95,6 +96,10 @@ export function QueueManager({
   pack: ThemePack;
   cols: number;
   rows: number;
+  /** The board's own screen ratio, passed straight through to both
+   * ThemePreview calls below - see its own doc for why this isn't just
+   * `cols / rows` again. */
+  screenAspect?: number;
   /** The board's Fidget setting, so the "what's on the glass" preview
    * fidgets too - see ThemePreview's own doc for why. */
   ambientMs?: number;
@@ -120,6 +125,18 @@ export function QueueManager({
    * tab itself (the save form, blank). */
   const [presetSelectedName, setPresetSelectedName] = useState<string | null>(null);
   const [presetSending, setPresetSending] = useState(false);
+  /** Fire gave no sign a click had even registered - no disabled state,
+   * no label change, nothing between clicking and the poll eventually
+   * catching up. This is that sign: the name of the preset in flight, so
+   * "Firing…" labels only the tab actually being fired rather than
+   * whichever tab happens to be open when the floor below runs out -
+   * switching tabs mid-fire must not make an untouched preset claim to be
+   * firing too. Every Fire button still disables while it is non-null,
+   * the same single-flight guard `act` already gives every other action:
+   * without it, firing a second preset before the first's floor clears
+   * would slip past `act`'s own `busyRef` reentrancy check and read as
+   * having fired when the request was never sent. */
+  const [presetFiring, setPresetFiring] = useState<string | null>(null);
   /** Which slide the tab rail has open, and the text box's own draft for it -
    * kept apart from the item's own stored text so a keystroke mid-edit is
    * never clobbered by the next poll landing behind it. */
@@ -258,8 +275,31 @@ export function QueueManager({
    * as any other failed action): a lower one can never break a higher one
    * out of order, only the reverse.
    */
-  function firePreset(name: string) {
-    act(() => post(`/interrupters/${encodeURIComponent(name)}/fire`, 'POST'));
+  async function firePreset(name: string) {
+    setPresetFiring(name);
+    const startedAt = Date.now();
+    await act(() => post(`/interrupters/${encodeURIComponent(name)}/fire`, 'POST'));
+    // The fire itself lands in well under 100ms - too fast for "Firing…" to
+    // read as anything before it's gone again, which is exactly the "did
+    // that even do anything?" complaint this state exists to answer. Floor
+    // the visible time so the click has something to see, and so a second
+    // click can't land before the first one's feedback has even shown up.
+    const elapsed = Date.now() - startedAt;
+    const MIN_FIRING_MS = 600;
+    if (elapsed < MIN_FIRING_MS) await new Promise((resolve) => setTimeout(resolve, MIN_FIRING_MS - elapsed));
+    setPresetFiring(null);
+  }
+
+  /** Manually end whatever saved interrupter is currently live - the only
+   * way off the glass for one fired "until dismissed" (no `durationMs`),
+   * which by design blocks the rotation until this happens or a
+   * higher-ranked interrupter fires. Clears every queued instance of this
+   * name, not just the one on the glass - re-firing while already live
+   * queues a second copy behind the first rather than replacing it, and
+   * ending only the head would just promote an identical clone into its
+   * place (see `dismissInterrupter`'s own doc). */
+  async function dismissPreset(name: string) {
+    await act(() => post(`/interrupters/${encodeURIComponent(name)}/dismiss`, 'POST'));
   }
 
   async function deletePreset(name: string) {
@@ -482,6 +522,16 @@ export function QueueManager({
     ? presetName.trim() !== '' || presetText.trim() !== '' || presetDuration !== ''
     : presetText !== selectedPreset.text ||
       presetDuration !== (selectedPreset.durationMs !== undefined ? String(selectedPreset.durationMs) : '');
+  // Mirrors the Board tab's own "not what is playing" caption - the one
+  // thing worth saying about a saved interrupter's preview is whether
+  // it's the thing actually on the glass right now, not just what would
+  // show if fired. Matched by name via `label`, the same identity a
+  // fired instance carries (see firePreset's own doc).
+  const playingItem = items.find((entry) => entry.id === playingId) ?? null;
+  const selectedPresetIsLive =
+    !showingNewPreset &&
+    playingItem?.payload.options?.interrupt === true &&
+    String(playingItem.payload.options?.label ?? '').toLowerCase() === selectedPreset.name.toLowerCase();
 
   const selected = items.find((entry) => entry.id === selectedId) ?? null;
 
@@ -700,7 +750,7 @@ export function QueueManager({
                   })()
                 )}
                 <div className="board-preview">
-                  <ThemePreview pack={pack} text={previewText} cols={cols} rows={rows} tilePx={56} ambientMs={ambientMs} />
+                  <ThemePreview pack={pack} text={previewText} cols={cols} rows={rows} tilePx={56} ambientMs={ambientMs} screenAspect={screenAspect} />
                   <div className="design-preview-bar">
                     <p className="design-preview-caption">
                       {cols} × {rows} cards{previewText === '' ? ' · this slide is blank' : ''}
@@ -806,26 +856,53 @@ export function QueueManager({
                       </Select>
                     </Field>
                   </div>
-                  <div className="interrupt-form-actions">
-                    <Button
-                      variant="primary"
-                      disabled={
-                        presetName.trim() === '' ||
-                        presetText.trim() === '' ||
-                        presetSending ||
-                        (!showingNewPreset && !presetDirty)
-                      }
-                      onClick={savePreset}
-                      title={!showingNewPreset && !presetDirty ? 'Nothing has changed' : undefined}
-                    >
-                      {showingNewPreset ? 'Save' : 'Save changes'}
-                    </Button>
-                    {!showingNewPreset && (
-                      <Button variant="primary" onClick={() => firePreset(selectedPreset.name)}>
-                        Fire
+                  {/* Save only exists once there is something to save - a
+                      disabled "Save changes" sitting there with nothing
+                      changed invites the question "what does this even
+                      do", same reasoning Revert/Clear share it with. */}
+                  {(showingNewPreset || presetDirty) && (
+                    <div className="interrupt-form-actions">
+                      <Button
+                        variant="primary"
+                        disabled={presetName.trim() === '' || presetText.trim() === '' || presetSending}
+                        onClick={savePreset}
+                      >
+                        {showingNewPreset ? 'Save' : 'Save changes'}
                       </Button>
-                    )}
-                    {!showingNewPreset && (
+                      <Button variant="ghost" onClick={() => selectPreset(selectedPreset)}>
+                        {showingNewPreset ? 'Clear' : 'Revert'}
+                      </Button>
+                    </div>
+                  )}
+                  {!showingNewPreset && (
+                    <div className="interrupt-form-actions">
+                      <Button
+                        variant={selectedPresetIsLive && selectedPreset.durationMs === undefined ? 'ghost' : 'primary'}
+                        // Muted means genuinely inert here, not just quieter -
+                        // firing an "until dismissed" preset that's already
+                        // live queues a second copy behind the first rather
+                        // than doing anything (see dismissPreset's own doc),
+                        // so there is nothing for a second click to do.
+                        disabled={
+                          presetFiring !== null || (selectedPresetIsLive && selectedPreset.durationMs === undefined)
+                        }
+                        onClick={() => firePreset(selectedPreset.name)}
+                      >
+                        {presetFiring === selectedPreset.name ? 'Firing…' : 'Fire'}
+                      </Button>
+                      {selectedPresetIsLive && selectedPreset.durationMs === undefined && (
+                        <Button
+                          variant="primary"
+                          disabled={presetFiring !== null}
+                          onClick={() => dismissPreset(selectedPreset.name)}
+                        >
+                          Dismiss
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                  {!showingNewPreset && (
+                    <div className="interrupt-form-actions">
                       <Button
                         variant="ghost"
                         disabled={presetReorderBlockedReason(selectedPreset.name, -1) !== undefined}
@@ -834,8 +911,6 @@ export function QueueManager({
                       >
                         ↑ Move earlier
                       </Button>
-                    )}
-                    {!showingNewPreset && (
                       <Button
                         variant="ghost"
                         disabled={presetReorderBlockedReason(selectedPreset.name, 1) !== undefined}
@@ -844,27 +919,22 @@ export function QueueManager({
                       >
                         ↓ Move later
                       </Button>
-                    )}
-                    <Button
-                      variant="ghost"
-                      disabled={!presetDirty}
-                      title={!presetDirty ? (showingNewPreset ? 'Nothing to clear' : 'Nothing has changed') : undefined}
-                      onClick={() => selectPreset(selectedPreset)}
-                    >
-                      {showingNewPreset ? 'Clear' : 'Revert'}
-                    </Button>
-                    {!showingNewPreset && (
+                    </div>
+                  )}
+                  {!showingNewPreset && (
+                    <div className="interrupt-form-actions">
                       <Button variant="danger" onClick={() => deletePreset(selectedPreset.name)}>
                         Delete
                       </Button>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
                 <div className="board-preview">
-                  <ThemePreview pack={pack} text={presetPreviewText} cols={cols} rows={rows} tilePx={56} ambientMs={ambientMs} />
+                  <ThemePreview pack={pack} text={presetPreviewText} cols={cols} rows={rows} tilePx={56} ambientMs={ambientMs} screenAspect={screenAspect} />
                   <div className="design-preview-bar">
                     <p className="design-preview-caption">
                       {cols} × {rows} cards{presetPreviewText === '' ? ' · nothing typed yet' : ''}
+                      {selectedPresetIsLive && ' · live now'}
                     </p>
                   </div>
                 </div>

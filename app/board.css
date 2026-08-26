@@ -166,6 +166,22 @@ body:has(#stage) {
   transform: translateY(0);
 }
 
+/* Amber, not the toast's green - "connected" and "actively overriding your
+   rotation right now" are different facts and read wrong in the same color. */
+.live-interrupter-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 12px 0;
+  padding: 10px 16px;
+  border: 1px solid var(--amber-dim);
+  border-radius: var(--radius-sm);
+  background: rgba(216, 178, 90, 0.08);
+  color: var(--amber);
+  font: 500 var(--text-sm) / 1.4 var(--font-mono);
+}
+
 /* ---- controls ---- */
 
 #controls {
@@ -314,7 +330,7 @@ button {
   cursor: default;
 }
 
-button:hover {
+button:hover:not(:disabled) {
   background: rgba(236, 231, 221, 0.12);
 }
 
@@ -325,7 +341,7 @@ button.primary {
   font-weight: 600;
 }
 
-button.primary:hover {
+button.primary:hover:not(:disabled) {
   background: #fff;
 }
 
@@ -813,6 +829,21 @@ main.landing .error {
 .ui-tabpanel > .settings-block,
 .ui-tabpanel > .queue-panel {
   max-width: 680px;
+}
+
+/* Design & shape (components/BoardSidebar.tsx) carries its own two-column
+   mockup now - the 680px cap above is sized for prose-width forms, and it
+   was squeezing a preview beside them into a fraction of the shell's own
+   1420px, mockup and fields both cramped for no reason. */
+.ui-tabpanel > .settings-block.settings-block-wide {
+  max-width: none;
+}
+
+.settings-block-wide {
+  /* .settings-block's own flex-start keeps prose-width children (h2, a
+     field) from stretching to a width they have no reason to want; .shape-
+     surface is a grid that should fill whatever room this section has. */
+  align-items: stretch;
 }
 
 /* ---- the board sidebar (components/BoardSidebar.tsx) ---- */
@@ -1550,6 +1581,36 @@ main.landing .error {
   letter-spacing: var(--track-label);
   text-transform: uppercase;
   color: var(--muted);
+}
+
+/* Settings' own Design & shape block (BoardSidebar) - the mockup sits on
+   the right here, fields on the left, the opposite order from
+   .design-surface's full-page editor; a distinct name because DOM order is
+   what puts it there and .design-surface already carries its own meaning
+   (see the comment on .board-surface above). */
+.shape-surface {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) minmax(260px, 1fr);
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.shape-preview {
+  position: sticky;
+  top: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+@media (max-width: 760px) {
+  .shape-surface {
+    grid-template-columns: 1fr;
+  }
+  .shape-preview {
+    position: static;
+  }
 }
 
 .design-controls {

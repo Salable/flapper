@@ -13,7 +13,7 @@
  */
 
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
-import { gridForConfig } from '@/lib/board/geometry.mjs';
+import { gridForConfig, screenOf } from '@/lib/board/geometry.mjs';
 import { resolveBoardTheme } from '@/lib/board/board-theme.mjs';
 import { useRouter } from 'next/navigation';
 import { AppBar } from '@/components/AppBar';
@@ -57,6 +57,14 @@ export function SettingsClient({ board: initial, userName }: { board: Board; use
   const [error, setError] = useState('');
   const [exported, setExported] = useState<string | null>(null);
   /*
+   * A saved interrupter blocking the rotation is easy to leave running and
+   * forget - it only ever said so on the Interruptions tab itself, whose
+   * own poll stops the moment you switch to Settings or Board (Tabs only
+   * mounts the active one). Polled here instead, independent of which tab
+   * is open, so leaving one live is visible wherever you are.
+   */
+  const [liveInterrupter, setLiveInterrupter] = useState<{ label: string; untilDismissed: boolean } | null>(null);
+  /*
    * One shared "Saved", one shared corner - not a badge that only lived
    * beside the sidebar's own fields and read as "saving works here, not
    * when you change what the board actually says". Fixed to the viewport
@@ -84,6 +92,9 @@ export function SettingsClient({ board: initial, userName }: { board: Board; use
    * real size until the page reloaded. Derived fresh, it cannot.
    */
   const grid = gridForConfig(board.config);
+  // The screen's own ratio, for letterboxing the preview to it - cols/rows
+  // is close but not exact (see ThemePreview's own doc on `screenAspect`).
+  const screen = screenOf(board.config);
 
   // Resolved after mount: the server does not know the public origin, and
   // rendering it there would make hydration disagree with the glass.
@@ -250,6 +261,7 @@ export function SettingsClient({ board: initial, userName }: { board: Board; use
       pack={resolveBoardTheme(board.config).pack}
       cols={grid.cols}
       rows={grid.rows}
+      screenAspect={screen.w / screen.h}
       ambientMs={Number(board.config?.ambientMs) || 0}
       onSaved={flashSaved}
     />
@@ -265,10 +277,52 @@ export function SettingsClient({ board: initial, userName }: { board: Board; use
       pack={resolveBoardTheme(board.config).pack}
       cols={grid.cols}
       rows={grid.rows}
+      screenAspect={screen.w / screen.h}
       ambientMs={Number(board.config?.ambientMs) || 0}
       onSaved={flashSaved}
     />
   );
+
+  // A type-specific queue has no interrupters to poll for at all.
+  const supportsInterrupts = TypeQueueEditor === null;
+
+  useEffect(() => {
+    if (!supportsInterrupts) return;
+    let cancelled = false;
+    async function poll() {
+      try {
+        const response = await fetch(`/api/b/${board.slug}/queue`);
+        if (!response.ok || cancelled) return;
+        const snapshot = await response.json();
+        const current = snapshot.items?.find((item: any) => item.id === snapshot.currentItemId);
+        const live =
+          snapshot.currentState === 'playing' && current?.payload?.options?.interrupt === true
+            ? { label: String(current.payload.options.label ?? 'Interrupter'), untilDismissed: current.expiresAtMs == null }
+            : null;
+        if (!cancelled) setLiveInterrupter(live);
+      } catch {
+        /* transient; the poll retries */
+      }
+    }
+    poll();
+    const timer = setInterval(poll, 4000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [board.slug, supportsInterrupts]);
+
+  async function dismissLiveInterrupter() {
+    if (!liveInterrupter) return;
+    try {
+      await fetch(`/api/b/${board.slug}/interrupters/${encodeURIComponent(liveInterrupter.label)}/dismiss`, {
+        method: 'POST',
+      });
+    } catch {
+      /* transient; the next poll corrects it either way */
+    }
+    setLiveInterrupter(null);
+  }
 
   const settingsTab = (
     <>
@@ -413,6 +467,19 @@ export function SettingsClient({ board: initial, userName }: { board: Board; use
             Open display
           </LinkButton>
         </h1>
+        {liveInterrupter && (
+          <div className="live-interrupter-banner" role="status" aria-live="polite">
+            <span>
+              ⚡ &ldquo;{liveInterrupter.label}&rdquo; is interrupting the rotation
+              {liveInterrupter.untilDismissed && ' - until dismissed'}
+            </span>
+            {liveInterrupter.untilDismissed && (
+              <Button size="sm" variant="ghost" onClick={dismissLiveInterrupter}>
+                Dismiss
+              </Button>
+            )}
+          </div>
+        )}
         {error !== '' && <p className="error">{error}</p>}
         {notice !== '' && <p className="muted">{notice}</p>}
         <Tabs

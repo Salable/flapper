@@ -31,6 +31,7 @@ export function ThemePreview({
   fixed = false,
   loop = 0,
   ambientMs = 0,
+  screenAspect,
 }: {
   pack: ThemePack;
   /**
@@ -81,6 +82,18 @@ export function ThemePreview({
    * everywhere else Fidget is off unless a board asks for it.
    */
   ambientMs?: number;
+  /**
+   * The screen a board's grid was fit to (its own `screen.w / screen.h`),
+   * for framing the box against that instead of `cols / rows` directly.
+   * The two are close but not equal - integer rounding of a small grid
+   * (e.g. Huge cards: 8 cols) can drift noticeably from the true ratio,
+   * which otherwise showed up as the box visibly changing shape when only
+   * card size changed and the declared screen had not. Letterboxed to the
+   * true ratio instead, so every card size for one screen reads as the
+   * same screen. Omitted, the box is `cols / rows` as before - right for a
+   * preview with no screen of its own to be true to (Designs, /new).
+   */
+  screenAspect?: number;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const boardRef = useRef<any>(null);
@@ -122,6 +135,21 @@ export function ThemePreview({
   const gap = Math.round(tilePx * 0.035);
   const width = cols * tilePx + (cols - 1) * gap + 12;
   const height = rows * tilePx + (rows - 1) * gap + 12;
+
+  /*
+   * A fixed board already knows its own exact pixel box (`width`/`height`
+   * above) - no ResizeObserver, no settling, given rather than measured.
+   * Letterboxing it is the same arithmetic then, just done once up front
+   * instead of left to `aspect-ratio` + `place-items: center` (the fluid
+   * frame below): the frame is `width x height`'s own bounding box at
+   * `screenAspect`, canvas centered inside untouched.
+   */
+  const frameSize =
+    fixed && screenAspect !== undefined
+      ? width / height > screenAspect
+        ? { width, height: width / screenAspect }
+        : { height, width: height * screenAspect }
+      : null;
 
   // Build (or re-skin) after the pack has been still for a moment.
   useEffect(() => {
@@ -384,14 +412,37 @@ export function ThemePreview({
     onText(text + event.key.toUpperCase());
   }
 
-  return (
-    <div className="theme-preview">
-      <canvas
-        ref={canvasRef}
-        className={onText ? 'theme-preview-canvas is-editable' : 'theme-preview-canvas'}
-        style={
-          fixed
-            ? { width, height, display: 'block', background: '#0a0a0b', borderRadius: 6 }
+  const canvas = (
+    <canvas
+      ref={canvasRef}
+      className={onText ? 'theme-preview-canvas is-editable' : 'theme-preview-canvas'}
+      style={
+        fixed
+          ? { width, height, display: 'block', background: '#0a0a0b', borderRadius: 6 }
+          : screenAspect !== undefined
+            ? {
+                // No width/height, so aspect-ratio (the grid's own, square
+                // cards) resolves both together, contained by max-width/
+                // max-height below rather than stretched to fill the frame -
+                // grid's own default item sizing would stretch, which
+                // `place-items: center` on the frame turns off. minWidth/
+                // minHeight: 0 for the same reason the frame itself needs
+                // them (see its own doc): the canvas is a grid item too (of
+                // this frame), so it gets the identical automatic min-size
+                // floor - without overriding it here, a grid noticeably
+                // taller-relative-to-its-width than the frame (Huge: 8x5 on
+                // a 16:9 frame) still won that floor over max-height,
+                // overflowed the frame, and the frame's own overflow:
+                // hidden clipped it rather than the canvas ever shrinking.
+                maxWidth: '100%',
+                maxHeight: '100%',
+                minWidth: 0,
+                minHeight: 0,
+                aspectRatio: `${cols} / ${rows}`,
+                display: 'block',
+                background: '#0a0a0b',
+                borderRadius: 6,
+              }
             : {
                 width: '100%',
                 maxWidth: width,
@@ -401,17 +452,83 @@ export function ThemePreview({
                 background: '#0a0a0b',
                 borderRadius: 6,
               }
-        }
-        tabIndex={onText ? 0 : undefined}
-        role={onText ? 'textbox' : 'img'}
-        aria-multiline={onText ? true : undefined}
-        aria-label={
-          onText
-            ? `The board, ${cols} by ${rows} cards. Click and type to put words on it; Enter starts a new row.`
-            : 'Theme preview'
-        }
-        onKeyDown={onText ? type : undefined}
-      />
+      }
+      tabIndex={onText ? 0 : undefined}
+      role={onText ? 'textbox' : 'img'}
+      aria-multiline={onText ? true : undefined}
+      aria-label={
+        onText
+          ? `The board, ${cols} by ${rows} cards. Click and type to put words on it; Enter starts a new row.`
+          : 'Theme preview'
+      }
+      onKeyDown={onText ? type : undefined}
+    />
+  );
+
+  return (
+    <div className="theme-preview">
+      {frameSize ? (
+        // Fixed: the frame's own exact box, computed once above rather than
+        // left to CSS - nothing here is measured, same as the canvas isn't.
+        <div
+          className="theme-preview-frame"
+          style={{
+            width: frameSize.width,
+            height: frameSize.height,
+            display: 'grid',
+            placeItems: 'center',
+            background: '#0a0a0b',
+            border: '1px solid var(--edge-strong)',
+            borderRadius: 6,
+          }}
+        >
+          {canvas}
+        </div>
+      ) : !fixed && screenAspect !== undefined ? (
+        /*
+         * The screen's own shape, cards letterboxed inside it - cols/rows
+         * is close to this but not exact (integer rounding of a small grid
+         * drifts further from it), and without this frame that drift was
+         * the box, so the same declared screen visibly changed shape from
+         * one card size to the next. Grid + place-items: center, not flex -
+         * a flex item with no basis stretches to the cross size by default,
+         * which is the one thing this needs to not do.
+         */
+        <div
+          className="theme-preview-frame"
+          style={{
+            // No maxWidth: width here on purpose - width is cols * tilePx,
+            // so an 8-column Huge board and a 48-column Tiny one asked for
+            // wildly different caps (a small box, and one wider than any
+            // column holding it) for the same declared screen. The frame is
+            // the screen; it fills its column the same way at every card
+            // size, and cols/rows only change how finely it's divided.
+            width: '100%',
+            aspectRatio: String(screenAspect),
+            display: 'grid',
+            placeItems: 'center',
+            background: '#0a0a0b',
+            border: '1px solid var(--edge-strong)',
+            borderRadius: 6,
+            // Grid items get an automatic min-height that grows to fit their
+            // content, and it wins over aspect-ratio - Huge's canvas (its
+            // own aspect-ratio 8/5, taller relative to its width than the
+            // frame's 16/9) pushed the frame past its declared ratio to fit
+            // it rather than the canvas shrinking to fit the frame. Neither
+            // typecheck nor a diff of the server-rendered `style` string
+            // catches this - the aspect-ratio in the markup was correct the
+            // whole time; only actual layout, which nothing here runs, was
+            // wrong. min-height/min-width: 0 is the standard override.
+            minWidth: 0,
+            minHeight: 0,
+            overflow: 'hidden',
+          }}
+        >
+          {canvas}
+        </div>
+      ) : (
+        canvas
+      )}
       {bar ? (
         <div className="theme-preview-bar">
           <Button size="sm" variant="ghost" onClick={() => setReplays((n) => n + 1)}>

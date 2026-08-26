@@ -27,6 +27,9 @@ type BoardRow = {
   pack: ThemePack;
   /** Up to three of the words on it. Empty means blank glass, which is honest. */
   lines: string[];
+  /** The queue's real count - `lines` is capped at three and drops blanks,
+   * so it undercounts the moment a board holds more than that. */
+  slideCount: number;
   /** What the board is designed for; its grid follows from these two. */
   screen: { w: number; h: number };
   cardSize: string;
@@ -76,14 +79,12 @@ export function DashboardClient({
 
   /**
    * A sign and a cycle are the same board type - `live`, with looping items
-   * (lib/board-types/templates.mjs) - so the type's own name calls both
-   * "Live queue", which is only true of the one actually cycling through
-   * more than one thing. More than one line queued is what makes it live in
-   * the sense the label promises; zero or one is a sign holding still,
-   * whatever template it started from.
+   * (lib/board-types/templates.mjs) - so there is no real "Static" vs. "Live
+   * queue" distinction to name; both are just how many slides are in the
+   * rotation, which is the fact worth saying instead.
    */
   const statusLabel = (board: BoardRow) =>
-    board.type === 'live' ? (board.lines.length > 1 ? 'Live queue' : 'Static') : typeName(board.type);
+    board.type === 'live' ? `${board.slideCount} slide${board.slideCount === 1 ? '' : 's'}` : typeName(board.type);
 
   /**
    * Every card at the same height, not the same tile size. True-to-scale
@@ -175,6 +176,7 @@ export function DashboardClient({
                       cols={gridForConfig(board).cols}
                       rows={gridForConfig(board).rows}
                       tilePx={previewTilePx(gridForConfig(board).rows)}
+                      screenAspect={screenOf(board).w / screenOf(board).h}
                       bar={false}
                       fixed
                       loop={board.lines.length > 1 ? 4200 : 0}
@@ -184,13 +186,10 @@ export function DashboardClient({
                     <span className="board-card-name">{board.name || board.slug}</span>
                     <span className="board-card-meta">
                       <Chip>{statusLabel(board)}</Chip>{' '}
-                      {/* The screen it is for, and what that comes to - the two
-                          facts a board is shaped by, said where you can see it
-                          without opening anything. */}
-                      <Chip>
-                        {screenLabel(screenOf(board))} ·{' '}
-                        {gridForConfig(board).cols} × {gridForConfig(board).rows}
-                      </Chip>
+                      {/* The screen it is for - the card itself is already
+                          drawn at the grid that comes to, so saying the
+                          count again here was the same fact twice. */}
+                      <Chip>{screenLabel(screenOf(board))}</Chip>
                     </span>
                   </div>
                   <div className="board-card-actions">

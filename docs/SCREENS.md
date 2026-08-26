@@ -113,7 +113,14 @@ deactivated.
   front and plays outside the rotation, same as any other
   `priority: "now"`. Saved order is the only ranking a saved interrupter
   has, and it **is** enforced: firing one is refused if a higher-ranked
-  saved interrupter is currently showing.
+  saved interrupter is currently showing. A selected "until dismissed"
+  preset that is already live also gets a Dismiss button beside Fire —
+  which itself mutes, since firing it again would only queue an
+  identical, invisible second copy — and its own board preview says
+  "live now". A live "until dismissed" interrupter also surfaces as a
+  standing banner above all three manage-page tabs, not just
+  Interruptions, with its own Dismiss — easy to leave running and forget
+  otherwise, since it used to be visible only from the tab that fired it.
 
 ### 6. Display — `/b/{slug}`
 

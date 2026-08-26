@@ -11,6 +11,9 @@ import { useEffect, useState } from 'react';
 import { Field, Select, TextInput } from '@/components/ui/Field';
 import { THEMES, THEME_IDS, DEFAULT_THEME } from '@/lib/board/themes.mjs';
 import { presetDraft, draftToPatch } from '@/lib/board/theme-editor.mjs';
+import { resolveBoardTheme } from '@/lib/board/board-theme.mjs';
+import { ThemePreview } from '@/components/flapper/ThemePreview';
+import { SAMPLE_MESSAGES } from '@/lib/board/sample-messages.mjs';
 
 /** The shapes offered by name; anything else is shown as its own ratio. */
 const SCREENS = [
@@ -121,134 +124,154 @@ export function BoardSidebar({
 
   const themes: Record<string, any> = THEMES;
 
+  const { pack } = resolveBoardTheme(config);
+
   return (
-    <section className="settings-block">
+    <section className="settings-block settings-block-wide">
       <h2>Design &amp; shape</h2>
-      <div className="board-side-shape">
-        <Field
-          label="Start from"
-          htmlFor="side-theme"
-          hint="Replaces this board's look with the one you pick. To make your own, go to Designs."
-        >
-          <Select id="side-theme" value={String(config.theme ?? DEFAULT_THEME)} onChange={(e) => pickTheme(e.target.value)}>
-            <optgroup label="In the box">
-              {THEME_IDS.map((id: string) => (
-                <option key={id} value={id}>
-                  {themes[id].name}
-                </option>
-              ))}
-            </optgroup>
-            {own.length > 0 && (
-              <optgroup label="Yours">
-                {own.map((design) => (
-                  <option key={design.id} value={`design:${design.id}`}>
-                    {design.name}
+      <div className="shape-surface">
+        <div className="board-side-shape">
+          <Field
+            label="Start from"
+            htmlFor="side-theme"
+            hint="Replaces this board's look with the one you pick. To make your own, go to Designs."
+          >
+            <Select id="side-theme" value={String(config.theme ?? DEFAULT_THEME)} onChange={(e) => pickTheme(e.target.value)}>
+              <optgroup label="In the box">
+                {THEME_IDS.map((id: string) => (
+                  <option key={id} value={id}>
+                    {themes[id].name}
                   </option>
                 ))}
               </optgroup>
-            )}
-          </Select>
-        </Field>
-        <Field label="Screen" htmlFor="side-screen">
-          <Select
-            id="side-screen"
-            value={custom || !onList ? 'custom' : `${screen.w}:${screen.h}`}
-            onChange={(event) => {
-              if (event.target.value === 'custom') {
-                setCustom(true);
-                // Refreshed from the current screen, not left at whatever
-                // was last typed - picking a preset and reopening Custom
-                // must not show a stale shape from an earlier session.
-                setDraftW(String(screen.w));
-                setDraftH(String(screen.h));
-                return;
-              }
-              setCustom(false);
-              const found = SCREENS.find((option) => `${option.w}:${option.h}` === event.target.value);
-              if (found) apply({ screen: { w: found.w, h: found.h } });
-            }}
-          >
-            {SCREENS.map((option) => (
-              <option key={option.label} value={`${option.w}:${option.h}`}>
-                {option.label}
-              </option>
-            ))}
-            <option value="custom">Custom{!onList ? ` (${shape})` : ''}</option>
-          </Select>
-        </Field>
-        {(custom || !onList) && (
-          /* Committed together, on Enter or on leaving the pair - a shape is
-             two numbers and saving after the first one means saving a shape
-             nobody asked for. Typing 300 into the width of a 16:9 board was
-             briefly a 100:3 screen, and it saved. */
-          <div className="board-side-custom">
-            <Field label="Width" htmlFor="side-screen-w">
-              <TextInput
-                id="side-screen-w"
-                type="number"
-                min={1}
-                value={draftW}
-                onChange={(event) => setDraftW(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') commitCustom();
-                  if (event.key === 'Escape') setDraftW(String(screen.w));
-                }}
-                onBlur={commitCustom}
-              />
-            </Field>
-            <Field
-              label="Height"
-              htmlFor="side-screen-h"
-              hint="Any units - centimetres, pixels, or proportions. Only the ratio matters."
+              {own.length > 0 && (
+                <optgroup label="Yours">
+                  {own.map((design) => (
+                    <option key={design.id} value={`design:${design.id}`}>
+                      {design.name}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+            </Select>
+          </Field>
+          <Field label="Screen" htmlFor="side-screen">
+            <Select
+              id="side-screen"
+              value={custom || !onList ? 'custom' : `${screen.w}:${screen.h}`}
+              onChange={(event) => {
+                if (event.target.value === 'custom') {
+                  setCustom(true);
+                  // Refreshed from the current screen, not left at whatever
+                  // was last typed - picking a preset and reopening Custom
+                  // must not show a stale shape from an earlier session.
+                  setDraftW(String(screen.w));
+                  setDraftH(String(screen.h));
+                  return;
+                }
+                setCustom(false);
+                const found = SCREENS.find((option) => `${option.w}:${option.h}` === event.target.value);
+                if (found) apply({ screen: { w: found.w, h: found.h } });
+              }}
             >
-              <TextInput
-                id="side-screen-h"
-                type="number"
-                min={1}
-                value={draftH}
-                onChange={(event) => setDraftH(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') commitCustom();
-                  if (event.key === 'Escape') setDraftH(String(screen.h));
-                }}
-                onBlur={commitCustom}
-              />
-            </Field>
-          </div>
-        )}
-        <Field label="Card size" htmlFor="side-cardsize">
-          <Select
-            id="side-cardsize"
-            value={cardSizeOf(config)}
-            onChange={(event) => apply({ cardSize: event.target.value })}
+              {SCREENS.map((option) => (
+                <option key={option.label} value={`${option.w}:${option.h}`}>
+                  {option.label}
+                </option>
+              ))}
+              <option value="custom">Custom{!onList ? ` (${shape})` : ''}</option>
+            </Select>
+          </Field>
+          {(custom || !onList) && (
+            /* Committed together, on Enter or on leaving the pair - a shape is
+               two numbers and saving after the first one means saving a shape
+               nobody asked for. Typing 300 into the width of a 16:9 board was
+               briefly a 100:3 screen, and it saved. */
+            <div className="board-side-custom">
+              <Field label="Width" htmlFor="side-screen-w">
+                <TextInput
+                  id="side-screen-w"
+                  type="number"
+                  min={1}
+                  value={draftW}
+                  onChange={(event) => setDraftW(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') commitCustom();
+                    if (event.key === 'Escape') setDraftW(String(screen.w));
+                  }}
+                  onBlur={commitCustom}
+                />
+              </Field>
+              <Field
+                label="Height"
+                htmlFor="side-screen-h"
+                hint="Any units - centimetres, pixels, or proportions. Only the ratio matters."
+              >
+                <TextInput
+                  id="side-screen-h"
+                  type="number"
+                  min={1}
+                  value={draftH}
+                  onChange={(event) => setDraftH(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') commitCustom();
+                    if (event.key === 'Escape') setDraftH(String(screen.h));
+                  }}
+                  onBlur={commitCustom}
+                />
+              </Field>
+            </div>
+          )}
+          <Field label="Card size" htmlFor="side-cardsize">
+            <Select
+              id="side-cardsize"
+              value={cardSizeOf(config)}
+              onChange={(event) => apply({ cardSize: event.target.value })}
+            >
+              {CARD_SIZE_IDS.map((id: string) => (
+                <option key={id} value={id}>
+                  {SIZE_LABELS[id] ?? id}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <p className="board-side-grid muted">
+            {grid.cols} × {grid.rows} cards{!chosen && ' · default screen'}
+          </p>
+          <Field
+            label="Fidget"
+            htmlFor="side-ambient"
+            hint="A board holding one message sits perfectly still, which a real one never does. On, it twitches a tile now and then and corrects itself, and sweeps about once in twelve. Off by default - a wall should not clack all night unless you asked it to."
           >
-            {CARD_SIZE_IDS.map((id: string) => (
-              <option key={id} value={id}>
-                {SIZE_LABELS[id] ?? id}
-              </option>
-            ))}
-          </Select>
-        </Field>
-        <p className="board-side-grid muted">
-          {grid.cols} × {grid.rows} cards{!chosen && ' · default screen'}
-        </p>
-        <Field
-          label="Fidget"
-          htmlFor="side-ambient"
-          hint="A board holding one message sits perfectly still, which a real one never does. On, it twitches a tile now and then and corrects itself, and sweeps about once in twelve. Off by default - a wall should not clack all night unless you asked it to."
-        >
-          <Select
-            id="side-ambient"
-            value={String(Number(config.ambientMs) || 0)}
-            onChange={(event) => apply({ ambientMs: Number(event.target.value) })}
-          >
-            <option value="0">Off - perfectly still</option>
-            <option value="15000">Every 15 seconds</option>
-            <option value="30000">Every 30 seconds</option>
-            <option value="60000">Every minute</option>
-            <option value="300000">Every 5 minutes</option>
-          </Select>
-        </Field>
+            <Select
+              id="side-ambient"
+              value={String(Number(config.ambientMs) || 0)}
+              onChange={(event) => apply({ ambientMs: Number(event.target.value) })}
+            >
+              <option value="0">Off - perfectly still</option>
+              <option value="15000">Every 15 seconds</option>
+              <option value="30000">Every 30 seconds</option>
+              <option value="60000">Every minute</option>
+              <option value="300000">Every 5 minutes</option>
+            </Select>
+          </Field>
+        </div>
+        {/* What all of the above is actually deciding, beside the fields
+            instead of a scroll away - the same reasoning Board's and
+            Interruptions' own panels give their preview, sticky here since
+            the field column can run longer than the glass is tall. */}
+        <div className="shape-preview">
+          <ThemePreview
+            pack={pack}
+            text={SAMPLE_MESSAGES}
+            cols={grid.cols}
+            rows={grid.rows}
+            tilePx={56}
+            ambientMs={Number(config.ambientMs) || 0}
+            screenAspect={screen.w / screen.h}
+          />
+          <p className="design-preview-caption">{grid.cols} × {grid.rows} cards</p>
+        </div>
       </div>
     </section>
   );
