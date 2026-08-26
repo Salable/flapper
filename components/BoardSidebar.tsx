@@ -1,12 +1,10 @@
 'use client';
 
-import { Chip, CopyButton } from '@/components/ui/bits';
 import {
   screenLabel,
   screenOf,
   gridForConfig,
   cardSizeOf,
-  isSignConfig,
   CARD_SIZE_IDS,
 } from '@/lib/board/geometry.mjs';
 import { useEffect, useState } from 'react';
@@ -29,36 +27,20 @@ const SIZE_LABELS: Record<string, string> = {
   small: 'Small',
   tiny: 'Tiny',
 };
-import { LinkButton } from '@/components/ui/Button';
-import { formatDay } from '@/lib/format';
 
 /**
- * The board itself, beside whatever screen is working on it: name, slug and
- * URL, type and status, when it was made, and the two things you always
- * want to hand (open the display, copy its URL). One shell for every
- * per-board screen, so a board's identity is never something you have to
- * go and find - on settings it was nowhere at all.
+ * What decides how a board looks and behaves - design, screen, card size,
+ * fidget - as one section of the Settings tab. Used to be a persistent
+ * sidebar beside every tab, on the reasoning that these are facts you
+ * always want visible; the board editor is three tabs now (Settings,
+ * Board, Interruptions), and a fact belongs on the one tab about it, not
+ * shadowing the other two forever.
  */
 export function BoardSidebar({
-  name,
-  slug,
-  typeName,
-  status,
-  isPrivate,
-  createdAt,
-  boardUrl,
   config,
   onConfig,
   onSaved,
 }: {
-  name: string;
-  slug: string;
-  typeName: string;
-  status: 'active' | 'deactivated';
-  isPrivate: boolean;
-  createdAt: number;
-  /** Resolved client-side (the server does not know the public origin); '' until then. */
-  boardUrl: string;
   /** The board's config, for the shape it is designed for. */
   config: Record<string, unknown>;
   /** Save a change to the two settings that decide the board's shape.
@@ -89,12 +71,6 @@ export function BoardSidebar({
   const screen = screenOf(config);
   const shape = screenLabel(screen);
   const grid = gridForConfig(config);
-  // Derived from the cap, not the type id or the template - the same test
-  // QueueManager and SettingsClient's own tab label already make, so a
-  // board that has raised or dropped its cap is called what it currently
-  // is here too, not what it was made as. Shared with both via
-  // isSignConfig, so the three can't quietly drift.
-  const isSign = isSignConfig(config);
   const onList = SCREENS.some((option) => option.w === screen.w && option.h === screen.h);
   const [custom, setCustom] = useState(false);
   // The pair being typed, so neither half is saved on its own.
@@ -146,33 +122,8 @@ export function BoardSidebar({
   const themes: Record<string, any> = THEMES;
 
   return (
-    <aside className="board-side" aria-label="This board">
-      <h1 className="board-side-name">{name || slug}</h1>
-      <div className="board-side-slug">
-        <code>/b/{slug}</code>
-        {boardUrl !== '' && <CopyButton value={boardUrl} label="Copy URL" />}
-      </div>
-      <div className="board-side-chips">
-        {isSign ? (
-          <Chip tip="A queue capped at one message, so posting always replaces rather than adds. Raise Queue size in General to turn it into a rolling queue.">
-            Sign
-          </Chip>
-        ) : (
-          <Chip tip="How this board plays what's posted to it - a rolling queue that plays as it arrives.">{typeName}</Chip>
-        )}
-        {status !== 'active' ? (
-          <Chip tone="danger" tip="Paused in General: every display shows a paused card and ignores new messages. The queue is kept exactly as it is.">
-            paused
-          </Chip>
-        ) : (
-          <Chip tone="live" tip="Live: displays play what's posted and accept new messages.">
-            active
-          </Chip>
-        )}
-        {isPrivate && <Chip tip="Only reachable with the board's API key - see General.">private</Chip>}
-      </div>
-      {/* What decides how this board looks and behaves, in the one place
-          that is always on screen - no separate tab to go and find. */}
+    <section className="settings-block">
+      <h2>Design &amp; shape</h2>
       <div className="board-side-shape">
         <Field
           label="Start from"
@@ -240,6 +191,7 @@ export function BoardSidebar({
                 onChange={(event) => setDraftW(event.target.value)}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter') commitCustom();
+                  if (event.key === 'Escape') setDraftW(String(screen.w));
                 }}
                 onBlur={commitCustom}
               />
@@ -257,6 +209,7 @@ export function BoardSidebar({
                 onChange={(event) => setDraftH(event.target.value)}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter') commitCustom();
+                  if (event.key === 'Escape') setDraftH(String(screen.h));
                 }}
                 onBlur={commitCustom}
               />
@@ -297,17 +250,6 @@ export function BoardSidebar({
           </Select>
         </Field>
       </div>
-      <dl className="board-side-facts">
-        <dt>Created</dt>
-        <dd>{formatDay(createdAt)}</dd>
-      </dl>
-      <div className="board-side-actions">
-        {boardUrl !== '' && (
-          <LinkButton size="sm" href={boardUrl} target="_blank" rel="noopener">
-            Open display
-          </LinkButton>
-        )}
-      </div>
-    </aside>
+    </section>
   );
 }

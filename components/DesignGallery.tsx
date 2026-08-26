@@ -19,7 +19,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ThemePreview } from '@/components/flapper/ThemePreview';
 import { Button, LinkButton } from '@/components/ui/Button';
 import { Chip } from '@/components/ui/bits';
-import { Field, TextInput, Select } from '@/components/ui/Field';
+import { Field, TextInput, Select, RangeSlider } from '@/components/ui/Field';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { THEMES, THEME_IDS, DEFAULT_THEME, resolveTheme } from '@/lib/board/themes.mjs';
 import { DEFAULTS } from '@/lib/board/flipboard.js';
@@ -34,6 +34,18 @@ const themes: Record<string, any> = THEMES;
  * seen at the proportions it will be used at.
  */
 const { cols: COLS, rows: ROWS } = DEFAULTS;
+
+/**
+ * The size every card on this page renders at - one control for the whole
+ * gallery, not per card, because judging designs against each other means
+ * seeing them at the same size. Fewer cards across makes each one bigger
+ * (down to one, to compare a single glyph across designs), the same zoom
+ * DesignEditor offers for one design at a time. 26 is the tilePx this page
+ * always used, so the slider's top end reproduces exactly what shipped
+ * before it existed.
+ */
+const MIN_PREVIEW_COLS = 1;
+const FULL_WIDTH = COLS * 26;
 
 type Design = {
   id: string;
@@ -54,6 +66,9 @@ export function DesignGallery() {
   const [newFrom, setNewFrom] = useState<string>(DEFAULT_THEME);
   const [renaming, setRenaming] = useState<string | null>(null);
   const [renameTo, setRenameTo] = useState('');
+  const [previewCols, setPreviewCols] = useState(COLS);
+  const previewRows = Math.max(1, Math.round((ROWS * previewCols) / COLS));
+  const previewTilePx = Math.max(12, Math.floor(FULL_WIDTH / previewCols));
 
   const load = useCallback(async () => {
     try {
@@ -168,7 +183,7 @@ export function DesignGallery() {
   ) => (
     <article className="design-card" key={key}>
       <div className="design-card-board">
-        <ThemePreview pack={pack} text={SAMPLE_MESSAGES} cols={COLS} rows={ROWS} tilePx={26} />
+        <ThemePreview pack={pack} text={SAMPLE_MESSAGES} cols={previewCols} rows={previewRows} tilePx={previewTilePx} />
       </div>
       <div className="design-card-body">
         <h3 className="design-card-name">
@@ -190,6 +205,21 @@ export function DesignGallery() {
     <>
       {dialog}
       {error !== '' && <p className="error">{error}</p>}
+
+      <Field
+        label="Card size"
+        htmlFor="gallery-preview-zoom"
+        hint="Fewer, bigger cards across every design here - down to one, to compare a single glyph."
+      >
+        <RangeSlider
+          id="gallery-preview-zoom"
+          min={MIN_PREVIEW_COLS}
+          max={COLS}
+          step={1}
+          value={previewCols}
+          onChange={(event) => setPreviewCols(Number(event.target.value))}
+        />
+      </Field>
 
       <section className="design-section">
         <header className="design-section-head">

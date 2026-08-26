@@ -93,7 +93,7 @@ function tileSizeFor(width: number, height: number, maxTile: number) {
  * over when the time comes. Neither is visible in a frame.
  */
 const DEMOS: Record<string, string[]> = {
-  // A sign holds. Two messages so Flip again has somewhere to go, but the
+  // A sign holds. Two messages so Flip has somewhere to go, but the
   // point of it is that it stays - so it does not cycle on its own.
   sign: ['WELCOME'],
   cycle: ['NOW BOARDING', 'GATE 12 OPEN', 'FINAL CALL'],
@@ -192,7 +192,7 @@ export function NewBoardClient({
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || `HTTP ${response.status}`);
-      router.push(`/b/${body.slug}/settings`);
+      router.push(`/b/${body.slug}/manage`);
     } catch (err: any) {
       setError(err.message);
       setBusy(false);

@@ -94,25 +94,14 @@ export interface TintCorners {
   br: string;
 }
 
-/** A light travelling round the perimeter, with a fading tail. */
-export interface TintRunner {
-  colour: string;
-  /** Cards lit behind the head. */
-  length?: number;
-  /** One lap, in milliseconds. At least 1000. */
-  periodMs?: number;
-}
-
 /**
- * A wash: exactly one of `gradient`, `corners` or `runner`. The renderer
- * prefers them in that reverse order (runner, corners, gradient), and the
- * editor writes one kind at a time - so a spec carrying two is a bug, not a
- * blend.
+ * A wash: exactly one of `gradient` or `corners`. The renderer prefers
+ * corners over gradient, and the editor writes one kind at a time - so a
+ * spec carrying both is a bug, not a blend.
  */
 export interface Tint {
   gradient?: TintGradient;
   corners?: TintCorners;
-  runner?: TintRunner;
   /** How the colour lands on the card. `overlay` protects black and white glyphs. */
   mode?: 'overlay' | 'wash' | 'multiply' | 'screen';
   /** 0 to 1. */

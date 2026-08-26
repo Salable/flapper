@@ -22,7 +22,7 @@ import { Button, LinkButton } from '@/components/ui/Button';
 import { Field, RangeSlider } from '@/components/ui/Field';
 import { validatePack, type ThemePack } from '@/lib/board/theme-pack.mjs';
 import { stableStringify } from '@/lib/board/board-theme.mjs';
-import { DEFAULT_THEME } from '@/lib/board/themes.mjs';
+import { DEFAULT_THEME, isTheme } from '@/lib/board/themes.mjs';
 import { DEFAULTS } from '@/lib/board/flipboard.js';
 import { SAMPLE_MESSAGES } from '@/lib/board/sample-messages.mjs';
 
@@ -44,7 +44,13 @@ export function DesignEditor({ design }: { design: Design }) {
   const router = useRouter();
   const [saved, setSaved] = useState<ThemePack>(design.pack);
   const [draft, setDraft] = useState<ThemeDraft>({
-    theme: design.basedOn ?? DEFAULT_THEME,
+    // basedOn is never resolved (lib/api/handlers.mjs createDesignHandler) -
+    // a shipped theme id or the id of one of the caller's own designs, and
+    // the two live in different id spaces. ThemeSettings' "Start from" picker
+    // needs to tell them apart to keep its selection and its Reset target in
+    // sync, so a design-sourced one is tagged the same way its own "Yours"
+    // options are: `design:<id>`.
+    theme: design.basedOn === null ? DEFAULT_THEME : isTheme(design.basedOn) ? design.basedOn : `design:${design.basedOn}`,
     pack: design.pack,
   });
   const [error, setError] = useState('');

@@ -27,7 +27,7 @@ npm install && npm run dev
 That's it — the tiles are drawn, not downloaded, and with no environment the
 app runs on a local PGlite database and an in-memory realtime broker. Create
 an account at http://localhost:3000, provision a board from the dashboard, and
-drive it with the key from its settings page:
+drive it with the key from its manage page:
 
 ```bash
 curl -X POST http://localhost:3000/api/b/YOUR-SLUG/message \
@@ -123,7 +123,7 @@ POST /api/b/{slug}/message
 Access in one sentence each: writes need the board's API key; reads are open
 on public boards and need the key (or the owner's session) on private ones;
 management — rename, slug, privacy, rotation, deletion — is owner-session
-only, from the dashboard and `/b/{slug}/settings`.
+only, from the dashboard and `/b/{slug}/manage`.
 
 The same surface is exposed over MCP at `POST /api/mcp` — one endpoint for
 the deployment (Streamable HTTP, stateless), two bearer modes told apart by

@@ -52,8 +52,8 @@ export function ThemePreview({
   onText?: (text: string) => void;
   /**
    * Off for a board used as a picture - the posters on /new are twelve boards
-   * on one page and twelve Flip again buttons would be noise. They still flip
-   * once on arrival, which is the point of them being real.
+   * on one page and twelve Flip buttons would be noise. They still flip once
+   * on arrival, which is the point of them being real.
    */
   bar?: boolean;
   /**
@@ -132,17 +132,22 @@ export function ThemePreview({
       loadProcedural(pack)
         .then((skin) => {
           if (cancelled) return;
+          /*
+           * The flip's mechanical feel comes from the pack too - Scroll
+           * speed, Landing, Sweep, Sweep shape, Always flip - so a design
+           * being edited previews how it moves, not just what colour it is.
+           * `dwellMs` is not here: that is a queue's pacing between
+           * messages, and this preview has no queue, just a demo replay.
+           *
+           * Merged against the pack's own defaults so an incomplete pack
+           * cannot spread `undefined` over Flipboard's own defaults. Read on
+           * every pass, not just the first: a board already built still
+           * needs these re-applied on every later pack change, the same as
+           * setSkin two lines down - otherwise a slider moved after the
+           * first paint (Always flip included) changes nothing on screen.
+           */
+          const advanced = { ...PACK_DEFAULTS.advanced, ...((pack as any)?.advanced ?? {}) };
           if (!boardRef.current) {
-            /*
-             * The flip's mechanical feel comes from the pack too - Scroll
-             * speed, Landing, Sweep, Sweep shape, Always flip - so a design
-             * being edited previews how it moves, not just what colour it is.
-             * `dwellMs` is not here: that is a queue's pacing between
-             * messages, and this preview has no queue, just a demo replay.
-             */
-            // Merged against the pack's own defaults so an incomplete pack
-            // cannot spread `undefined` over Flipboard's own defaults.
-            const advanced = { ...PACK_DEFAULTS.advanced, ...((pack as any)?.advanced ?? {}) };
             boardRef.current = new Flipboard(canvas, skin, {
               cols,
               rows,
@@ -166,6 +171,14 @@ export function ThemePreview({
             setReady(true);
           } else {
             boardRef.current.setSkin(skin);
+            boardRef.current.setOptions({
+              fastStepMs: advanced.fastStepMs,
+              landStepMs: advanced.landStepMs,
+              sweepMs: advanced.sweepMs,
+              staggerMode: advanced.staggerMode,
+              alwaysFlip: advanced.alwaysFlip,
+              frameMs: advanced.frameMs,
+            });
           }
           setError('');
         })
@@ -217,16 +230,15 @@ export function ThemePreview({
   /*
    * Stop drawing while off screen.
    *
-   * A wash that moves - a drift, a runner going round the edge - is a reason to
-   * keep asking for frames, and that used to mean asking forever. On a page of
-   * designs, every card below the fold went on repainting for nobody; at the
-   * sixty-design limit that is sixty loops nobody is looking at, which is fan
-   * noise on a laptop and worse on the hardware a wall runs on.
+   * A wash that moves - a drift - is a reason to keep asking for frames, and
+   * that used to mean asking forever. On a page of designs, every card below
+   * the fold went on repainting for nobody; at the sixty-design limit that is
+   * sixty loops nobody is looking at, which is fan noise on a laptop and
+   * worse on the hardware a wall runs on.
    *
    * A board that is not visible is parked and picked up again on the way back.
-   * Nothing is lost by it: a drift and a runner are both functions of the
-   * clock, so they resume where they would have been rather than where they
-   * stopped.
+   * Nothing is lost by it: a drift is a function of the clock, so it resumes
+   * where it would have been rather than where it stopped.
    */
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -403,7 +415,7 @@ export function ThemePreview({
       {bar ? (
         <div className="theme-preview-bar">
           <Button size="sm" variant="ghost" onClick={() => setReplays((n) => n + 1)}>
-            Flip again
+            Flip
           </Button>
           {error !== '' && <span className="error">{error}</span>}
         </div>

@@ -43,7 +43,9 @@ async function makeBoard({ slug = 'mcp-board', ...rest } = {}) {
   const response = await createBoard(
     new Request(`${BASE}/api/boards`, {
       method: 'POST',
-      body: JSON.stringify({ slug, ...rest }),
+      // seed: false - these tests want a truly empty queue to build their
+      // own state on, not the friendly default a real bare create gets.
+      body: JSON.stringify({ slug, seed: false, ...rest }),
       headers: { 'content-type': 'application/json' },
     }),
     { ...ctx(), getSession: async () => ({ user: { id: 'owner' } }) },

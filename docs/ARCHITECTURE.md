@@ -50,7 +50,7 @@ between the API and the displays, and everything in it is ephemeral.
 app/            Next.js: pages under app/**, API routes as one-line route.ts wrappers
   api/b/[slug]/ every board endpoint (status, queue, message, config, theme, streams…)
   api/boards    create; api/mcp the MCP server; api/auth/[...all] Better Auth
-  b/[slug]      the display; b/[slug]/settings the control room
+  b/[slug]      the display; b/[slug]/manage the control room (b/[slug]/settings redirects here)
   dashboard, new, account, consent, login, signup, docs, legal
 components/     React chrome around the imperative engine (see "Components")
 hooks/          useStatePublisher: the display's write-back of what it shows
@@ -172,11 +172,11 @@ over `lib/`; the decisions are tested there.
 | `DashboardClient` | `/dashboard` | the board cards (name, type, three doors) and the Connections row |
 | `NewBoardClient` | `/new` | the template rails and the create panel |
 | `BoardPageClient` → `BoardApp` | `/b/{slug}` | boots the engine, the Player and the sound; applies layout and theme; F/Esc/M keys |
-| `SettingsClient` | `/b/{slug}/settings` | the control room: vertical tabs (Queue / Display / General), owns the theme draft |
-| `BoardSidebar` | settings | the board's identity beside any per-board screen |
-| `QueueManager` | settings › Queue (live) | the list and, beneath it, Add a message; flush, clear |
-| `board-types/scheduled/ScheduleEditor`, `board-types/shared/SharedQueueEditor` | settings › Queue (by type) | the type's own queue editor |
-| `LayoutPicker`, `DisplayConfig`, `ThemeSettings`, `TypeSettings` | settings › Display / General | where the board goes on the screen; grid and motion; the theme editor; the type's advanced params |
+| `SettingsClient` | `/b/{slug}/manage` | the control room: three tabs (Settings / Board / Interruptions — the last live-only), owns the theme draft |
+| `BoardSidebar` | manage › Settings | identity, design & shape (theme preset, screen ratio, card size, fidget), privacy, access, pause/export, delete |
+| `QueueManager` | manage › Board (live), › Interruptions (live) | the rotation as a rail (one tab per slide, `section="board"`) and, in its own mounted instance, firing/managing interrupters (`section="interruptions"`) |
+| `board-types/scheduled/ScheduleEditor`, `board-types/shared/SharedQueueEditor` | manage › Board (scheduled/shared types) | the type's own queue editor, in place of `QueueManager`; these types get no Interruptions tab |
+| `TypeSettings` | manage › Settings | the type's advanced params (e.g. a live board's queue size) |
 | `ConnectedApps`, `AccountClient` | `/account`, dashboard | the OAuth clients signed in as you, Disconnect; Privacy & data |
 | `flapper/Flapper`, `flapper/ThemePreview`, `flapper/assets.ts`, `flapper/rasterize.ts` | wordmark, hero, editor | the engine in a box; a pack on a live board; the shared skin loader; uploads to pack art |
 | `ui/*` | everywhere | the design system: Button, Field + controls, ColorInput, Tabs, Modal, ConfirmDialog, Card/Chip/Segmented/EmptyState, CopyButton/KeyReveal, MiniBoard (`docs/DESIGN-SYSTEM.md`) |

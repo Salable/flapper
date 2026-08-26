@@ -1,6 +1,7 @@
 import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { Controller } from '../lib/board/controller.mjs';
+import { MAX_DWELL_MS } from '../lib/board/track.mjs';
 import { THEME_IDS } from '../lib/board/themes.mjs';
 import { stubBoard, setup } from './stub-board.mjs';
 
@@ -738,5 +739,5 @@ test('capabilities advertise what this build can do', (t) => {
   const caps = controller.capabilities();
   assert.equal(caps.repeat, true);
   assert.equal(caps.perBandDwell, true);
-  assert.equal(caps.maxDwellMs, 600000);
+  assert.equal(caps.maxDwellMs, MAX_DWELL_MS);
 });

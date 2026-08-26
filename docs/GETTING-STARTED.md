@@ -23,21 +23,27 @@ Every board gets:
 - a **display URL** — `/b/your-slug` — open it on the screen that should
   show it. The page is just the tiles; <kbd>F</kbd> is fullscreen,
   <kbd>Esc</kbd> blanks in place.
-- a **settings page** — `/b/your-slug/settings` — the control room, in
-  three tabs: **Queue** (compose and manage), **Display** (a drag-and-scale
-  layout picker plus grid and motion), **General** (identity, privacy, the
-  API key, pause & export, delete).
+- a **manage page** — `/b/your-slug/manage` — the control room, in
+  three tabs: **Settings** (identity, design & shape, privacy, the API key,
+  pause & export, delete), **Board** (the rotation — or, on a scheduled/
+  shared board, the schedule editor), and, on a live board only,
+  **Interruptions** (save a named interrupter, then fire it to cut to
+  the front).
 - an **API base** — `/api/b/your-slug` — for driving it from software.
 
 ## 2. Put something on it
 
-From **Settings → Queue**: on a live board, type a message, pick a
-priority, optionally **Loop** it. On a scheduled board, compose *onto the
-clock* — choose the schedule, watch the live "next occurrences" preview,
-and set how long it shows (one read-through, a fixed time, or *until its
-next trigger* for a standing sign).
+From **Board**: on a live board, **+ Slide** adds a blank slide to the
+rotation — type into it, set how long it holds, done; every slide in the
+rotation loops back round by default, so removing it is what ends it. For a
+one-off instead, use the **Interruptions** tab: save a name, its text, and
+how long it holds, then fire it — it cuts to the front, plays once, and
+doesn't join the rotation. On a scheduled board, compose *onto the
+clock* — choose the schedule, watch the live "next occurrences" preview, and
+set how long it shows (one read-through, a fixed time, or *until its next
+trigger* for a standing sign).
 
-Or over HTTP, with the API key from Settings → General:
+Or over HTTP, with the API key from the Settings tab:
 
 ```bash
 curl -X POST https://flapper-tan.vercel.app/api/b/YOUR-SLUG/message \
@@ -90,7 +96,7 @@ still reports as connected. So for a wall:
 
 ## 4. Keys and privacy
 
-The **API key** (Settings → General) authorizes every write. Anyone with
+The **API key** (Settings tab) authorizes every write. Anyone with
 the board's URL can *watch* a public board; making it **private** gates
 viewing behind the key (`?key=…` on the display URL, for kiosks) or your
 login. Regenerating the key instantly revokes the old one everywhere.
@@ -113,8 +119,8 @@ to hand the board to an AI and ask:
 
 To give an agent **one board only** — a kiosk script, a CI job, a friend —
 use that board's API key as the bearer token instead of signing in. The
-exact `claude mcp add … --header` command is in Settings → General, and
-it works for any MCP client that can send a header.
+exact `claude mcp add … --header` command is on the board's Settings tab,
+and it works for any MCP client that can send a header.
 
 ## 6. For agents over plain HTTP
 

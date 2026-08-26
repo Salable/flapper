@@ -15,9 +15,13 @@ import {
   savedPatch,
   FONT_CHOICES,
   setGlyphFont,
+  buildFlight,
+  paletteOfFlight,
+  setFlightPalette,
 } from '../lib/board/theme-editor.mjs';
 import { THEMES } from '../lib/board/themes.mjs';
 import { validatePack } from '../lib/board/theme-pack.mjs';
+import { RING } from '../lib/board/ring.mjs';
 
 const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
 
@@ -80,7 +84,7 @@ test('art attaches by ring index and is pruned when nothing uses it', () => {
 test('fonts parse into the three controls and build back', () => {
   // By id, not position - the list grows as faces are added.
   const stackOf = (id) => FONT_CHOICES.find((c) => c.id === id).stack;
-  assert.deepEqual(parseFont(THEMES.classic.glyph.font), { weight: '700', size: 0.86, family: 'arimo', stack: stackOf('arimo') });
+  assert.deepEqual(parseFont(THEMES.classic.glyph.font), { weight: '700', size: 0.94, family: 'oswald', stack: stackOf('oswald') });
   assert.deepEqual(parseFont('bold 0.9em Georgia, "Times New Roman", serif'), { weight: '700', size: 0.9, family: 'georgia', stack: stackOf('georgia') });
   assert.equal(parseFont('1em Comic Sans MS').family, null, 'unknown faces are custom');
   assert.equal(buildFont({ weight: '500', size: 0.8, family: 'courier' }), '500 0.8em "Courier New", Courier, monospace');
@@ -126,3 +130,65 @@ test('choosing a built-in face updates pack.fonts to match, in the same draft', 
   const stillHasCustom = setGlyphFont(withCustom, { family: 'oswald' });
   assert.ok(stillHasCustom.pack.fonts.some((f) => f.family === 'Custom'));
 })
+
+test('buildFlight spreads a colour list across the ring, repeats and all', () => {
+  assert.equal(buildFlight([]), null, 'nothing picked is no pattern at all');
+  assert.equal(buildFlight(null), null);
+
+  const one = buildFlight(['#ff0000']);
+  assert.equal(one.length, RING.length);
+  assert.deepEqual(one.filter((c) => c !== null), ['#ff0000']);
+
+  // A colour appearing three times in the list flashes three times as
+  // often - the count in the built pattern, not just its presence.
+  const list = ['#ffffff', '#ffffff', '#ffffff', '#ff0000', '#ffffff'];
+  const built = buildFlight(list);
+  const placed = built.filter((c) => c !== null);
+  assert.equal(placed.length, list.length, 'one ring slot per colour in the list');
+  assert.equal(placed.filter((c) => c === '#ff0000').length, 1);
+  assert.equal(placed.filter((c) => c === '#ffffff').length, 4);
+  assert.equal(validatePack({ ...THEMES.classic, flight: built }).ok, true, 'always a pattern the schema accepts');
+
+  // Deterministic: the same list builds the same pattern every time, not a
+  // fresh shuffle - editing one swatch should not reshuffle every other one.
+  assert.deepEqual(buildFlight(list), built);
+
+  // More than one slot per ring position has nowhere left to go; capped
+  // rather than looping forever hunting for a free one.
+  const saturated = buildFlight(new Array(RING.length + 10).fill('#00ff00'));
+  assert.equal(saturated.length, RING.length);
+  assert.equal(saturated.filter((c) => c !== null).length, RING.length);
+});
+
+test('paletteOfFlight reads a pattern back as the list it flashes, in ring order', () => {
+  assert.deepEqual(paletteOfFlight(null), []);
+  assert.deepEqual(paletteOfFlight(undefined), []);
+  assert.deepEqual(paletteOfFlight([null, '#a', null, '#b', '#a']), ['#a', '#b', '#a']);
+
+  // Carnival's own hand-placed pattern, read back as a palette a person
+  // could recognise: mostly amber, a little red, one white flash.
+  assert.deepEqual(paletteOfFlight(THEMES.carnival.flight), ['#f2b134', '#f2b134', '#e2574c', '#f6f4ee', '#f2b134']);
+
+  // Exact round trip, not just the same colours in some other order -
+  // ThemeSettings rebuilds the pattern and reads the palette straight back
+  // out of it on every edit (see buildFlight's own comment for why an
+  // order drift here would corrupt whatever the editor is mid-drag on).
+  const list = ['#111111', '#222222', '#333333'];
+  assert.deepEqual(paletteOfFlight(buildFlight(list)), list);
+
+  // Holds for every length up to a fully saturated ring, not just three.
+  for (let n = 1; n <= RING.length; n += 1) {
+    const shuffled = Array.from({ length: n }, (_, i) => `#${(i + 1).toString(16).padStart(6, '0')}`);
+    assert.deepEqual(paletteOfFlight(buildFlight(shuffled)), shuffled, `n=${n}`);
+  }
+});
+
+test('setFlightPalette replaces just the flight pattern', () => {
+  const draft = presetDraft('carnival');
+  const cleared = setFlightPalette(draft, []);
+  assert.equal(cleared.pack.flight, null);
+  assert.equal(cleared.pack.card.fill, draft.pack.card.fill, 'nothing else about the pack moves');
+
+  const recoloured = setFlightPalette(draft, ['#0000ff']);
+  assert.deepEqual(paletteOfFlight(recoloured.pack.flight), ['#0000ff']);
+});

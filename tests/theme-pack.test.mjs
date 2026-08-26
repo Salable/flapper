@@ -83,7 +83,7 @@ test('fonts scale with the tile', () => {
 });
 
 test('the shipped themes are all valid packs', () => {
-  assert.deepEqual([...THEME_IDS], ['classic', 'canary', 'sorbet', 'carnival', 'marquee']);
+  assert.deepEqual([...THEME_IDS], ['classic', 'canary', 'sorbet', 'carnival', 'carrow-road-yellow', 'carrow-road-green']);
   for (const id of THEME_IDS) {
     assert.equal(THEMES[id].id, id);
     assert.ok(validatePack(THEMES[id]).ok);
@@ -317,7 +317,7 @@ test('a null where a tint kind should be is a 422, not a crash', () => {
    * and lost the draft. Every other bad value here is a clean 422; these are
    * the ones that were not.
    */
-  for (const tint of [{ corners: null }, { gradient: null }, { runner: null }]) {
+  for (const tint of [{ corners: null }, { gradient: null }]) {
     const result = validatePack({ tint });
     assert.equal(result.ok, false, `${JSON.stringify(tint)} was accepted`);
     assert.equal(result.errors.length > 0, true);

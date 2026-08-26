@@ -74,6 +74,27 @@ export function DashboardClient({
 
   const typeName = (id: string) => types.find((type) => type.id === id)?.name ?? id;
 
+  /**
+   * A sign and a cycle are the same board type - `live`, with looping items
+   * (lib/board-types/templates.mjs) - so the type's own name calls both
+   * "Live queue", which is only true of the one actually cycling through
+   * more than one thing. More than one line queued is what makes it live in
+   * the sense the label promises; zero or one is a sign holding still,
+   * whatever template it started from.
+   */
+  const statusLabel = (board: BoardRow) =>
+    board.type === 'live' ? (board.lines.length > 1 ? 'Live queue' : 'Static') : typeName(board.type);
+
+  /**
+   * Every card at the same height, not the same tile size. True-to-scale
+   * made an 8x6 board render a quarter the height of a 20x11 one - visibly
+   * broken rather than "a true thing about it and worth seeing". Width still
+   * follows the board's own aspect (more columns is still visibly wider),
+   * just never so short it goes illegible. 99 is 11 rows at the previous
+   * fixed 9px, so a board at that common height is unchanged.
+   */
+  const previewTilePx = (rows: number) => Math.min(20, Math.max(6, Math.round(99 / Math.max(1, rows))));
+
   async function remove(board: BoardRow) {
     const ok = await confirm({
       title: `Delete ${board.name || board.slug}?`,
@@ -144,16 +165,16 @@ export function DashboardClient({
                       card is an example and three widths in a row read as a
                       mistake; here it is a board that exists, so a 24-column
                       board being wider than a 20-column one is a true thing
-                      about it and worth seeing. The tile size is the same
-                      throughout, so the difference is the board's, not the
-                      drawing's. */}
+                      about it and worth seeing - previewTilePx keeps every
+                      card the same height rather than the same tile size, so
+                      that stays true without a short board going illegible. */}
                   <div className="board-card-board">
                     <ThemePreview
                       pack={board.pack}
                       text={board.lines.length > 0 ? board.lines : ['']}
                       cols={gridForConfig(board).cols}
                       rows={gridForConfig(board).rows}
-                      tilePx={9}
+                      tilePx={previewTilePx(gridForConfig(board).rows)}
                       bar={false}
                       fixed
                       loop={board.lines.length > 1 ? 4200 : 0}
@@ -162,7 +183,7 @@ export function DashboardClient({
                   <div className="board-card-open">
                     <span className="board-card-name">{board.name || board.slug}</span>
                     <span className="board-card-meta">
-                      <Chip>{typeName(board.type)}</Chip>{' '}
+                      <Chip>{statusLabel(board)}</Chip>{' '}
                       {/* The screen it is for, and what that comes to - the two
                           facts a board is shaped by, said where you can see it
                           without opening anything. */}
@@ -173,7 +194,7 @@ export function DashboardClient({
                     </span>
                   </div>
                   <div className="board-card-actions">
-                    <LinkButton size="sm" href={`/b/${board.slug}/settings`}>
+                    <LinkButton size="sm" href={`/b/${board.slug}/manage`}>
                       Edit
                     </LinkButton>
                     <LinkButton size="sm" href={`/b/${board.slug}`} target="_blank" rel="noopener">

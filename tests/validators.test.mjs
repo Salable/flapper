@@ -6,8 +6,11 @@ import {
   regionOption,
   repeatOption,
   priorityOption,
+  labelOption,
+  interruptOption,
   rowsOption,
   validateConfigPatch,
+  validateInterrupterPreset,
 } from '../lib/api/validators.mjs';
 import { THEME_IDS } from '../lib/board/themes.mjs';
 
@@ -76,6 +79,30 @@ test('region, priority and repeat survive in both text and rows mode', () => {
   assert.equal(rows.options.region, 'footer');
   assert.equal(rows.options.priority, 'now');
   assert.equal(rows.options.repeat, true);
+});
+
+test('a label is a name for the item, not the text, and is capped like one', () => {
+  assert.equal(labelOption({}), undefined);
+  refused(() => labelOption({ label: 42 }), /label must be text/);
+  refused(() => labelOption({ label: 'x'.repeat(61) }), /label is at most 60 characters/);
+  assert.equal(labelOption({ label: 'Boarding notice' }), 'Boarding notice');
+  // Survives in both text and rows mode, same as region/priority/repeat.
+  assert.equal(textOptions({ text: 'X', label: 'Gate' }).options.label, 'Gate');
+  assert.equal(textOptions({ rows: ['AB'], label: 'Gate' }).options.label, 'Gate');
+  // Not rejected alongside rows the way align/valign/wrap are - a name is
+  // metadata, not layout, and applies to either shape the same way.
+  assert.doesNotThrow(() => textOptions({ rows: ['AB'], label: 'Gate' }));
+});
+
+test('interrupt marks an item as an event, not a slide, and is strictly boolean', () => {
+  assert.equal(interruptOption({}), undefined);
+  for (const value of ['true', 1, 0, null]) {
+    refused(() => interruptOption({ interrupt: value }), /interrupt must be true or false/);
+  }
+  assert.equal(interruptOption({ interrupt: true }), true);
+  assert.equal(interruptOption({ interrupt: false }), false);
+  assert.equal(textOptions({ text: 'X', interrupt: true }).options.interrupt, true);
+  assert.equal(textOptions({ rows: ['AB'], interrupt: true }).options.interrupt, true);
 });
 
 test('dwellMs must be a non-negative number in both modes', () => {
@@ -182,4 +209,47 @@ test('a grid is not a board setting, and saying so is the point', () => {
   assert.deepEqual(validateConfigPatch({ screen: { w: 300, h: 20 } }), { screen: { w: 300, h: 20 } });
   refused(() => validateConfigPatch({ screen: { w: 16, h: 0 } }), /screen.h must be a positive number/);
   refused(() => validateConfigPatch({ screen: { w: 16, h: 9, diagonalIn: 55 } }), /not a screen field/);
-})
+});
+
+test('a saved interrupter needs a name and text; Duration is optional and one-or-the-other', () => {
+  assert.deepEqual(validateInterrupterPreset({ name: 'FIRE', text: 'FIRE EVACUATE' }), {
+    name: 'FIRE',
+    text: 'FIRE EVACUATE',
+  });
+  assert.deepEqual(
+    validateInterrupterPreset({ name: '  FIRE  ', text: 'X', durationMs: 60000 }),
+    { name: 'FIRE', text: 'X', durationMs: 60000 },
+    'name is trimmed',
+  );
+  refused(() => validateInterrupterPreset({ text: 'X' }), /name is required/);
+  refused(() => validateInterrupterPreset({ name: '  ', text: 'X' }), /name is required/);
+  refused(() => validateInterrupterPreset({ name: 'x'.repeat(61), text: 'X' }), /name is at most 60/);
+  refused(() => validateInterrupterPreset({ name: 'FIRE' }), /text is required/);
+  refused(() => validateInterrupterPreset({ name: 'FIRE', text: '  ' }), /text is required/);
+  refused(
+    () => validateInterrupterPreset({ name: 'FIRE', text: 'X', durationMs: 0 }),
+    /durationMs must be a positive number/,
+  );
+  refused(
+    () => validateInterrupterPreset({ name: 'FIRE', text: 'X', durationMs: -5 }),
+    /durationMs must be a positive number/,
+  );
+  refused(
+    () => validateInterrupterPreset({ name: 'FIRE', text: 'X', durationMs: 24 * 60 * 60 * 1000 + 1 }),
+    /durationMs cannot exceed/,
+  );
+  assert.equal(
+    validateInterrupterPreset({ name: 'FIRE', text: 'X', durationMs: 24 * 60 * 60 * 1000 }).durationMs,
+    24 * 60 * 60 * 1000,
+    'exactly the cap is fine',
+  );
+
+  // "reorder" collides with this board's own /interrupters/reorder route -
+  // DELETE /interrupters/reorder would hit that static route (405) rather
+  // than ever reaching deleteInterrupter, so a preset saved under that name
+  // could be listed and fired but never removed. Refused up front instead,
+  // case-insensitively like every other name comparison in this feature.
+  refused(() => validateInterrupterPreset({ name: 'reorder', text: 'X' }), /"reorder" is reserved/);
+  refused(() => validateInterrupterPreset({ name: 'Reorder', text: 'X' }), /"reorder" is reserved/);
+  refused(() => validateInterrupterPreset({ name: '  REORDER  ', text: 'X' }), /"reorder" is reserved/);
+});

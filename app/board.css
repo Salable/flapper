@@ -550,29 +550,30 @@ main.landing .error {
   text-decoration: none;
 }
 
+.app-bar-left {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  min-width: 0;
+}
+
+.app-bar-docs {
+  font: 500 var(--text-sm) / 1 var(--font-mono);
+  letter-spacing: var(--track-wide);
+  text-transform: uppercase;
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.app-bar-docs:hover {
+  color: var(--ink);
+}
+
 .app-bar-right {
   display: flex;
   align-items: center;
   gap: 12px;
   min-width: 0;
-}
-
-/* The person's name: a way into their account, styled as the quiet link it is. */
-.app-bar-user {
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  color: var(--muted);
-  text-decoration: none;
-  border-bottom: 1px solid transparent;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 200px;
-}
-
-.app-bar-user:hover {
-  color: var(--ink);
-  border-bottom-color: var(--edge-strong);
 }
 
 .app-bar-right .muted {
@@ -581,8 +582,7 @@ main.landing .error {
   white-space: nowrap;
 }
 
-/* Phone: the bar wraps instead of running off the right edge, and the
-   person's name (plain text, not an action) steps aside for the buttons. */
+/* Phone: the bar wraps instead of running off the right edge. */
 @media (max-width: 560px) {
   .app-bar {
     flex-wrap: wrap;
@@ -593,9 +593,88 @@ main.landing .error {
     flex-wrap: wrap;
     gap: 8px;
   }
-  .app-bar-right > .muted,
-  .app-bar-user {
-    display: none;
+}
+
+/* The signed-in person's name, Docs and Sign out, folded into one
+   right-aligned dropdown instead of three separate things in the bar. */
+.user-menu {
+  position: relative;
+}
+
+.user-menu-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: transparent;
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-sm);
+  font: 500 var(--text-sm) / 1 var(--font-mono);
+  letter-spacing: var(--track-wide);
+  text-transform: uppercase;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.user-menu-trigger:hover,
+.user-menu-trigger[aria-expanded='true'] {
+  color: var(--ink);
+  border-color: var(--edge-strong);
+}
+
+.user-menu-name {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-transform: none;
+}
+
+.user-menu-chevron {
+  font-size: 10px;
+  line-height: 1;
+}
+
+.user-menu-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  min-width: 160px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px;
+  background: var(--surface-1);
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+.user-menu-item {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  font: 500 var(--text-sm) / 1.2 var(--font-mono);
+  letter-spacing: var(--track-wide);
+  text-transform: uppercase;
+  color: var(--ink);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.user-menu-item:hover {
+  background: var(--shade);
+}
+
+/* Phone: the trigger's own text shrinks rather than the bar wrapping badly. */
+@media (max-width: 560px) {
+  .user-menu-name {
+    max-width: 96px;
   }
 }
 
@@ -738,71 +817,6 @@ main.landing .error {
 
 /* ---- the board sidebar (components/BoardSidebar.tsx) ---- */
 
-.board-side {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  min-width: 0;
-}
-
-.board-side-name {
-  font-family: var(--font-sans);
-  font-size: var(--text-xl);
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  color: var(--ink);
-  margin: 0;
-  overflow-wrap: anywhere;
-}
-
-.board-side-slug {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-}
-
-.board-side-slug code {
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  color: var(--muted);
-  overflow-wrap: anywhere;
-}
-
-.board-side-chips {
-  display: flex;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-}
-
-.board-side-facts {
-  margin: 0;
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: var(--space-1) var(--space-3);
-  font-size: var(--text-sm);
-}
-
-.board-side-facts dt {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  letter-spacing: var(--track-label);
-  text-transform: uppercase;
-  color: var(--muted);
-  align-self: baseline;
-}
-
-.board-side-facts dd {
-  margin: 0;
-  color: var(--ink);
-}
-
-.board-side-actions {
-  display: flex;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-}
-
 /* Below the menu: what is always true of this board - its standing links. */
 .board-side-links {
   display: flex;
@@ -825,180 +839,176 @@ main.landing .error {
   font-weight: 600;
 }
 
-/* ---- control room: queue + compose + display config ---- */
+/* ---- control room: queue + display config ---- */
 
-/* What decides where a composed message lands once it's written - priority,
-   hold, loop. Writing it happens in ComposeModal now, not here. */
-.compose-options {
-  display: flex;
-  gap: 14px;
-  align-items: flex-end;
-  flex-wrap: wrap;
-  padding-top: 14px;
-  margin-top: 4px;
-  border-top: 1px dashed var(--edge);
-}
-
-/*
- * The compose popup: the textarea itself is the board now, not a plain box
- * beside one. `.compose-board` is sized to exactly `cols` characters wide
- * and `rows` lines tall in its own font (inline styles set the font-size,
- * line-height and pixel height in one place - see ComposeModal.tsx), so a
- * line wraps here roughly where it will wrap on the glass. `.compose-board-
- * dots` is a same-sized, same-font `<pre>` behind the textarea showing a
- * placeholder for every cell; the textarea's own background stays
- * transparent so the dots a message hasn't reached yet still show through,
- * and real text simply draws over the ones it has.
- */
-.compose-modal {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.compose-board-frame {
-  display: flex;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.42);
-  border: 1px solid var(--edge);
-  border-radius: var(--radius-md);
-  padding: 14px;
-}
-
-.compose-board {
-  position: relative;
-  font-family: var(--font-mono);
-  color: var(--ink);
-  text-transform: uppercase;
-}
-
-.compose-board-dots {
-  position: absolute;
-  inset: 0;
-  margin: 0;
-  font: inherit;
-  color: rgba(236, 231, 221, 0.16);
-  white-space: pre;
-  pointer-events: none;
-  user-select: none;
-}
-
-.compose-board-inner {
-  position: relative;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-.compose-board-input {
-  /* Not flex: 1 (the global `textarea` rule further up this file) - that
-     grows any textarea to fill its flex parent, which is exactly what would
-     defeat Vertical: it would always be full-height regardless of the one
-     line typed into it, leaving no free space for justify-content to place
-     it in. Sized to its own content instead - see the auto-grow effect. */
-  flex: none;
-  width: 100%;
-  max-height: 100%;
-  margin: 0;
-  padding: 0;
-  border: none;
-  resize: none;
-  overflow-y: auto;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-transform: inherit;
-}
-
-.compose-board-input::placeholder {
-  color: var(--muted);
-  text-transform: none;
-}
-
-.compose-board-input:focus-visible {
-  outline: 2px solid var(--amber);
-  outline-offset: 2px;
-}
-
-.compose-modal-layout {
-  display: flex;
-  gap: 14px;
-  flex-wrap: wrap;
-}
-
-.queue-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+/* A tab per slide on the left, the selected one's editor beside it. */
+.queue-tabs {
   align-self: stretch;
   display: flex;
-  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
 }
 
-.queue-list li {
+.queue-rail {
+  flex: none;
+  width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.queue-rail button {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 7px 10px;
-  border: 1px solid transparent;
-  border-bottom: 1px solid rgba(236, 231, 221, 0.06);
+  gap: 8px;
+  padding: 14px 16px;
+  font: 500 var(--text-sm) / 1.3 var(--font-mono);
+  letter-spacing: var(--track-wide);
+  text-transform: uppercase;
+  color: var(--muted);
+  background: transparent;
+  /* A real border always, not just on selection - one bare-text row among
+     bordered ones (+ Slide included) read as a plain list, not tabs. */
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  text-align: left;
 }
 
-.queue-list li.is-playing {
-  border: 1px solid rgba(216, 178, 90, 0.4);
-  border-radius: 4px;
+.queue-rail button:hover {
+  color: var(--ink);
+  background: rgba(236, 231, 221, 0.05);
+  border-color: var(--edge-strong);
 }
 
-.queue-text {
+.queue-rail button.is-selected {
+  color: var(--amber);
+  background: transparent;
+  border-color: var(--amber);
+}
+
+.queue-rail-label {
   flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  letter-spacing: var(--track-wide);
-  text-transform: uppercase;
 }
 
-.queue-text .now {
-  color: var(--amber);
-  margin-right: 8px;
-  font-weight: 600;
+.queue-rail-add {
+  margin-top: 4px;
+  justify-content: center;
+  border-style: dashed !important;
+  border-color: var(--edge) !important;
+  color: var(--muted);
 }
 
-.queue-meta {
-  flex: none;
-  font-size: var(--text-meta);
+.queue-rail-add:hover {
+  color: var(--ink);
+  border-color: var(--edge-strong) !important;
 }
 
-.queue-actions {
-  flex: none;
+/* The selected tab's own editor - text, hold, loop and its actions, all in
+   one place, rather than a bare title field with everything else scattered
+   round the list. */
+/* .interrupt-form (below, "its own panel") shares this rule byte-for-byte -
+   the two are the same shape by design, so one declaration is what keeps
+   them from silently drifting apart the way separate copies once did. */
+.queue-panel,
+.interrupt-form {
+  flex: 1;
+  min-width: 0;
+  max-width: 460px;
   display: flex;
-  gap: 4px;
+  flex-direction: column;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-sm);
 }
 
-.queue-actions button {
-  padding: 3px 8px;
-  font-size: var(--text-meta);
-}
-
-.queue-actions button.is-on {
-  background: #d8b25a;
-  color: #101012;
-  border-color: transparent;
+.queue-panel-text {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .queue-edit {
   flex: 1;
+  min-width: 0;
   font: inherit;
   color: var(--ink);
   background: rgba(0, 0, 0, 0.42);
   border: 1px solid var(--edge);
   border-radius: 4px;
-  padding: 5px 8px;
+  padding: 8px 10px;
   user-select: text;
   cursor: text;
   letter-spacing: var(--track-wide);
   text-transform: uppercase;
+}
+
+.queue-edit:disabled {
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+/* The panel's own text box - a real textarea, big enough to actually see
+   what you're writing, replacing the old single line plus a button that
+   opened a modal just to get this much room. */
+.queue-edit-large {
+  width: 100%;
+  min-height: 6em;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+/* .interrupt-form-row (below) shares this rule byte-for-byte, same reasoning
+   as .queue-panel/.interrupt-form above - one declaration, not two copies
+   that quietly drift apart. */
+.queue-panel-row,
+.interrupt-form-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 20px;
+}
+
+.queue-panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--edge);
+}
+
+.queue-panel-actions button {
+  font: 500 var(--text-meta) / 1 var(--font-mono);
+  letter-spacing: var(--track-wide);
+  text-transform: uppercase;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-sm);
+  padding: 7px 10px;
+  cursor: pointer;
+}
+
+.queue-panel-actions button:hover:not(:disabled) {
+  color: var(--ink);
+  border-color: var(--edge-strong);
+}
+
+.queue-panel-actions button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.queue-panel-actions button.danger:hover:not(:disabled) {
+  color: var(--danger);
+  border-color: var(--danger-dim);
 }
 
 .config-grid {
@@ -1549,37 +1559,97 @@ main.landing .error {
   min-width: 0;
 }
 
-@media (max-width: 1000px) {
-  .design-surface {
-    grid-template-columns: 1fr;
-  }
-
-  .design-preview {
-    top: 0;
-    background: var(--bg);
-    padding-bottom: var(--space-2);
-    z-index: 1;
-  }
+/* The Board tab (components/QueueManager.tsx) - its own names, not
+   design-surface/-preview/-controls, because those belong to DesignEditor's
+   sticky-preview-beside-scrolling-form page and mean something different
+   there. Two real columns: the rail (narrow, every slide) on the left, and
+   the wide side on the right holding the selected slide's own editor beside
+   its own preview (queue-tabs does that inner split). */
+.board-surface {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-5);
 }
 
-/*
- * A sign's own surface: no second column, because there is nothing in it a
- * sign needs - no queue to list, and "what it says" is the preview right
- * there. Full width instead of design-surface's two-column grid, so the one
- * slide that is the entire point of a sign gets the room a queue's list
- * would otherwise have taken.
- */
-.sign-surface {
+.board-preview {
+  /* flex-basis 0, not auto - the canvas inside sizes itself off a
+     percentage (width: 100% of .theme-preview, ThemePreview.tsx), and an
+     auto basis asks the flex algorithm to size this item off THAT content
+     first, which a percentage can't answer determinately. The result on a
+     board with many columns: this item's computed base size came out huge
+     (or indeterminate) and the shrink math starved queue-panel/
+     interrupt-form of nearly all their width instead - a 460px-capped
+     panel rendering as a ~60px sliver next to a preview that overflowed
+     past it. A zero basis sidesteps the question entirely: this item
+     starts at nothing and grows into whatever queue-panel/interrupt-form
+     didn't claim, which is what a "the rest of the row" column should do.
+  */
+  flex: 1 1 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  max-width: 900px;
+  min-width: 0;
 }
 
-.sign-actions {
+/* The same indeterminate-percentage problem one level down - a bare div
+   with no width of its own, holding a canvas sized off a percentage of
+   it. Without this it is still a flex item's content, not a shrinkable
+   box in its own right. */
+.theme-preview {
+  min-width: 0;
+}
+
+.board-controls {
+  flex: 1;
   display: flex;
-  gap: var(--space-2);
-  margin-top: var(--space-2);
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+/* Its own panel, beside the live preview, always visible - text and Hold
+   together for a new interruption, the same shape (and rule - see
+   .queue-panel above) queue-panel gives an existing slide, never hidden
+   behind a click to reveal it. */
+.interrupt-form-label {
+  margin: 0;
+  font: 600 var(--text-xs) / 1.4 var(--font-mono);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.interrupt-form-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* Narrow: the rail's fixed 220px plus a 460px-capped panel plus the preview
+   never fit side by side (every other two-column pattern on this page -
+   .rail-detail, .dash-more, .ui-tabs-vertical - stacks below some width;
+   this one had no rule at all). The rail becomes a horizontal scroller of
+   the same tab buttons, same shape as .ui-tabs-vertical's own narrow
+   tablist, and the panel/preview pair stacks under it instead of squeezing
+   both into whatever's left. */
+@media (max-width: 760px) {
+  .board-surface {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .queue-rail {
+    width: 100%;
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: visible;
+    max-height: none;
+  }
+  .queue-tabs {
+    flex-direction: column;
+  }
+  .queue-panel,
+  .interrupt-form {
+    max-width: none;
+  }
 }
 
 /* ---- Theme settings: the board's look, edited on a live board ---- */
@@ -1668,6 +1738,13 @@ main.landing .error {
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+.theme-flight-list {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
 }
 
 .theme-art-thumb {

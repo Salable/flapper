@@ -19,7 +19,7 @@ import { Field, Select, RangeSlider, Checkbox } from '@/components/ui/Field';
 import { Segmented } from '@/components/ui/bits';
 import { ColorInput } from '@/components/ui/ColorInput';
 import { fileToArt } from '@/components/flapper/rasterize';
-import { THEMES, THEME_IDS, DEFAULT_THEME } from '@/lib/board/themes.mjs';
+import { THEMES, THEME_IDS, resolveTheme } from '@/lib/board/themes.mjs';
 import { RANGES, STAGGER_MODES, type ThemePack } from '@/lib/board/theme-pack.mjs';
 import { THEME_LIMITS, stableStringify } from '@/lib/board/board-theme.mjs';
 import { RING } from '@/lib/board/ring.mjs';
@@ -32,6 +32,9 @@ import {
   clearState,
   parseFont,
   setGlyphFont,
+  buildFlight,
+  paletteOfFlight,
+  setFlightPalette,
   draftToPatch,
   savedPatch,
   FONT_CHOICES,
@@ -43,10 +46,10 @@ export type { ThemeDraft };
 
 /**
  * A whole wash per kind, because a half-built one is not a valid pack: a
- * gradient with one stop, or a runner with no colour, is refused by
- * validatePack - so there is no field-by-field way in. Switching kind replaces
- * the spec rather than adding to it, which also stops a `gradient` being
- * written onto a spec that already has `corners` and quietly doing nothing.
+ * gradient with one stop is refused by validatePack - so there is no
+ * field-by-field way in. Switching kind replaces the spec rather than adding
+ * to it, which also stops a `gradient` being written onto a spec that
+ * already has `corners` and quietly doing nothing.
  */
 const WASHES: Record<string, Record<string, unknown>> = {
   gradient: { gradient: { from: '#f7d6e3', to: '#cfe3f8', angle: 35 }, mode: 'overlay', strength: 0.85 },
@@ -55,13 +58,11 @@ const WASHES: Record<string, Record<string, unknown>> = {
     mode: 'multiply',
     strength: 0.9,
   },
-  runner: { runner: { colour: '#f2b134', length: 5, periodMs: 9000 }, mode: 'screen', strength: 0.9 },
 };
 
 /** Which kind of wash a pack has. The editor showed "Gradient" for all of them. */
 function washKind(tint: Record<string, unknown> | null | undefined) {
   if (!tint) return 'none';
-  if (tint.runner) return 'runner';
   if (tint.corners) return 'corners';
   if (tint.gradient) return 'gradient';
   return 'none';
@@ -138,6 +139,22 @@ export function ThemeSettings({
   }, []);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  /**
+   * What draft.theme currently names - a shipped preset, or (`design:<id>`)
+   * one of your own. basedOn is never resolved server-side (lib/api/handlers.mjs
+   * createDesignHandler), so the two id spaces are told apart here the same
+   * way. A design deleted out from under a draft that still names it falls
+   * back to the shipped default, same as an unknown id always has.
+   */
+  const startOf = (theme: string) => {
+    if (theme.startsWith('design:')) {
+      const found = own.find((d) => d.id === theme.slice('design:'.length));
+      if (found) return { theme, pack: found.pack as ThemePack, name: found.name };
+    }
+    const preset = resolveTheme(theme);
+    return { theme: preset.id, pack: preset, name: preset.name };
+  };
+
   const patch = useMemo(() => draftToPatch(draft), [draft]);
   const boardDirty = useMemo(() => {
     if (!patch.ok) return true;
@@ -162,6 +179,17 @@ export function ThemeSettings({
 
   const tint = (draft.pack as any).tint as Record<string, any> | null | undefined;
   const kind = washKind(tint);
+  const flightPalette = paletteOfFlight((draft.pack as any).flight);
+  const flightStrength = strengthOf({ strength: (draft.pack as any).flightStrength });
+  // Always five swatches, whether or not the pack has a flight pattern yet -
+  // defaulted to the card's own face and edge, so an untouched stack reads
+  // as the card itself rather than a jarring, arbitrary colour, and editing
+  // one is the whole action needed to turn flight on.
+  const FLIGHT_SLOTS = 5;
+  const flightDefaults = Array.from({ length: FLIGHT_SLOTS }, (_, i) =>
+    i % 2 === 0 ? draft.pack.card.fill : draft.pack.card.edge,
+  );
+  const flightSlots = Array.from({ length: FLIGHT_SLOTS }, (_, i) => flightPalette[i] ?? flightDefaults[i]);
   const state = draft.pack.states?.[selected] || {};
   const artKey = state.art as string | undefined;
 
@@ -251,7 +279,7 @@ export function ThemeSettings({
             const value = event.target.value;
             setJson(null);
             const chosen = own.find((design) => `design:${design.id}` === value);
-            update(chosen ? { theme: chosen.basedOn ?? DEFAULT_THEME, pack: chosen.pack } : presetDraft(value));
+            update(chosen ? { theme: value, pack: chosen.pack } : presetDraft(value));
           }}
         >
           <optgroup label="In the box">
@@ -375,7 +403,6 @@ export function ThemeSettings({
                         { value: 'none', label: 'None' },
                         { value: 'gradient', label: 'Gradient' },
                         { value: 'corners', label: 'Corners' },
-                        { value: 'runner', label: 'Runner' },
                       ]}
                       value={kind}
                       onChange={(next) => field('tint')(next === 'none' ? null : { ...WASHES[next] })}
@@ -411,47 +438,6 @@ export function ThemeSettings({
                       {colour('Top right', 'tint.corners.tr')}
                       {colour('Bottom left', 'tint.corners.bl')}
                       {colour('Bottom right', 'tint.corners.br')}
-                    </>
-                  )}
-                  {kind === 'runner' && (
-                    <>
-                      {colour('The light', 'tint.runner.colour')}
-                      <Field
-                        label={
-                          <>
-                            Tail <span className="muted">{Number(tint?.runner?.length) || 1}</span>
-                            <span className="field-range">1–20 cards</span>
-                          </>
-                        }
-                        htmlFor="th-runner-length"
-                      >
-                        <RangeSlider
-                          id="th-runner-length"
-                          min={1}
-                          max={20}
-                          step={1}
-                          value={Number(tint?.runner?.length) || 1}
-                          onChange={(e) => field('tint.runner.length')(Number(e.target.value))}
-                        />
-                      </Field>
-                      <Field
-                        label={
-                          <>
-                            One lap <span className="muted">{Math.round((Number(tint?.runner?.periodMs) || 9000) / 1000)}s</span>
-                            <span className="field-range">1–60s</span>
-                          </>
-                        }
-                        htmlFor="th-runner-period"
-                      >
-                        <RangeSlider
-                          id="th-runner-period"
-                          min={1000}
-                          max={60000}
-                          step={500}
-                          value={Number(tint?.runner?.periodMs) || 9000}
-                          onChange={(e) => field('tint.runner.periodMs')(Number(e.target.value))}
-                        />
-                      </Field>
                     </>
                   )}
                   {kind !== 'none' && (
@@ -495,8 +481,48 @@ export function ThemeSettings({
                     </>
                   )}
                 </fieldset>
+                <fieldset className="theme-group">
+                  <legend>Flight</legend>
+                  <Field
+                    label="Colours"
+                    hint="A tile flashes one of these as it spins past certain letters, on every real flip - never while it sits still. Starts as your card's own face and edge, so it does nothing until you change one; set two the same to see that colour more often."
+                  >
+                    <div className="theme-flight-list">
+                      {flightSlots.map((swatch, i) => (
+                        <ColorInput
+                          key={i}
+                          id={`th-flight-${i}`}
+                          value={swatch}
+                          onChange={(next) => {
+                            const list = [...flightSlots];
+                            list[i] = next ?? flightDefaults[i];
+                            update(setFlightPalette(draft, list));
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </Field>
+                  <Field
+                    label={
+                      <>
+                        Strength <span className="muted">{flightStrength.toFixed(2)}</span>
+                        <span className="field-range">0–1</span>
+                      </>
+                    }
+                    htmlFor="th-flight-strength"
+                  >
+                    <RangeSlider
+                      id="th-flight-strength"
+                      min={0}
+                      max={1}
+                      step={0.05}
+                      value={flightStrength}
+                      onChange={(e) => field('flightStrength')(Number(e.target.value))}
+                    />
+                  </Field>
+                </fieldset>
               </div>
-        
+
               <fieldset className="theme-group theme-glyphs">
                 <legend>One character</legend>
                 <div className="theme-ring" role="listbox" aria-label="Characters">
@@ -564,7 +590,7 @@ export function ThemeSettings({
                         const parsed = JSON.parse(json);
                         setError('');
                         setJson(null);
-                        update({ theme: draft.theme, pack: { ...themes[draft.theme], ...parsed } });
+                        update({ theme: draft.theme, pack: { ...startOf(draft.theme).pack, ...parsed } });
                       } catch (err: any) {
                         setError(`JSON: ${err.message}`);
                       }
@@ -587,8 +613,8 @@ export function ThemeSettings({
         <Button variant="primary" onClick={save} disabled={busy || !dirty || !patch.ok}>
           {saveTo ? saveTo.label : 'Save theme'}
         </Button>
-        <Button variant="ghost" onClick={() => update(presetDraft(draft.theme))} disabled={busy}>
-          Reset to {themes[draft.theme].name}
+        <Button variant="ghost" onClick={() => update(startOf(draft.theme))} disabled={busy}>
+          Reset to {startOf(draft.theme).name}
         </Button>
         {saved && <span className="muted">Saved — every display of this board is drawing it.</span>}
         {!saved && dirty && patch.ok && <span className="muted">Unsaved changes.</span>}

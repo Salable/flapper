@@ -27,7 +27,7 @@ anonymously. Each board has:
   usually means it was renamed or deleted. Ask the user for the current URL
   rather than guessing slugs.
 - an **API key** — one 64-hex capability per board, shown on the board's
-  settings page (`/b/{slug}/settings`, owner-only) and regenerable there.
+  manage page (`/b/{slug}/manage`, owner-only) and regenerable there.
 - a **privacy flag** — public boards can be watched by anyone with the URL;
   private boards need the key (or the owner's login) even to read.
 
@@ -76,7 +76,7 @@ Board tools: `get_board_info`, `get_docs`, `get_health`, `get_capabilities`,
 `get_status`, `preview`, `post_message`, `list_queue`, `update_queue_item`,
 `delete_queue_item`, `reorder_queue`, `flush_queue`, `clear_board`,
 `update_config`, `export_queue`. Board management beyond the account tools
-(rename, privacy, deletion, key rotation) stays on the settings page.
+(rename, privacy, deletion, key rotation) stays on the manage page.
 
 ## 2. Access — reads are open, writes need the key
 
@@ -87,7 +87,7 @@ Board tools: `get_board_info`, `get_docs`, `get_health`, `get_capabilities`,
   otherwise. The `?key=<key>` query form exists for wall displays and tools
   that cannot send headers; note it lands in logs and history.
 - **Management** (rename, privacy, key rotation, deletion) is not on this API
-  at all — it lives on the owner's settings page behind their login.
+  at all — it lives on the owner's manage page behind their login.
 
 Two things to honour:
 
@@ -218,7 +218,9 @@ curl -X POST {apiBase}/message \
 
 Optional fields: `align` (`left`/`center`/`right`), `valign`
 (`top`/`middle`/`bottom`), `wrap` (`word`/`char`/`none`), `dwellMs`,
-`collapseSpaces`, `substitutions`.
+`collapseSpaces`, `substitutions`, `label` (a name for the item itself,
+shown wherever it's picked out of a list — a board's control room, say —
+never on the display).
 
 ### Explicit rows — place every character yourself
 
@@ -288,9 +290,85 @@ last page still stands (`held: true`); `phase` is `playing`, `holding`, or
 
 **Nothing is discarded by a jump.** A `now` message pre-empts the current one,
 but the displaced message goes straight back to the head of the queue and
-resumes on the page it was showing. Use the lightest thing that works: `next`
-is almost always enough; save `now` for things that are actually urgent.
-`priority` is rejected on `preview`.
+plays again from the top once its turn comes back round — not from the page
+it was on when it was pre-empted; page-resume from the 1.x desktop is
+deliberately gone. Use the lightest thing that works: `next` is almost
+always enough; save `now` for things that are actually urgent. `priority` is
+rejected on `preview`.
+
+Add `"interrupt": true` alongside `priority: "now"` for a message that is an
+event rather than a slide in the rotation — a live announcement, not a
+standing part of what cycles. It changes nothing about playback, and no
+ranking exists between interrupters: firing one follows the same rule as any
+`now` message above — it plays immediately, and whatever it displaced
+(another interrupter included) simply gets its own turn once this one's is
+over. A board's own control room reads `interrupt` to keep the message out
+of the rotation's list and show it separately instead. `interrupt` and
+`loop` are independent fields — a control room UI may only offer one-shot
+interrupters, but the API accepts `{"priority": "now", "interrupt": true,
+"loop": true}` for one that keeps cutting back to the front.
+
+### Expiring a message
+
+Live-queue boards only (a scheduled board's items already expire with their
+own schedule). `"expiresInMs": 180000` removes the item outright once that
+many milliseconds have passed — not just its turn ending, gone from the
+queue entirely, whether or not it ever played. Nothing sets this by
+default: a message left off it stands until dismissed. Give an automated
+interrupter one whenever nothing else is guaranteed to clean it up later.
+
+`PATCH {apiBase}/queue/items/{id}` with `{"expiresInMs": 180000}` re-bases
+the countdown from now; `{"expiresInMs": null}` clears it back to "until
+dismissed". Checked lazily, on the next `GET {apiBase}/queue` after it's
+due — if the expired item was the one on the glass, the board moves on.
+
+### Saved interrupters — name it once, fire it by name
+
+Posting `{"priority": "now", "interrupt": true, ...}` straight to
+`/message` fires an interrupter on the spot, but means resending its text
+every time. For one that fires more than once, save it instead:
+
+```bash
+curl -X POST {apiBase}/interrupters \
+  -H 'authorization: Bearer KEY' -H 'content-type: application/json' \
+  -d '{"name": "fire-evacuate", "text": "FIRE - EVACUATE NOW", "durationMs": 600000}'
+```
+
+Then fire it, whenever, with nothing but its name:
+
+```bash
+curl -X POST {apiBase}/interrupters/fire-evacuate/fire -H 'authorization: Bearer KEY'
+```
+
+`durationMs` is one or the other, never both: a number is a hard limit —
+shown, then gone outright the instant it's up, whichever comes first
+between that and its own turn ending. Omit it for the switch instead: it
+blocks the rotation entirely, full stop, until dismissed (removed) or
+broken by a higher-ranked interrupter firing — there is no unbounded
+"forever" the engine can promise, so this materializes as the longest
+dwell it supports (currently 24 hours) with no expiry, which is the same
+thing in practice.
+
+This is the one door from a saved interrupter to the glass — it posts
+exactly the saved text with `priority: "now"`, `interrupt: true`, and that
+preset's own Duration translated to `dwellMs`/`expiresInMs`, the same as
+composing it by hand would. `GET {apiBase}/interrupters` lists what's
+saved; `POST {apiBase}/interrupters` with a name that already exists
+replaces it outright (editing is re-saving, not a separate PATCH);
+`DELETE {apiBase}/interrupters/{name}` removes one. A board keeps at most
+20. Saving one never touches the glass — nothing is queued until
+`.../fire` is called on it by name.
+
+Saved order is the only ranking a saved interrupter has — there is no
+rank field. `POST {apiBase}/interrupters/reorder` with `{"names": [...]}`
+(every saved name, once) sets it, and it *is* enforced: firing one is
+refused with a `409` if what's currently showing is itself a saved
+interrupter ranked ahead of it (earlier in the saved order) — move the
+one you're firing above it first, or wait for its own turn to end. Two
+saved interrupters can never break each other out of order; a raw
+`{"interrupt": true, "priority": "now"}` straight to `/message`, bypassing
+the saved system entirely, still pre-empts unconditionally as it always
+has — this rule only applies between two *named* interrupters.
 
 ### Looping
 
@@ -306,7 +384,17 @@ Use `POST {apiBase}/clear` to stop everything, or edit the item.
 
 - When the queue drains, **the last page stays on the board**, across display
   reloads. `clear` is the deliberate blank
-- The queue holds at most 500 items; a full queue answers `429`
+- The queue holds at most 500 items across every board type; a full queue
+  answers `429`
+- **A board's type may cap it far below that, and roll instead of reject.**
+  A live-queue board defaults to 5 (configurable per board, 1–50): past the
+  cap, adding a `normal` or `next` message quietly rolls the oldest
+  *waiting* message off to make room, a ticker rather than a form. The
+  item on the glass is never rolled. `now` is exempt from this cap
+  entirely - rare and deliberate by nature, and a board sitting exactly at
+  its cap (a one-message "sign", most often) must still be interruptible.
+  `GET {apiBase}/queue`'s `config.queueCap` carries this board's actual
+  limit (see also `docs/QUEUES.md`)
 
 ### Editing the queue
 
@@ -314,7 +402,7 @@ Use `POST {apiBase}/clear` to stop everything, or edit the item.
 | --- | --- |
 | `GET {apiBase}/queue` | the list, what is current, and the board config |
 | `POST {apiBase}/queue/items` | add — same body as `/message` |
-| `PATCH {apiBase}/queue/items/{id}` | edit `text`/`rows`, toggle `loop` |
+| `PATCH {apiBase}/queue/items/{id}` | edit `text`/`rows`, toggle `loop`, set/clear `expiresInMs` |
 | `DELETE {apiBase}/queue/items/{id}` | remove; removing the playing item skips |
 | `POST {apiBase}/queue/reorder` | `{itemId, afterId}` — `afterId: null` is the front |
 
@@ -338,12 +426,17 @@ Use `POST {apiBase}/clear` to stop everything, or edit the item.
 | `POST` | `/api/b/{slug}/preview` | read | lay out and return pages **without displaying** |
 | `POST` | `/api/b/{slug}/clear` | key | stop and blank; optional `region`, omitted = every band |
 | `DELETE` | `/api/b/{slug}/queue` | key | drop pending, leave the current message playing |
+| `GET` | `/api/b/{slug}/interrupters` | read | saved interrupters: name, text, Duration |
+| `POST` | `/api/b/{slug}/interrupters` | key | save one — a name that exists already is replaced outright |
+| `DELETE` | `/api/b/{slug}/interrupters/{name}` | key | remove a saved interrupter |
+| `POST` | `/api/b/{slug}/interrupters/{name}/fire` | key | fire a saved one now — the only door from saved to the glass |
+| `POST` | `/api/b/{slug}/interrupters/reorder` | key | `{names: [...]}`, every saved name once — rail order, the only ranking one has |
 | `GET` | `/api/b/{slug}/export` | key | every queued item in a re-postable shape |
 | `PATCH` | `/api/b/{slug}/config` | key | grid, `theme`, `themePack`, motion, dwell (`footerRows` must stay 0; `regions.main.dwellMs` only) |
 | `GET` / `POST` | `/api/b/{slug}/key` | owner | read / rotate the API key — the owner's session only, never the key itself |
 
 "read" is open on a public board and needs the key on a private one;
-"owner" is the signed-in owner (the settings page, or a connector signed in
+"owner" is the signed-in owner (the manage page, or a connector signed in
 as them). Three further routes belong to the display itself and are not for
 API clients:
 `GET .../commands/stream`, `POST .../state`, and `POST .../queue/advance`
@@ -355,12 +448,12 @@ API clients:
 | --- | --- | --- |
 | `202` | validated and queued; body carries `id`, `position` (1-based place in the queue) and `ahead` (how many play first) | check `/status` if delivery matters |
 | `400` | malformed JSON | fix the body |
-| `401` | missing or wrong API key | ask the user for the board's key (in its settings) |
+| `401` | missing or wrong API key | ask the user for the board's key (in its manage page) |
 | `403` | private board, no valid credential | ask the user for the key |
 | `404` | unknown board — wrong, renamed, or deleted slug | ask the user for the board URL |
 | `413` | body or text too large | send less; limits are in `/capabilities` |
 | `422` | invalid value | the message says which field and why |
-| `429` | queue full (500 items) | flush, clear, or wait |
+| `429` | queue full — the 500-item backstop, or this board's own (lower) cap with nothing left to roll off | flush, clear, remove an item, or wait |
 | `503` | the realtime service is unavailable — the write you made is saved, displays catch up when it returns | retry reads later; do not retry writes, they succeeded |
 
 ## 8. Recommended workflow

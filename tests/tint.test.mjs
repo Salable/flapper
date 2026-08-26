@@ -2,9 +2,6 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  perimeter,
-  runnerGrid,
-  runnerHead,
   rotateHue,
   driftAngle,
   driftPeriod,
@@ -128,46 +125,6 @@ test('corners need all four, and take precedence over a gradient', () => {
     1,
   );
   assert.deepEqual(both[0], { r: 255, g: 255, b: 255 }, 'corners win');
-});
-
-test('the perimeter goes round once, clockwise, without counting a corner twice', () => {
-  // A 4x3 board: 4 across the top, 2 down the right, 3 back along the bottom,
-  // 1 up the left - ten cells, and the four inside are not in it.
-  const ring = perimeter(4, 3);
-  assert.equal(ring.length, 10);
-  assert.equal(new Set(ring).size, 10, 'no cell twice');
-  assert.deepEqual(ring.slice(0, 4), [0, 1, 2, 3], 'along the top first');
-  assert.equal(ring[4], 7, 'then down the right');
-  assert.ok(!ring.includes(5) && !ring.includes(6), 'the middle row is inside');
-});
-
-test('a board with one row or one column is all edge', () => {
-  assert.deepEqual(perimeter(3, 1), [0, 1, 2]);
-  assert.deepEqual(perimeter(1, 3), [0, 1, 2]);
-  assert.deepEqual(perimeter(0, 5), []);
-});
-
-test('the runner lights a few cells of the edge and leaves the rest alone', () => {
-  const runner = { colour: '#ffcc00', length: 3, periodMs: 4000 };
-  const grid = runnerGrid(runner, 4, 3, 0);
-  const lit = grid.filter(Boolean);
-  assert.equal(lit.length, 3, 'only the head and its tail');
-  assert.equal(grid.length, 12, 'and an entry for every cell');
-  // Head at full strength, tail fading, so it reads as travelling.
-  assert.deepEqual(grid[0], { r: 255, g: 204, b: 0 });
-  assert.ok(lit[1].r < 255 && lit[2].r < lit[1].r, 'the tail falls away');
-  // Nothing inside the board is touched.
-  assert.equal(grid[5], null);
-  assert.equal(grid[6], null);
-});
-
-test('the runner moves round with the clock and comes back', () => {
-  const ring = perimeter(4, 3).length;
-  assert.equal(runnerHead(ring, 4000, 0), 0);
-  assert.equal(runnerHead(ring, 4000, 2000), 5, 'half way round at half the period');
-  assert.equal(runnerHead(ring, 4000, 4000), 0, 'and back to the start');
-  // It wraps rather than running off the end.
-  assert.ok(runnerHead(ring, 4000, 999999) < ring);
 });
 
 test('a drift turns once per period, in whole degrees', () => {

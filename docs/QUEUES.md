@@ -12,30 +12,68 @@ its type's playback says and nothing else.
 
 You pick the type when creating the board. A type an installation cannot run
 (or a deactivated board) shows a paused card; the queue is kept and
-exportable from Settings → General.
+exportable from the Settings tab.
 
 ## Live playback
 
-- **Order** is the list order in Settings (or `GET /api/b/{slug}/queue`).
+- **Order** is the rail order on the Board tab (or `GET /api/b/{slug}/queue`).
 - A finished message is **removed** — unless it **loops**, in which case it
   returns to the back of the queue. A queue of looping messages cycles
-  forever.
+  forever. (Every slide added from the Board tab loops by default — being in
+  the rotation is what makes it one; a true one-off is a slide you remove
+  after it plays, or an interrupter, below.)
 - When the queue **drains**, the last message's final page stays on the glass
   ("holding"), across reloads and power cycles — a single message makes a
   standing sign.
 - **Clearing** is the deliberate full stop: queue emptied, glass blanked.
 - Priorities: `normal` joins the back, `next` plays after the current message,
-  `now` plays immediately (what it displaced stays next in line).
+  `now` plays immediately (what it displaced stays next in line, and nothing
+  is discarded — it plays again from the top once its turn comes round).
+- **Interrupters** (`interrupt: true` alongside `priority: "now"`) are events,
+  not standing members of the rotation — a live announcement, never looped
+  in the UI (the API itself allows pairing `interrupt` with `loop` if you
+  want one that keeps cutting back in). They change nothing about playback
+  and rank nothing against each other; a board's control room keeps them
+  out of the rotation's list and shows them on their own. The UI only ever
+  fires a **saved** one — see "Saved interrupters" below; the underlying
+  `interrupt: true` field itself is available to any API caller directly,
+  with no save step required.
+- **Saved interrupters** are a name plus text and its own Duration, kept
+  on the board (`config.interrupters`, `GET`/`POST {apiBase}/interrupters`)
+  and fired later by name (`POST {apiBase}/interrupters/{name}/fire`) — see
+  `docs/BOARD-API.md`. Duration is one or the other, not both: a hard
+  time limit (shown, then gone outright the instant it's up), or the
+  switch (blocks the rotation entirely until dismissed or broken by a
+  higher rank) if left unset. The control room's Interruptions tab only
+  ever fires a saved one: there is no path from typed text straight to
+  the glass there, on purpose. Unlike a raw `interrupt: true` post, a
+  saved one *does* rank against the others: its position in the saved
+  list (`POST {apiBase}/interrupters/reorder`) decides who wins a clash —
+  firing one is refused if a higher one is currently showing.
+- **`label`** names an item for people — what a list calls it — distinct
+  from what it displays; nothing shown on the glass ever reads it.
+- The rotation is also capped, and the cap rolls rather than rejects: past
+  it (5 by default, configurable per board 1–50), adding a slide rolls the
+  oldest waiting one off to make room, a ticker rather than a form. The
+  item on the glass is never rolled. An interrupter is exempt from this
+  cap entirely - firing one always goes through, even on a board sitting
+  exactly at its cap (a one-message "sign", most often).
 
 ## Editing
 
-Settings → Queue shows the live list: the ▶ marker is what is playing, ◼ is a
-held (drained) message. Reorder with the arrows, toggle **↻** to loop, ✎ to
-edit text in place, ✕ to remove. Removing the playing message skips it.
-**Flush pending** drops everything that is waiting but lets the current
-message finish; **Clear board** stops and blanks.
+The Board tab shows the rotation as a rail, one tab per slide, with the
+selected slide's own name/text/hold on the right and ↑/↓ to move it earlier
+or later; removing a slide is the only way to take it out of the loop, since
+slides added there loop by definition. A live board (not scheduled/shared)
+also gets a separate Interruptions tab, the same rail-and-panel shape but
+for saved interrupters: one tab per saved name, "+ Interrupt" to save a new
+one, and — only once something is selected — a Fire button. Saving and
+firing are two separate steps on purpose; nothing reaches the glass from
+this tab without a name behind it first.
 
-Everything the UI does is also on the API:
+Everything the UI does is also on the API, and the API can do more (set
+`priority`, `interrupt`, `label`, or toggle `loop` on an existing item —
+none of which every UI control offers):
 
 | Call | Does |
 | --- | --- |
@@ -65,7 +103,9 @@ soon as someone adds or edits a message.
 
 On a **scheduled** (or **shared screens**) board the queue is a schedule:
 every item carries a spec and the clock decides what shows. Between slots the
-board stands on its **fallback message** (Settings → Queue → Clock).
+board stands on its **fallback message**, set on the Board tab alongside the
+board's timezone (these types get their own schedule editor there instead of
+the live rotation/Interruptions tabs).
 
 | Spec | Fires |
 | --- | --- |

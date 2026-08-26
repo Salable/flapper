@@ -70,7 +70,7 @@ Each param renders in the generic create form and validates server-side:
 { key, kind: 'text' | 'number' | 'select' | 'checkbox' | 'message',
   label, hint?, default?, required?,
   advanced?,                 // true: not asked at creation (the default
-                             // applies); editable in Settings → General
+                             // applies); editable on the board's Settings tab
   maxLength?,                // text/message
   min?, max?, integer?,      // number
   options? }                 // select: [{value, label}]
@@ -79,7 +79,7 @@ Each param renders in the generic create form and validates server-side:
 Creation asks for the minimum a type genuinely needs. Mark anything a
 first-run user has no basis to choose (a queue depth, a tuning knob)
 `advanced`; the create form skips it, the server applies the default, and
-Settings → General renders it under "Type settings". `PATCH /config`
+the Settings tab renders it via `TypeSettings`. `PATCH /config`
 validates a patched param by this same schema.
 
 `name` is conventionally the first param; the host lifts it out as the

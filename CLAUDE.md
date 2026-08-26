@@ -38,7 +38,7 @@ and the tests cannot give it to you. `npm test` is necessary and not sufficient.
 
 To verify something end to end: `npm run dev`, sign up at localhost:3000,
 create a board from the dashboard, open it in a browser tab, take the key from
-`/b/{slug}/settings`, and drive it over HTTP:
+`/b/{slug}/manage`, and drive it over HTTP:
 
 ```bash
 curl -X POST http://localhost:3000/api/b/$SLUG/message \

@@ -50,9 +50,9 @@ asks for (SPEC.md "Launch readiness").
 | Access | signed-in |
 | Job | the fleet at a glance; create and open boards |
 
-A board card is its name, its type, and three doors — **Settings**, **Open
+A board card is its name, its type, and three doors — **Edit**, **Open
 display** (a new tab: a display is for another screen), **Delete**. Nothing
-about a board's live state is here; that is the settings page's job, and the
+about a board's live state is here; that is the manage page's job, and the
 dashboard asks the broker nothing. Below the boards, under a **Connections**
 heading: the assistant connector, the REST contract, the docs. **New board**
 goes to `/new`.
@@ -74,34 +74,46 @@ template), the type's non-advanced `createParams` (timezone defaults from
 the browser), an optional slug. **Create board** posts `{template, …}` to
 `POST /api/boards`; the server applies the template's params and config
 and admits its seeds through the same door as `POST /message`, then the
-page lands on the board's Settings with the queue already primed. Arrow
-buttons appear on hover for mouse users; touch swipes.
+page lands on the board's own manage page with the queue already primed.
+Arrow buttons appear on hover for mouse users; touch swipes.
 
-### 5. Settings — `/b/{slug}/settings` (owner-only)
+### 5. Manage — `/b/{slug}/manage` (owner-only)
+
+Renamed from `/settings` once Board and Interruptions joined what used to
+be a pure config page - "settings" stopped describing two of its three
+tabs. The old URL still resolves (a redirect), so nothing bookmarked to it
+breaks.
 
 Three tabs; the AppBar shows the slug, the type chip, and a paused chip when
 deactivated.
 
-- **Queue** — per-type. Live: one block — the rolling list with
-  reorder/edit/loop/remove on top, **Add a message** (priority, hold, loop)
-  beneath it so what you add appears right above where you typed, flush and
-  clear last. Scheduled: the schedule
-  editor — compose onto the clock (every N sec/min, hourly, daily, weekly,
-  once; duration incl. "until next trigger"), a live next-3-occurrences
-  preview running the real evaluator, the schedule list with next times and
-  the active marker, and the board's timezone + fallback. Shared: the same,
-  headed by a **Screens** panel (copy the URL, whether anything is watching).
-- **Display** — the visual **layout picker** (drag the board around a
-  miniature screen, scale by the corner; stored as viewport percentages so
-  one layout fits a phone and a video wall), the **theme editor** (start
-  from Classic or Canary; palette, type, hinge, motion; a colour or an
-  uploaded image for any one character; the pack as JSON under Advanced;
-  a live board to judge it on; saved as the difference from the preset),
-  and the display config sliders.
-- **General** — identity (name, slug), privacy + keyed display URL, access
-  (key reveal/rotate, copy-curl, per-board AGENTS.md link), **pause &
-  export** (pause sends displays to a standing card, keeps the queue; export
-  returns items as paste-able JSON), delete.
+- **Settings** — identity (name, slug), design & shape (pick a preset theme
+  or one of your own saved designs — building a custom one happens on
+  `/designs`, not inline here — screen ratio, card size, fidget), privacy +
+  keyed display URL, access (key reveal/rotate, copy-curl, per-board
+  AGENTS.md link, MCP connect command), the type's own advanced params (e.g.
+  a live board's queue size), **pause & export** (pause sends displays to a
+  standing card, keeps the queue; export returns items as paste-able JSON),
+  delete.
+- **Board** — per-type. Live: the rotation as a rail, one tab per slide,
+  **+ Slide** to add a blank one at the back (loops by default — every
+  rotation slide does, until removed); the selected slide's own name/text/
+  hold on the right, ↑/↓ to reorder, remove to take it out. Scheduled:
+  the schedule editor — compose onto the clock (every N sec/min, hourly,
+  daily, weekly, once; duration incl. "until next trigger"), a live
+  next-3-occurrences preview running the real evaluator, the schedule list
+  with next times and the active marker, and the board's timezone +
+  fallback. Shared: the same, headed by a **Screens** panel (copy the URL,
+  whether anything is watching).
+- **Interruptions** — live boards only (scheduled/shared boards have no
+  rotation to interrupt). Save-then-fire, not a compose box: the rail is
+  one tab per **saved** interrupter (name, text, and a Duration — a time
+  limit, or "until dismissed") plus "+ Interrupt" to save a new one; a
+  Fire button appears once a saved one is selected. Firing cuts to the
+  front and plays outside the rotation, same as any other
+  `priority: "now"`. Saved order is the only ranking a saved interrupter
+  has, and it **is** enforced: firing one is refused if a higher-ranked
+  saved interrupter is currently showing.
 
 ### 6. Display — `/b/{slug}`
 

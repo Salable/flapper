@@ -1,5 +1,6 @@
 import test, { before, beforeEach } from 'node:test';
 import { gridFor, gridForConfig } from '../lib/board/geometry.mjs';
+import { MAX_DWELL_MS } from '../lib/board/track.mjs';
 import assert from 'node:assert/strict';
 import { MemoryBroker } from '../lib/broker/memory.mjs';
 import { makeTestDb, resetTestDb, makeTestUser } from '../lib/db/testing.mjs';
@@ -29,6 +30,11 @@ import {
   advanceQueue,
   getBoardKey,
   getTheme,
+  listInterrupters,
+  saveInterrupter,
+  deleteInterrupter,
+  fireInterrupter,
+  reorderInterrupters,
 } from '../lib/api/handlers.mjs';
 import { mintDisplayToken } from '../lib/api/display-token.mjs';
 import { BOARD_TYPES } from '../lib/board-types/index.mjs';
@@ -91,7 +97,9 @@ async function makeBoard({ ownerId = 'owner', slug = 'test-board', ...rest } = {
   const result = await jsonOf(
     call(createBoard, ctx(undefined, ownerId), '/api/boards', {
       method: 'POST',
-      body: { slug, ...rest },
+      // seed: false - these tests want a truly empty queue to build their
+      // own state on, not the friendly default a real bare create gets.
+      body: { slug, seed: false, ...rest },
     }),
   );
   assert.equal(result.status, 201, JSON.stringify(result.body));
@@ -198,6 +206,56 @@ test('a template seeds the queue and presets config; the body still wins', async
     );
     assert.equal(result.status, 201, `${id}: ${JSON.stringify(result.body)}`);
   }
+});
+
+test('a board with no template lands with a placeholder, not a blank glass; seed: false opts out', async () => {
+  const bare = await jsonOf(
+    call(createBoard, ctx(undefined, 'owner'), '/api/boards', {
+      method: 'POST',
+      body: { name: 'Bare' },
+    }),
+  );
+  assert.equal(bare.status, 201, JSON.stringify(bare.body));
+  assert.equal(bare.body.seeded, 1, 'the default placeholder counts as seeded too, same as a template would');
+  const q = (await jsonOf(call(getQueue, ctx(bare.body.slug, 'owner'), '/queue'))).body;
+  assert.equal(q.items.length, 1);
+  assert.equal(q.items[0].payload.text, 'PUT TEXT IN ME');
+  assert.equal(q.items[0].loop, true);
+
+  const empty = await jsonOf(
+    call(createBoard, ctx(undefined, 'owner'), '/api/boards', {
+      method: 'POST',
+      body: { name: 'Empty', slug: 'opts-out', seed: false },
+    }),
+  );
+  assert.equal(empty.status, 201, JSON.stringify(empty.body));
+  const eq = (await jsonOf(call(getQueue, ctx(empty.body.slug, 'owner'), '/queue'))).body;
+  assert.equal(eq.items.length, 0);
+
+  // seed: false never touches a template that was actually named - only
+  // the friendly default a bare create would otherwise get.
+  const withTemplate = await jsonOf(
+    call(createBoard, ctx(undefined, 'owner'), '/api/boards', {
+      method: 'POST',
+      body: { template: 'sign', name: 'Still seeded', slug: 'still-seeded', seed: false },
+    }),
+  );
+  assert.equal(withTemplate.status, 201, JSON.stringify(withTemplate.body));
+  const tq = (await jsonOf(call(getQueue, ctx(withTemplate.body.slug, 'owner'), '/queue'))).body;
+  assert.equal(tq.items.length, 1);
+  assert.equal(tq.items[0].payload.text, 'WELCOME');
+
+  // A scheduled type has no sensible text-only default - a bare clock
+  // board still lands empty rather than with a schedule-less guess.
+  const clock = await jsonOf(
+    call(createBoard, ctx(undefined, 'owner'), '/api/boards', {
+      method: 'POST',
+      body: { type: 'scheduled', name: 'Clock', slug: 'bare-clock', timezone: 'Europe/London' },
+    }),
+  );
+  assert.equal(clock.status, 201, JSON.stringify(clock.body));
+  const cq = (await jsonOf(call(getQueue, ctx(clock.body.slug, 'owner'), '/queue'))).body;
+  assert.equal(cq.items.length, 0);
 });
 
 test('an unknown template, or a type that contradicts it, is a 422', async () => {
@@ -713,7 +771,7 @@ test('a board\'s own theme: stored sparse, kept out of /queue, served by /theme 
   assert.equal(fat.status, 413);
 
   const caps = (await jsonOf(call(capabilities, ctx(board.slug), '/capabilities'))).body;
-  assert.deepEqual(caps.themePack.presets.map((p) => p.id), ['classic', 'canary', 'sorbet', 'carnival', 'marquee']);
+  assert.deepEqual(caps.themePack.presets.map((p) => p.id), ['classic', 'canary', 'sorbet', 'carnival', 'carrow-road-yellow', 'carrow-road-green']);
   assert.equal(typeof caps.themePack.maxBytes, 'number');
 });
 
@@ -1080,6 +1138,245 @@ test('schedule specs are stored, validated, and refused on live boards', async (
   assert.equal(q.body.items.length, 1);
   assert.ok(q.body.items[0].computedDurationMs >= 3000);
   assert.ok('activeItemId' in q.body, 'clock extras merged into the snapshot');
+});
+
+test('expiresInMs: accepted and materialized on a live board, refused on a scheduled one, editable via PATCH', async () => {
+  const live = await makeBoard({ slug: 'expiry-live' });
+  const before = Date.now();
+  const posted = await jsonOf(
+    call(postMessage, ctx(live.slug), '/x', {
+      method: 'POST',
+      key: live.apiKey,
+      body: { text: 'ALERT', interrupt: true, priority: 'now', expiresInMs: 180_000 },
+    }),
+  );
+  assert.equal(posted.status, 202);
+  const q = await jsonOf(call(getQueue, ctx(live.slug), '/x'));
+  const item = q.body.items.find((entry) => entry.id === posted.body.id);
+  assert.ok(item.expiresAtMs >= before + 180_000);
+
+  const cleared = await jsonOf(
+    call(patchQueueItem, { ...ctx(live.slug), itemId: item.id }, '/x', {
+      method: 'PATCH',
+      body: { expiresInMs: null },
+      key: live.apiKey,
+    }),
+  );
+  assert.equal(cleared.status, 200);
+  assert.equal(cleared.body.item.expiresAtMs, null);
+
+  const bad = await jsonOf(
+    call(postMessage, ctx(live.slug), '/x', {
+      method: 'POST',
+      key: live.apiKey,
+      body: { text: 'X', expiresInMs: -5 },
+    }),
+  );
+  assert.equal(bad.status, 422);
+
+  const clock = await makeBoard({ slug: 'expiry-clock', type: 'scheduled', fallback: 'STAND BY' });
+  const refused = await jsonOf(
+    call(postMessage, ctx(clock.slug), '/x', {
+      method: 'POST',
+      key: clock.apiKey,
+      body: { text: 'X', expiresInMs: 60_000 },
+    }),
+  );
+  assert.equal(refused.status, 422);
+  assert.match(refused.body.error, /expiresInMs does not apply/);
+});
+
+test('saved interrupters: save, list, edit-by-resaving, fire by name, delete - never a door from typed text straight to the glass', async () => {
+  const board = await makeBoard({ slug: 'interrupter-board' });
+  const key = board.apiKey;
+
+  const empty = await jsonOf(call(listInterrupters, ctx(board.slug), '/x'));
+  assert.equal(empty.status, 200);
+  assert.deepEqual(empty.body.interrupters, []);
+
+  const saved = await jsonOf(
+    call(saveInterrupter, ctx(board.slug), '/x', {
+      method: 'POST',
+      key,
+      body: { name: 'FIRE', text: 'FIRE EVACUATE' },
+    }),
+  );
+  assert.equal(saved.status, 200, JSON.stringify(saved.body));
+  assert.deepEqual(saved.body.interrupters, [{ name: 'FIRE', text: 'FIRE EVACUATE' }]);
+
+  // Naming an existing one again replaces it outright - editing is
+  // re-saving, not a separate PATCH.
+  const edited = await jsonOf(
+    call(saveInterrupter, ctx(board.slug), '/x', {
+      method: 'POST',
+      key,
+      body: { name: 'FIRE', text: 'FIRE - EVACUATE NOW', durationMs: 60_000 },
+    }),
+  );
+  assert.equal(edited.status, 200);
+  assert.equal(edited.body.interrupters.length, 1, 'replaced, not appended');
+  assert.deepEqual(edited.body.interrupters[0], {
+    name: 'FIRE',
+    text: 'FIRE - EVACUATE NOW',
+    durationMs: 60_000,
+  });
+
+  // Firing by a name that was never saved finds nothing to fire.
+  const missing = await jsonOf(call(fireInterrupter, { ...ctx(board.slug), name: 'GOAL' }, '/x', { method: 'POST', key }));
+  assert.equal(missing.status, 404);
+
+  // Firing posts exactly the saved fields, through the same door a live
+  // message post would - priority: now, interrupt: true, its name as the
+  // item's own label, and its Duration translated to a hard limit: shown
+  // for exactly that long, and gone outright once it's up.
+  const fired = await jsonOf(call(fireInterrupter, { ...ctx(board.slug), name: 'FIRE' }, '/x', { method: 'POST', key }));
+  assert.equal(fired.status, 202, JSON.stringify(fired.body));
+  const q = (await jsonOf(call(getQueue, ctx(board.slug), '/x'))).body;
+  const item = q.items.find((entry) => entry.id === fired.body.id);
+  assert.equal(item.payload.text, 'FIRE - EVACUATE NOW');
+  assert.equal(item.payload.options.interrupt, true);
+  assert.equal(item.payload.options.label, 'FIRE');
+  assert.equal(item.payload.options.dwellMs, 60_000);
+  assert.ok(item.expiresAtMs > Date.now(), 'durationMs materialized as expiresAtMs at fire time');
+  assert.equal(q.currentItemId, fired.body.id);
+
+  // No door from typed text straight to the glass: nothing here posts to
+  // the live queue except by naming something already saved.
+  const missingName = await jsonOf(
+    call(saveInterrupter, ctx(board.slug), '/x', { method: 'POST', key, body: { text: 'X' } }),
+  );
+  assert.equal(missingName.status, 422);
+
+  const deleted = await jsonOf(call(deleteInterrupter, { ...ctx(board.slug), name: 'FIRE' }, '/x', { method: 'DELETE', key }));
+  assert.equal(deleted.status, 200);
+  assert.deepEqual(deleted.body.interrupters, []);
+  const goneAgain = await jsonOf(call(deleteInterrupter, { ...ctx(board.slug), name: 'FIRE' }, '/x', { method: 'DELETE', key }));
+  assert.equal(goneAgain.status, 404);
+
+  // Writes need the key; a stranger can neither save nor fire.
+  const noKey = await jsonOf(
+    call(saveInterrupter, ctx(board.slug), '/x', { method: 'POST', body: { name: 'X', text: 'X' } }),
+  );
+  assert.equal(noKey.status, 401);
+});
+
+test('reordering saved interrupters: the rail order is the only ranking one has', async () => {
+  const board = await makeBoard({ slug: 'interrupter-order' });
+  const key = board.apiKey;
+  for (const name of ['A', 'B', 'C']) {
+    await jsonOf(call(saveInterrupter, ctx(board.slug), '/x', { method: 'POST', key, body: { name, text: name } }));
+  }
+  const before = await jsonOf(call(listInterrupters, ctx(board.slug), '/x'));
+  assert.deepEqual(before.body.interrupters.map((i) => i.name), ['A', 'B', 'C']);
+
+  const reordered = await jsonOf(
+    call(reorderInterrupters, ctx(board.slug), '/x', { method: 'POST', key, body: { names: ['C', 'A', 'B'] } }),
+  );
+  assert.equal(reordered.status, 200, JSON.stringify(reordered.body));
+  assert.deepEqual(reordered.body.interrupters.map((i) => i.name), ['C', 'A', 'B']);
+  // Text and settings ride along untouched - only order moved.
+  assert.equal(reordered.body.interrupters[0].text, 'C');
+
+  const missing = await jsonOf(
+    call(reorderInterrupters, ctx(board.slug), '/x', { method: 'POST', key, body: { names: ['A', 'B'] } }),
+  );
+  assert.equal(missing.status, 422, 'must name every saved interrupter exactly once');
+
+  const unknown = await jsonOf(
+    call(reorderInterrupters, ctx(board.slug), '/x', { method: 'POST', key, body: { names: ['A', 'B', 'ZZZ'] } }),
+  );
+  assert.equal(unknown.status, 422);
+
+  const noKey = await jsonOf(
+    call(reorderInterrupters, ctx(board.slug), '/x', { method: 'POST', body: { names: ['C', 'A', 'B'] } }),
+  );
+  assert.equal(noKey.status, 401);
+
+  // Name matching is case-insensitive everywhere else (save/delete/fire); a
+  // reorder that echoes a name back in a different case is the same name,
+  // not an unknown one.
+  const differentCase = await jsonOf(
+    call(reorderInterrupters, ctx(board.slug), '/x', { method: 'POST', key, body: { names: ['c', 'a', 'b'] } }),
+  );
+  assert.equal(differentCase.status, 200, JSON.stringify(differentCase.body));
+  // The stored casing is untouched - reorder moves entries, it does not rename them.
+  assert.deepEqual(differentCase.body.interrupters.map((i) => i.name), ['C', 'A', 'B']);
+
+  // A non-string entry must not throw past the shape check.
+  const badShape = await jsonOf(
+    call(reorderInterrupters, ctx(board.slug), '/x', { method: 'POST', key, body: { names: ['C', 'A', 42] } }),
+  );
+  assert.equal(badShape.status, 422);
+});
+
+test('saved-interrupter rank is enforced: a lower one cannot break a higher one that is showing', async () => {
+  const board = await makeBoard({ slug: 'interrupter-rank' });
+  const key = board.apiKey;
+  await jsonOf(call(saveInterrupter, ctx(board.slug), '/x', { method: 'POST', key, body: { name: 'FIRE', text: 'FIRE' } }));
+  await jsonOf(call(saveInterrupter, ctx(board.slug), '/x', { method: 'POST', key, body: { name: 'GOAL', text: 'GOAL' } }));
+  // Saved in this order: FIRE ranks ahead of GOAL.
+
+  const fired = await jsonOf(call(fireInterrupter, { ...ctx(board.slug), name: 'FIRE' }, '/x', { method: 'POST', key }));
+  assert.equal(fired.status, 202);
+
+  const blocked = await jsonOf(call(fireInterrupter, { ...ctx(board.slug), name: 'GOAL' }, '/x', { method: 'POST', key }));
+  assert.equal(blocked.status, 409, JSON.stringify(blocked.body));
+  assert.match(blocked.body.error, /"FIRE" is showing and ranks ahead of "GOAL"/);
+  // Refused, not just discouraged - FIRE is still the one showing.
+  const q = (await jsonOf(call(getQueue, ctx(board.slug), '/x'))).body;
+  assert.equal(q.items.find((item) => item.id === q.currentItemId).payload.text, 'FIRE');
+
+  // Re-order GOAL ahead of FIRE - now it's GOAL's turn to be allowed through.
+  await jsonOf(
+    call(reorderInterrupters, ctx(board.slug), '/x', { method: 'POST', key, body: { names: ['GOAL', 'FIRE'] } }),
+  );
+  const allowed = await jsonOf(call(fireInterrupter, { ...ctx(board.slug), name: 'GOAL' }, '/x', { method: 'POST', key }));
+  assert.equal(allowed.status, 202, JSON.stringify(allowed.body));
+
+  // A raw interrupt: true post, bypassing the saved system, still
+  // pre-empts unconditionally - the rank rule only binds named firing.
+  const raw = await jsonOf(
+    call(postMessage, ctx(board.slug), '/x', {
+      method: 'POST',
+      key,
+      body: { text: 'RAW', priority: 'now', interrupt: true },
+    }),
+  );
+  assert.equal(raw.status, 202);
+});
+
+test('a saved interrupter with no Duration is the switch: max dwell, no expiry', async () => {
+  const board = await makeBoard({ slug: 'interrupter-switch' });
+  const key = board.apiKey;
+  await jsonOf(call(saveInterrupter, ctx(board.slug), '/x', { method: 'POST', key, body: { name: 'FIRE', text: 'FIRE' } }));
+  const fired = await jsonOf(call(fireInterrupter, { ...ctx(board.slug), name: 'FIRE' }, '/x', { method: 'POST', key }));
+  assert.equal(fired.status, 202, JSON.stringify(fired.body));
+  const q = (await jsonOf(call(getQueue, ctx(board.slug), '/x'))).body;
+  const item = q.items.find((entry) => entry.id === fired.body.id);
+  assert.equal(item.payload.options.dwellMs, MAX_DWELL_MS, 'blocks the rotation as long as the engine allows');
+  assert.equal(item.expiresAtMs, null, 'no expiry - stands until dismissed or broken by a higher rank');
+});
+
+test('concurrent saves to the same board do not clobber each other', async () => {
+  // Both read the board before either writes - the exact shape that used
+  // to lose one silently when saveInterrupter computed its "next array"
+  // from a pre-lock read and setConfig's own re-read never got a chance
+  // to factor in (boards.updateInterrupters closes this: the row lock
+  // wraps the read AND the write of the same call, not just the write).
+  const board = await makeBoard({ slug: 'interrupter-race' });
+  const key = board.apiKey;
+  const [savedB, savedC] = await Promise.all([
+    jsonOf(call(saveInterrupter, ctx(board.slug), '/x', { method: 'POST', key, body: { name: 'B', text: 'B' } })),
+    jsonOf(call(saveInterrupter, ctx(board.slug), '/x', { method: 'POST', key, body: { name: 'C', text: 'C' } })),
+  ]);
+  assert.equal(savedB.status, 200, JSON.stringify(savedB.body));
+  assert.equal(savedC.status, 200, JSON.stringify(savedC.body));
+  const after = await jsonOf(call(listInterrupters, ctx(board.slug), '/x'));
+  assert.deepEqual(
+    after.body.interrupters.map((item) => item.name).sort(),
+    ['B', 'C'],
+    'both concurrent saves survived - neither was silently overwritten',
+  );
 });
 
 test('a plain post on a scheduled board becomes a once-now spec; fallback fills gaps', async () => {

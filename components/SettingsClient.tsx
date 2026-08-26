@@ -1,15 +1,19 @@
 'use client';
 
 /**
- * The control room, in two tabs: Queue (what plays and how it's composed),
- * General (identity, privacy, access, pause/export, deletion). What look and
- * shape the board wears lives in the sidebar beside these tabs, not its own
- * tab - it is a fact about the board you always want visible, not a form you
- * visit.
+ * The control room, in three tabs: Settings (identity, design, screen, card
+ * size, fidget, privacy, access, pause/export, deletion - everything about
+ * the board that is not what it's currently showing), Board (the rotation:
+ * one tab per slide on the left, the selected one's own text/hold/loop/
+ * position on the right), Interruptions (fire one live, and see what's
+ * currently active). Used to be two tabs plus a persistent sidebar for
+ * design/screen/shape; the sidebar's gone; those fields moved into
+ * Settings, on the reasoning that a fact belongs on the one tab about it,
+ * not shadowing every other tab forever.
  */
 
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
-import { gridForConfig, isSignConfig } from '@/lib/board/geometry.mjs';
+import { gridForConfig } from '@/lib/board/geometry.mjs';
 import { resolveBoardTheme } from '@/lib/board/board-theme.mjs';
 import { useRouter } from 'next/navigation';
 import { AppBar } from '@/components/AppBar';
@@ -25,6 +29,7 @@ import { TypeSettings } from '@/components/TypeSettings';
 import type { TypeMeta } from '@/components/board-types/type-meta';
 import { maskSecret } from '@/lib/api/mask.mjs';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
+import { UserMenu } from '@/components/UserMenu';
 
 type Board = {
   id: string;
@@ -41,8 +46,7 @@ type Board = {
   createdAt: number;
 };
 
-
-export function SettingsClient({ board: initial }: { board: Board }) {
+export function SettingsClient({ board: initial, userName }: { board: Board; userName: string }) {
   const router = useRouter();
   const { confirm, dialog } = useConfirm();
   const [board, setBoard] = useState(initial);
@@ -80,11 +84,6 @@ export function SettingsClient({ board: initial }: { board: Board }) {
    * real size until the page reloaded. Derived fresh, it cannot.
    */
   const grid = gridForConfig(board.config);
-  // A board that holds one message is a sign; BoardSidebar and QueueManager
-  // are both told the same fact via the same isSignConfig, from the cap
-  // rather than the template id, so a board is whatever its settings
-  // currently say.
-  const isSign = isSignConfig(board.config);
 
   // Resolved after mount: the server does not know the public origin, and
   // rendering it there would make hydration disagree with the glass.
@@ -125,8 +124,8 @@ export function SettingsClient({ board: initial }: { board: Board }) {
       }));
       setName(payload.name);
       setSlug(payload.slug);
-      // The settings URL contains the slug, so a rename moves this page too.
-      if (payload.slug !== board.slug) router.replace(`/b/${payload.slug}/settings`);
+      // The manage URL contains the slug, so a rename moves this page too.
+      if (payload.slug !== board.slug) router.replace(`/b/${payload.slug}/manage`);
       router.refresh();
     } catch (err: any) {
       setError(err.message);
@@ -238,18 +237,16 @@ export function SettingsClient({ board: initial }: { board: Board }) {
     return thunk ? lazy(thunk) : null;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [board.type]);
-  const queueTab = TypeQueueEditor ? (
+  const boardTab = TypeQueueEditor ? (
     <Suspense fallback={null}>
       <TypeQueueEditor slug={board.slug} />
     </Suspense>
   ) : (
     <QueueManager
       slug={board.slug}
-      // The panel drops everything that only makes sense with a queue
-      // behind it once this is true.
-      isSign={isSign}
+      section="board"
       // The board's own design, so composing happens on it - what look this
-      // board wears is picked in the sidebar now, not a draft owned here.
+      // board wears is picked in Settings now, not a draft owned here.
       pack={resolveBoardTheme(board.config).pack}
       cols={grid.cols}
       rows={grid.rows}
@@ -258,8 +255,24 @@ export function SettingsClient({ board: initial }: { board: Board }) {
     />
   );
 
-  const generalTab = (
+  // A type-specific queue editor (the schedule editor) has no notion of
+  // "interrupt this, live" - priority: now is a rolling queue's own
+  // mechanism, so the tab simply is not offered for one.
+  const interruptionsTab = TypeQueueEditor ? null : (
+    <QueueManager
+      slug={board.slug}
+      section="interruptions"
+      pack={resolveBoardTheme(board.config).pack}
+      cols={grid.cols}
+      rows={grid.rows}
+      ambientMs={Number(board.config?.ambientMs) || 0}
+      onSaved={flashSaved}
+    />
+  );
+
+  const settingsTab = (
     <>
+      <BoardSidebar config={board.config} onConfig={saveShape} onSaved={flashSaved} />
       <section className="settings-block">
         <h2>Identity</h2>
         <Field label="Name" htmlFor="board-name">
@@ -359,6 +372,13 @@ export function SettingsClient({ board: initial }: { board: Board }) {
           Delete this board
         </Button>
       </section>
+
+      <nav className="board-side-links" aria-label="Always for this board">
+        <h2>Always</h2>
+        <a href={`${apiBase}/AGENTS.md`}>This board’s agent guide</a>
+        <a href="/docs/board-api">REST API reference</a>
+        <a href="/docs">Documentation</a>
+      </nav>
     </>
   );
 
@@ -380,48 +400,27 @@ export function SettingsClient({ board: initial }: { board: Board }) {
       <AppBar
         right={
           <>
-            {/* Identity lives in the sidebar; paused is live status, and a
-                paused board plays nothing, so it stays in view up here too. */}
-            {board.status !== 'active' && <Chip tone="danger">paused</Chip>}
-            <LinkButton href={boardUrl} target="_blank" rel="noopener">
-              Open display
-            </LinkButton>
             <LinkButton href="/dashboard">Dashboard</LinkButton>
+            <UserMenu userName={userName} current="dashboard" />
           </>
         }
       />
       <main className="dash settings">
+        <h1 className="dash-title">
+          {board.name || board.slug}
+          {board.status !== 'active' && <Chip tone="danger">paused</Chip>}
+          <LinkButton size="sm" href={boardUrl} target="_blank" rel="noopener">
+            Open display
+          </LinkButton>
+        </h1>
         {error !== '' && <p className="error">{error}</p>}
         {notice !== '' && <p className="muted">{notice}</p>}
         <Tabs
-          orientation="vertical"
-          before={
-            <BoardSidebar
-              name={board.name}
-              slug={board.slug}
-              typeName={board.typeName}
-              status={board.status}
-              isPrivate={board.private}
-              createdAt={board.createdAt}
-              boardUrl={origin === '' ? '' : boardUrl}
-              config={board.config}
-              onConfig={saveShape}
-              onSaved={flashSaved}
-            />
-          }
-          after={
-            <nav className="board-side-links" aria-label="Always for this board">
-              <h2>Always</h2>
-              <a href={`${apiBase}/AGENTS.md`}>This board’s agent guide</a>
-              <a href="/docs/board-api">REST API reference</a>
-              <a href="/docs">Documentation</a>
-            </nav>
-          }
+          initial="board"
           tabs={[
-            // "Queue" for anything that has one; a sign has none, so the
-            // tab that holds Change it/Blank it is named for what it is.
-            { id: 'queue', label: isSign ? 'Board' : 'Queue', content: queueTab },
-            { id: 'general', label: 'General', content: generalTab },
+            { id: 'settings', label: 'Settings', content: settingsTab },
+            { id: 'board', label: 'Board', content: boardTab },
+            ...(interruptionsTab ? [{ id: 'interruptions', label: 'Interruptions', content: interruptionsTab }] : []),
           ]}
         />
       </main>

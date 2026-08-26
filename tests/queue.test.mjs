@@ -13,6 +13,7 @@ import {
   advance,
   flushPending,
   clearQueue,
+  sweepExpiredLive,
   MAX_ITEMS,
 } from '../lib/db/queue.mjs';
 
@@ -268,4 +269,76 @@ test('a live board rolls: the 6th message drops the oldest waiting one', async (
   assert.deepEqual(queue.items.map((entry) => entry.payload.text), ['A', 'C', 'D', 'E', 'F']);
   assert.equal(queue.currentItemId, queue.items[0].id);
   assert.ok(item.id);
+});
+
+test('a held item does not count against the cap it is about to vacate', async () => {
+  // A cap-1 "standing sign" board: the one message it holds is stale the
+  // moment a replacement arrives, so the replacement must not be rejected
+  // (or rolled against) as if the held row were still occupying the slot.
+  const one = await createBoard(db, { ownerId: 'u1', slug: 'standing-sign', config: { queueCap: 1 } });
+  const { item: a } = await appendItem(db, one.id, msg('A'));
+  const drained = await advance(db, one.id, a.id, (await listQueue(db, one.id)).epoch);
+  assert.equal(drained.currentState, 'holding');
+
+  const { item: b, promoted } = await appendItem(db, one.id, msg('B'));
+  assert.equal(promoted, true);
+  const queue = await listQueue(db, one.id);
+  assert.deepEqual(order(queue), ['B']);
+  assert.equal(queue.currentItemId, b.id);
+  assert.equal(queue.currentState, 'playing');
+});
+
+test('a cap-1 board can still be interrupted - now does not protect the item it is about to displace', async () => {
+  // A "sign" is a cap-1 live board holding one message that is always
+  // playing - so of the type's own roll rule, nothing but that one item
+  // ever exists to roll, and it's exempt as "the one on the glass". Firing
+  // priority: now (an interrupter, always) on a board like this used to
+  // hit that rule head-on: reject, "clear it first".
+  const sign = await createBoard(db, { ownerId: 'u1', slug: 'sign-board', config: { queueCap: 1 } });
+  const { item: welcome } = await appendItem(db, sign.id, msg('WELCOME'));
+  const before = await listQueue(db, sign.id);
+  assert.equal(before.currentItemId, welcome.id);
+
+  const { item: fire } = await setNow(db, sign.id, msg('FIRE'));
+  const queue = await listQueue(db, sign.id);
+  assert.deepEqual(order(queue), ['FIRE', 'WELCOME'], 'displaced, not deleted - it resumes once FIRE is done');
+  assert.equal(queue.currentItemId, fire.id);
+
+  // The absolute backstop still applies regardless - unaffected by this.
+  const many = await createBoard(db, { ownerId: 'u1', slug: 'sign-backstop', config: { queueCap: MAX_ITEMS + 100 } });
+  for (let i = 0; i < MAX_ITEMS; i += 1) await appendItem(db, many.id, msg(`M${i}`));
+  await assert.rejects(setNow(db, many.id, msg('OVER')), (e) => e.status === 429);
+});
+
+/* ---- expiry (interrupters given a duration rather than "until dismissed") ---- */
+
+test('sweepExpiredLive drops an expired item that is only waiting, untouched otherwise', async () => {
+  await appendItem(db, board.id, msg('A')); // playing
+  await appendItem(db, board.id, msg('EXPIRED', { expiresAtMs: 1000 }));
+  await appendItem(db, board.id, msg('C'));
+  const dropped = await sweepExpiredLive(db, board.id, 2000);
+  assert.equal(dropped, 1);
+  const queue = await listQueue(db, board.id);
+  assert.deepEqual(order(queue), ['A', 'C']);
+  assert.equal(queue.currentState, 'playing');
+});
+
+test('sweepExpiredLive moves the board on when the expired item is the one showing', async () => {
+  const { item: a } = await appendItem(db, board.id, msg('A', { expiresAtMs: 1000 }));
+  await appendItem(db, board.id, msg('B'));
+  const before = await listQueue(db, board.id);
+  assert.equal(before.currentItemId, a.id); // A promoted itself on first append
+
+  const dropped = await sweepExpiredLive(db, board.id, 2000);
+  assert.equal(dropped, 1);
+  const queue = await listQueue(db, board.id);
+  assert.deepEqual(order(queue), ['B']);
+  assert.equal(queue.currentState, 'playing');
+  assert.equal(queue.items[0].payload.text, 'B');
+});
+
+test('sweepExpiredLive is a no-op with nothing due yet', async () => {
+  await appendItem(db, board.id, msg('A', { expiresAtMs: 5000 }));
+  assert.equal(await sweepExpiredLive(db, board.id, 1000), 0);
+  assert.deepEqual(order(await listQueue(db, board.id)), ['A']);
 });

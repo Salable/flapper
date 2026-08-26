@@ -34,5 +34,8 @@ export function clearState(draft: ThemeDraft, char: string): ThemeDraft;
 export function parseFont(font: string): ParsedFont;
 export function buildFont(font: { weight: string; size: number; family: string | null; stack?: string }): string;
 export function setGlyphFont(draft: ThemeDraft, change: Partial<ParsedFont>): ThemeDraft;
+export function buildFlight(colours: readonly string[]): (string | null)[] | null;
+export function paletteOfFlight(flight: readonly (string | null)[] | null | undefined): string[];
+export function setFlightPalette(draft: ThemeDraft, colours: readonly string[]): ThemeDraft;
 export function draftToPatch(draft: ThemeDraft): { ok: true; theme: string; themePack: PackInput | null } | { ok: false; errors: string[] };
 export function savedPatch(config: ThemeConfig | null | undefined): { theme: string; themePack: PackInput | null };

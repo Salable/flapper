@@ -137,14 +137,14 @@ test('an agent can post a whole pack, and is told everything wrong with it', asy
         pack: {
           card: { fill: '#101820', edge: '#000000' },
           glyph: { fill: '#fee715' },
-          tint: { runner: { colour: '#fee715', length: 4, periodMs: 7000 }, mode: 'screen' },
+          tint: { corners: { tl: '#fee715', tr: '#fee715', bl: '#fee715', br: '#fee715' }, mode: 'screen' },
         },
       },
     }),
   );
   assert.equal(good.status, 201, JSON.stringify(good.body));
   assert.equal(good.body.design.pack.card.fill, '#101820');
-  assert.equal(good.body.design.pack.tint.runner.colour, '#fee715');
+  assert.equal(good.body.design.pack.tint.corners.tl, '#fee715');
 
   // Every problem at once, not the first - so something writing a pack can fix
   // it in one go rather than one round trip per mistake.
