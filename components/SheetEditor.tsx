@@ -25,9 +25,18 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Field, Select, TextInput } from '@/components/ui/Field';
-import { ThemePreview } from '@/components/flapper/ThemePreview';
 import { type QueueItem, payloadToBody } from '@/components/queue-item';
-import type { ThemePack } from '@/lib/board/theme-pack.mjs';
+import { layout as layoutText } from '@/lib/board/layout.mjs';
+
+/** Just enough of the real board's charset to wrap and preview typed text -
+ * see the module doc at the top of layout.mjs: every board currently
+ * supports exactly this set (A-Z, 0-9, `. , ! ( )`, blank). Word-wrapping
+ * only cares that every character is one cell wide, which is true
+ * regardless of the board's actual skin, so this doesn't need the real
+ * theme's own manifest (loading that means loading its canvas art - see
+ * the grid's own doc in board.css for why that's deliberately skipped
+ * here too). */
+const EDITOR_CHARSET = new Set('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 .,!()'.split(''));
 
 export type Align = 'left' | 'center' | 'right';
 export type Valign = 'top' | 'middle' | 'bottom';
@@ -77,19 +86,13 @@ function contentOf(item: QueueItem): TextContent {
 
 export function SheetEditor({
   item,
-  pack,
   cols,
   rows,
-  screenAspect,
-  ambientMs = 0,
   onSave,
 }: {
   item: QueueItem;
-  pack: ThemePack;
   cols: number;
   rows: number;
-  screenAspect?: number;
-  ambientMs?: number;
   /** Returns whether it worked - the caller's own `error` state reports a
    * failure; a rejected commit here just leaves the field as it was. */
   onSave: (body: Record<string, unknown>) => Promise<boolean>;
@@ -160,11 +163,8 @@ export function SheetEditor({
           <EditTextPopup
             open={textOpen}
             onClose={() => setTextOpen(false)}
-            pack={pack}
             cols={cols}
             rows={rows}
-            screenAspect={screenAspect}
-            ambientMs={ambientMs}
             initial={contentOf(item)}
             onSave={(patch) => {
               const body: Record<string, unknown> = { ...payloadToBody(item.payload) };
@@ -235,27 +235,22 @@ function samplePreview(item: QueueItem): string {
 export function EditTextPopup({
   open,
   onClose,
-  pack,
   cols,
   rows,
-  screenAspect,
-  ambientMs,
   initial,
   onSave,
 }: {
   open: boolean;
   onClose: () => void;
-  pack: ThemePack;
   cols: number;
   rows: number;
-  screenAspect?: number;
-  ambientMs?: number;
   initial: TextContent;
   /** "Done" is the one commit point this has - returns whether it worked,
    * the same convention as the rest of this panel's own saves. */
   onSave: (patch: TextPatch) => Promise<boolean>;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
   const [layout, setLayout] = useState<Layout>('align');
   const [align, setAlign] = useState<Align>('center');
   const [valign, setValign] = useState<Valign>('middle');
@@ -294,13 +289,36 @@ export function EditTextPopup({
       }
     };
     window.addEventListener('keydown', onKey, true);
-    const panel = panelRef.current;
-    if (panel && !panel.contains(document.activeElement)) panel.focus();
+    // The grid itself, not the panel - it's what types, so it's what
+    // should have the caret the instant this opens (the old textarea had
+    // its own `autoFocus` for the same reason).
+    gridRef.current?.focus();
     return () => window.removeEventListener('keydown', onKey, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   if (!open) return null;
+
+  /** Word break's own preview - the same `layout()` the live board uses,
+   * recomputed from the flat typed buffer on every keystroke. Read-only
+   * cursor: the cell right after the last non-blank character, the same
+   * technique `switchLayout` below already uses to place Free's cursor
+   * after a carried-over switch. */
+  const wrapped = layoutText(text, {
+    cols,
+    rows,
+    align,
+    valign,
+    wrap: 'word',
+    charset: EDITOR_CHARSET,
+    maxPages: 1,
+  });
+  const wrapPage = wrapped.pages[0] ?? Array.from({ length: rows }, () => ' '.repeat(cols));
+  let wrapLast = -1;
+  wrapPage.forEach((line, r) => {
+    for (let c = 0; c < cols; c += 1) if (line[c] !== ' ') wrapLast = r * cols + c;
+  });
+  const wrapCursor = Math.min(cols * rows - 1, wrapLast + 1);
 
   /* One window, not two - switching Layout must never blank what's there.
      Snapshots the currently-typed text into rows (joined with newlines,
@@ -309,18 +327,49 @@ export function EditTextPopup({
   function switchLayout(next: Layout) {
     if (next === layout) return;
     if (next === 'free') {
-      const lines = text.toUpperCase().split('\n');
-      const seeded = Array.from({ length: rows }, (_, i) => (lines[i] ?? '').padEnd(cols, ' ').slice(0, cols));
-      setFreeRows(seeded);
-      let last = -1;
-      seeded.forEach((line, r) => {
-        for (let c = 0; c < cols; c += 1) if (line[c] !== ' ') last = r * cols + c;
-      });
-      setFreePos(Math.min(cols * rows - 1, last + 1));
+      // Seed from the *wrapped* page, not a naive split on literal '\n' -
+      // Word break's own buffer is one flowing line relying on auto
+      // word-wrap for its breaks, so splitting on '\n' alone silently
+      // dropped everything past row one whenever a line had no manual
+      // break in it. `wrapPage`/`wrapCursor` below are exactly what's
+      // already on screen in Word break at this moment.
+      setFreeRows(wrapPage.slice());
+      setFreePos(wrapCursor);
     } else {
       setText(freeRows.map((line) => line.trimEnd()).join('\n').replace(/\n+$/, ''));
     }
     setLayout(next);
+    requestAnimationFrame(() => gridRef.current?.focus());
+  }
+
+  /** Word break types at the end only, like a terminal - no mid-text caret,
+   * matching the "typing into a terminal type thing" this was asked for.
+   * Enter is a hard break (layout() always honours \n regardless of wrap -
+   * see layout.mjs); everything else appends or removes from the end of
+   * one flat buffer, which `layoutText` above re-wraps live. */
+  function onAlignKeyDown(event: React.KeyboardEvent) {
+    if (event.key === 'Backspace') {
+      event.preventDefault();
+      setText((t) => t.slice(0, -1));
+      return;
+    }
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      setText((t) => `${t}\n`);
+      return;
+    }
+    if (event.key.length === 1 && !event.metaKey && !event.ctrlKey && !event.altKey) {
+      event.preventDefault();
+      setText((t) => t + event.key);
+    }
+  }
+
+  /** The grid frame isn't a real text field, so paste needs its own
+   * handler - the event still reaches whatever's focused, contentEditable
+   * or not. */
+  function onAlignPaste(event: React.ClipboardEvent) {
+    event.preventDefault();
+    setText((t) => t + event.clipboardData.getData('text'));
   }
 
   /** One cell, written or cleared - the only mutation Free text has. */
@@ -406,45 +455,28 @@ export function EditTextPopup({
           )}
         </div>
 
-        {layout === 'align' ? (
-          <>
-            <textarea
-              className="queue-edit as-board queue-edit-large sheet-align-textarea"
-              rows={4}
-              autoFocus
-              value={text}
-              onChange={(event) => setText(event.target.value)}
-            />
-            <div className="sheet-align-preview">
-              <ThemePreview
-                pack={pack}
-                text={text}
-                cols={cols}
-                rows={rows}
-                tilePx={40}
-                ambientMs={ambientMs}
-                screenAspect={screenAspect}
-                align={align}
-                valign={valign}
-              />
-            </div>
-          </>
-        ) : (
-          <div className="sheet-grid-frame" tabIndex={0} onKeyDown={onGridKeyDown}>
-            <div className="sheet-grid" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
-              {Array.from({ length: cols * rows }, (_, i) => {
-                const r = Math.floor(i / cols);
-                const c = i % cols;
-                const char = (freeRows[r] ?? '')[c]?.trim() ?? '';
-                return (
-                  <div key={i} className={`sheet-cell${i === freePos ? ' is-cursor' : ''}`}>
-                    <span className="sheet-cell-glyph">{char}</span>
-                  </div>
-                );
-              })}
-            </div>
+        <div
+          ref={gridRef}
+          className="sheet-grid-frame"
+          tabIndex={0}
+          onKeyDown={layout === 'align' ? onAlignKeyDown : onGridKeyDown}
+          onPaste={layout === 'align' ? onAlignPaste : undefined}
+        >
+          <div className="sheet-grid" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
+            {Array.from({ length: cols * rows }, (_, i) => {
+              const gridRows = layout === 'align' ? wrapPage : freeRows;
+              const cursor = layout === 'align' ? wrapCursor : freePos;
+              const r = Math.floor(i / cols);
+              const c = i % cols;
+              const char = (gridRows[r] ?? '')[c]?.trim() ?? '';
+              return (
+                <div key={i} className={`sheet-cell${i === cursor ? ' is-cursor' : ''}`}>
+                  <span className="sheet-cell-glyph">{char}</span>
+                </div>
+              );
+            })}
           </div>
-        )}
+        </div>
 
         <div className="ui-modal-actions">
           <Button variant="primary" onClick={done} disabled={saving}>

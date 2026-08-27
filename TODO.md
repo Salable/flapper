@@ -144,15 +144,37 @@ grid; the real build diverged from that in one place, deliberately:
 
 - **Word break** - the default mode (renamed twice: "Just type", then
   "Alignment", settled on "Word break" since that's the one fact that
-  actually distinguishes it from Free). A real `<textarea>` (cursor,
-  selection, paste all just work, the same reasoning ComposeModal was
-  built on) with a live `ThemePreview` beside it - the real engine, real
-  skin, so what's shown is what lands. **Not** the tile-grid rendering
-  the prototype used for this mode too: a per-character blinking cursor
-  inside the real preview would mean teaching `Flipboard`/canvas a
-  cursor-cell concept it has never needed, a materially bigger lift than
-  the rest of this build - skipped for now, real preview fidelity won
-  over the cursor nicety. Carries its own **Align** (left/center/right)
+  actually distinguishes it from Free). **Reverted back to the tile grid
+  after briefly not being one** - a first pass gave it a real `<textarea>`
+  with a live `ThemePreview` beside it instead (real engine, real skin,
+  so what's shown is what lands), reasoning that a per-character blinking
+  cursor inside the real preview would mean teaching `Flipboard`/canvas a
+  cursor-cell concept it's never needed. Shipped that way, without
+  checking it against what was actually agreed - Dan caught it by looking
+  at the running app ("this isnt what we worked on"), because the
+  prototype's own deal was both modes render as the *same* tile grid,
+  differing only in what's computed - not a decision that was ever
+  reopened. See [[no-silent-overrides]] in memory. Reverted: types
+  straight into the same `.sheet-grid-frame`/`.sheet-cell` grid Free
+  uses, wrapped live via `layout()` itself (`lib/board/layout.mjs`,
+  `wrap: 'word'`) against a small fixed charset - wrapping only needs to
+  know a character is one cell wide, not the real theme's own manifest,
+  so this doesn't need the skin loaded (loading that means loading its
+  canvas art, exactly what the cursor-in-real-preview idea would have
+  needed too). No mid-text caret - types at the end only, like a
+  terminal, matching the "typing into a terminal type thing" framing this
+  was asked for in the first place; Backspace/Enter/paste all act on that
+  one flat buffer, which `layout()` re-wraps on every keystroke. **Caught
+  a real bug in the process, not just a design mismatch**: `switchLayout`
+  going Word break -> Free used to split the raw buffer on literal `\n`
+  only and clip each "line" to `cols` characters - fine for a
+  manually-broken textarea, silently truncated anything relying on
+  word-wrap the moment the popup defaulted to this mode day to day, since
+  now there usually isn't a literal `\n` in typed text at all. Found via
+  screenshot (a 39-character typed string round-tripped through Free and
+  back landed 20 characters) before it shipped, fixed by seeding Free
+  from the already-wrapped page instead of the raw buffer. Carries its
+  own **Align** (left/center/right)
   and **Valign** (top/middle/bottom) dropdowns - the full three-way ×
   three-way pair, after a pass that tried to simplify it away to "always
   centred, one word-break toggle" turned out to be removing a real,

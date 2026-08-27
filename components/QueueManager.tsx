@@ -205,7 +205,7 @@ export function QueueManager({
     // happens, rather than let it happen silently and call it "added".
     const cap = snapshot?.config?.queueCap ?? 5;
     if ((snapshot?.items.length ?? 0) >= cap) {
-      setError(`This board holds ${cap} messages and is full - remove one, or raise Queue size in Settings, before adding another.`);
+      setError(`This board holds ${cap} message${cap === 1 ? '' : 's'} and is full - remove one, or raise Queue size in Settings, before adding another.`);
       return;
     }
     const response = await post('/queue/items', 'POST', { text: '', loop: true });
@@ -628,11 +628,8 @@ export function QueueManager({
                         <SheetEditor
                           key={selected.id}
                           item={selected}
-                          pack={pack}
                           cols={cols}
                           rows={rows}
-                          screenAspect={screenAspect}
-                          ambientMs={ambientMs}
                           onSave={(body) => act(() => post(`/queue/items/${selected.id}`, 'PATCH', body))}
                         />
                         <div className="queue-panel-row">
@@ -804,11 +801,8 @@ export function QueueManager({
                       <EditTextPopup
                         open={presetTextOpen}
                         onClose={() => setPresetTextOpen(false)}
-                        pack={pack}
                         cols={cols}
                         rows={rows}
-                        screenAspect={screenAspect}
-                        ambientMs={ambientMs}
                         initial={presetContent()}
                         onSave={async (patch) => {
                           if (patch.rows !== undefined) {

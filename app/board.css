@@ -1107,24 +1107,13 @@ main.landing .error {
   min-width: 120px;
 }
 
-/* Overrides the universal amber :focus-visible ring (app/ui.css) - see
-   --ring-quiet's own doc in design-tokens.css for why. Higher specificity
-   (one class + the pseudo-class) than the bare :focus-visible rule it
-   replaces, so this wins regardless of source order. */
-.sheet-align-textarea:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 1px var(--ring-quiet);
-}
-
-.sheet-align-preview {
-  align-self: center;
-  max-width: 460px;
-  width: 100%;
-}
-
-/* The grid (Free text) - a real field, styled to read as the board's own
-   cells, not a canvas render of the actual skin (that would mean teaching
-   Flipboard a cursor cell it has never needed to have; see TODO.md). */
+/* The grid - both Word break and Free share this one visual: a real field
+   styled to read as the board's own cells, not a canvas render of the
+   actual skin (that would mean teaching Flipboard a cursor cell it has
+   never needed to have; see TODO.md). Word break used to be a plain
+   <textarea> with a live ThemePreview beside it instead - reverted; Dan
+   never agreed to that, the prototype's own tile grid was the deal for
+   both modes, differing only in what's computed (see TODO.md). */
 .sheet-grid-frame {
   border-radius: var(--radius-md);
   padding: 4px;
