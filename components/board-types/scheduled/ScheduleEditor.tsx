@@ -18,6 +18,8 @@ import { Button } from '@/components/ui/Button';
 import { Field, TextInput, Select } from '@/components/ui/Field';
 import { Chip } from '@/components/ui/bits';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
+import { ThemePreview } from '@/components/flapper/ThemePreview';
+import type { BoardTypeEditorProps } from '@/components/board-types/registry';
 
 type Spec = Record<string, unknown> & { kind: string; durationMs?: number | null };
 
@@ -61,12 +63,27 @@ const DURATION_OPTIONS = [
 
 const DOW = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-export default function ScheduleEditor({ slug }: { slug: string }) {
+export default function ScheduleEditor({
+  slug,
+  pack,
+  cols,
+  rows,
+  screenAspect,
+  ambientMs = 0,
+}: BoardTypeEditorProps) {
   const apiBase = `/api/b/${slug}`;
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [error, setError] = useState('');
   const busyRef = useRef(false);
   const { confirm, dialog } = useConfirm();
+
+  /**
+   * Which slot the preview is showing. Null means "whatever the glass is
+   * showing right now" - the active slot, or the fallback between slots -
+   * so arriving at the tab previews the real board rather than nothing.
+   * Clicking a row pins that one; clicking it again unpins.
+   */
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   // Compose state.
   const [text, setText] = useState('');
@@ -225,6 +242,52 @@ export default function ScheduleEditor({ slug }: { slug: string }) {
   );
 
   const items = snapshot?.items ?? [];
+
+  /**
+   * An item's content as one string. A rows-mode item (only an API caller can
+   * make one here) has no single line to show, so its rows are joined and the
+   * caption says the preview re-wrapped them - better than previewing nothing.
+   */
+  const textOf = (item: Item) => item.payload.text ?? (item.payload.rows ?? []).join(' ');
+
+  const selected = items.find((i) => i.id === selectedId) ?? null;
+  const active = items.find((i) => i.id === snapshot?.activeItemId) ?? null;
+  // A row that has been deleted out from under the selection stops pinning it.
+  useEffect(() => {
+    if (selectedId !== null && !items.some((i) => i.id === selectedId)) setSelectedId(null);
+  }, [items, selectedId]);
+
+  /**
+   * What the preview shows, in the order that answers the question actually
+   * being asked: a pinned row, else what you are typing right now, else what
+   * is on the glass (the active slot, or the fallback between slots).
+   */
+  const composing = selectedId === null && text.trim() !== '';
+  const previewText = selected
+    ? textOf(selected)
+    : composing
+      ? text
+      : active
+        ? textOf(active)
+        : fallback;
+  const previewCaption = selected
+    ? selected.id === snapshot?.activeItemId
+      ? 'this slot · on the glass now'
+      : 'this slot · not on the glass now'
+    : composing
+      ? 'the message you are composing'
+      : active
+        ? 'on the glass now'
+        : fallback !== ''
+          ? 'the fallback · on the glass now'
+          : // No slot due and nothing standing behind it. Which of the two
+            // reasons matters: an empty schedule is a board waiting to be
+            // given something, a full one is simply between slots.
+            items.length > 0
+            ? 'between slots · the glass is dark'
+            : 'nothing scheduled and no fallback';
+  const previewIsRewrapped = Boolean(selected && !selected.payload.text && (selected.payload.rows?.length ?? 0) > 0);
+
   const configDirty =
     snapshot !== null &&
     (timezone !== (snapshot.config?.timezone ?? 'UTC') ||
@@ -329,6 +392,26 @@ export default function ScheduleEditor({ slug }: { slug: string }) {
 
       <section className="settings-block">
         <h2>The schedule</h2>
+        {/* The board itself. Every other editing surface shows one; editing a
+            schedule used to be the one place you changed what a wall says
+            without ever seeing the wall. */}
+        <div className="board-preview">
+          <ThemePreview
+            pack={pack}
+            text={previewText}
+            cols={cols}
+            rows={rows}
+            tilePx={56}
+            ambientMs={ambientMs}
+            screenAspect={screenAspect}
+          />
+          <div className="design-preview-bar">
+            <p className="design-preview-caption">
+              {cols} × {rows} cards · {previewCaption}
+              {previewIsRewrapped ? ' · rows re-wrapped to fit' : ''}
+            </p>
+          </div>
+        </div>
         {items.length === 0 ? (
           <p className="muted">
             Nothing scheduled. The board stands on its fallback message until something is.
@@ -336,11 +419,23 @@ export default function ScheduleEditor({ slug }: { slug: string }) {
         ) : (
           <ol className="queue-list">
             {items.map((item) => (
-              <li key={item.id} className={item.id === snapshot?.activeItemId ? 'is-playing' : ''}>
-                <span className="queue-text">
+              <li
+                key={item.id}
+                className={
+                  (item.id === snapshot?.activeItemId ? 'is-playing' : '') +
+                  (item.id === selectedId ? ' is-selected' : '')
+                }
+              >
+                <button
+                  type="button"
+                  className="queue-text"
+                  aria-pressed={item.id === selectedId}
+                  title="Show this slot in the preview"
+                  onClick={() => setSelectedId((id) => (id === item.id ? null : item.id))}
+                >
                   {item.id === snapshot?.activeItemId && <b className="now">▶</b>}
                   {item.payload.text ?? `[rows × ${item.payload.rows?.length ?? 0}]`}
-                </span>
+                </button>
                 <span className="queue-meta muted">
                   {describeSchedule(item.schedule)}
                   {(() => {

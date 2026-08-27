@@ -250,7 +250,16 @@ export function SettingsClient({ board: initial, userName }: { board: Board; use
   }, [board.type]);
   const boardTab = TypeQueueEditor ? (
     <Suspense fallback={null}>
-      <TypeQueueEditor slug={board.slug} />
+      <TypeQueueEditor
+        slug={board.slug}
+        // Same board-look values QueueManager gets: a type's own editor
+        // should be able to show its board too, not just describe it.
+        pack={resolveBoardTheme(board.config).pack}
+        cols={grid.cols}
+        rows={grid.rows}
+        screenAspect={screen.w / screen.h}
+        ambientMs={Number(board.config?.ambientMs) || 0}
+      />
     </Suspense>
   ) : (
     <QueueManager

@@ -2309,3 +2309,83 @@ main.landing .error {
   flex: 1 1 0;
   min-width: 0;
 }
+
+/* ---- The schedule list -------------------------------------------------
+   The scheduled board's own list of slots. It had no rules at all until the
+   preview arrived and gave its rows something to do: picking a slot is now
+   how you choose what the board above is showing, so a row has to look
+   pickable and a picked one has to look picked. Same amber-on-transparent
+   selection the slide rail uses, so "selected" reads the same everywhere. */
+.queue-list {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.queue-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+}
+
+.queue-list li.is-selected {
+  border-color: var(--amber);
+}
+
+.queue-list .queue-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: var(--text-md);
+  color: var(--ink);
+}
+
+/* The row's own text is the control - a separate "preview this" button would
+   be a second target for the thing the row already is. */
+.queue-list button.queue-text {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+}
+
+.queue-list button.queue-text:hover {
+  color: var(--amber);
+}
+
+.queue-list li.is-selected button.queue-text {
+  color: var(--amber);
+}
+
+.queue-list .queue-text .now {
+  color: var(--live);
+  margin-right: 6px;
+}
+
+.queue-list .queue-meta {
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+  white-space: nowrap;
+}
+
+.queue-list .queue-actions button {
+  background: transparent;
+  border: 0;
+  color: var(--faint);
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.queue-list .queue-actions button:hover {
+  color: var(--danger);
+}

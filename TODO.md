@@ -902,9 +902,15 @@ card size.
 Not part of the letterbox fix and not touched by it - a real, separate gap,
 just found while auditing the same ground.
 
-- [ ] Give Scheduled's own editor a `ThemePreview`, screen-aware
+- [x] Give Scheduled's own editor a `ThemePreview`, screen-aware
       (`screenAspect`) like the rest, showing whichever slot is selected/
-      current.
+      current. The type-editor contract carried only `slug`, so it grew the
+      same five board-look props SettingsClient already hands QueueManager
+      (`BoardTypeEditorProps`); Shared forwards them through. A row in the
+      schedule is now the control that picks what the preview shows -
+      pinned slot, else what you are typing, else what is on the glass (the
+      active slot, or the fallback). `.queue-list` had no CSS at all until
+      now, which is why it never looked pickable.
 
 ## Open questions — yours
 

@@ -10,10 +10,11 @@
 import { useEffect, useState } from 'react';
 import ScheduleEditor from '@/components/board-types/scheduled/ScheduleEditor';
 import { CopyButton } from '@/components/ui/bits';
+import type { BoardTypeEditorProps } from '@/components/board-types/registry';
 
 const POLL_MS = 5000;
 
-export default function SharedQueueEditor({ slug }: { slug: string }) {
+export default function SharedQueueEditor({ slug, ...board }: BoardTypeEditorProps) {
   const [origin, setOrigin] = useState('');
   const [ready, setReady] = useState<boolean | null>(null);
   useEffect(() => setOrigin(window.location.origin), []);
@@ -58,7 +59,7 @@ export default function SharedQueueEditor({ slug }: { slug: string }) {
           </span>
         </div>
       </section>
-      <ScheduleEditor slug={slug} />
+      <ScheduleEditor slug={slug} {...board} />
     </>
   );
 }
