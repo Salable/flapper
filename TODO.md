@@ -1013,24 +1013,48 @@ go, and a board storing what it was given rather than a link.
 The interval stays, and stops doing two jobs: **how often** is the rate,
 **what happens** is the style.
 
-### Decide first: its own asset, or part of the design
+### Decided: a fidget happens *to* a slide; an animation *is* one
 
-Genuinely open, and it wants deciding before any code.
+*Dan, 27 Aug 2026: "a fidget is basically an animation that happens TO the
+board slide, while an animation is basically a full thing."*
 
-- **Its own asset kind**, which is how Dan phrased it - a fidget style sits
-  beside a design and an animation, picked separately. Best if you want one
-  design to be calm on one wall and twitchy on another.
-- **Part of the design's pack**, which is where the argument from precedent
-  points: the board's *other* motion (Hold, Travel speed, Landing, Sweep,
-  Sweep shape, Full revolution) was deliberately moved out of board config
-  and into the pack, on the reasoning that how a board moves belongs to its
-  design. Fidget is how the board moves when nothing is driving it, which
-  is the same sentence. `advanced.sweepMs` and `advanced.staggerMode` are
-  already read by the fidget system's own sweep.
+That is the whole distinction, and it settles where a fidget lives. The
+question had been posed as its-own-asset versus part-of-the-design, and the
+answer is neither: a fidget belongs to the **content** layer, as an effect
+over whatever is on the glass.
 
-The second is more consistent; the first is more flexible. Not picked.
+The code already says so, and says it in the one way that cannot be argued
+with - `ambient.ts` **refuses to run on an empty board**:
 
-- [ ] Decide which of the two above, and say why in this file.
+```js
+if (!page || page.every((line) => line.trim() === '')) return;
+```
+
+A fidget needs a slide to happen to. It reads `board.page`, perturbs one
+character of it, and puts that exact page back. An animation needs nothing
+to already be there, because it *is* what is there.
+
+So the two are siblings by mechanism (both move tiles with nobody driving)
+and opposites by scope, which is exactly why "Animation" is already an
+option in the source picker (`QueueManager.tsx`, Text/API/Animation) and
+fidget never could be. Worth noting the source table under *A sheet has a
+source* above lists Typed/Pushed/Fetched/Clock and **not** Animation, even
+though the picker offers it - that table needs a fifth row.
+
+What this rules out: the design's pack. The precedent argument was that
+Hold/Travel speed/Landing moved there because how a board moves belongs to
+its design - but those describe how a *tile* flips, whatever it is showing.
+A fidget is a thing done to particular words. Different layer.
+
+What it implies: the natural scope is per sheet, with a board-level
+default - the same shape *Per-sheet design* above already has. A busy
+sheet and a still one can want different fidgets on one board.
+
+- [x] Decide whether a fidget is its own asset or part of the design -
+      neither; it is an effect over a slide's content. Reasoning above.
+- [ ] Add the missing **Animation** row to the source table under *A sheet
+      has a source*, now that the picker offers it and fidget has been
+      ruled out of being one.
 - [ ] Lift `SWEEP_EVERY`, `REST_ODDS` and the 900ms restore out of the
       constants and into a validated style object, defaults unchanged so
       every existing board keeps the exact behaviour it has now.
@@ -1038,7 +1062,9 @@ The second is more consistent; the first is more flexible. Not picked.
       question: a twitchier one for a busy space, a sweep-only one for
       something meant to be watched. Plus today's numbers as the default,
       under whatever it ends up being called.
-- [ ] Pick one per board, beside the rate, in BoardSidebar's Fidget field.
+- [ ] Pick one per sheet, with a board-level default beside the rate in
+      BoardSidebar's Fidget field - the shape *Per-sheet design* already
+      has, for the same reason.
 - [ ] The API and MCP surface for it, in step - `get_capabilities`, the
       validator's own message, and `docs/BOARD-API.md`.
 
