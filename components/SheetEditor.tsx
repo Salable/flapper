@@ -300,18 +300,24 @@ export function EditTextPopup({
   if (!open) return null;
 
   /** Word break's own preview - the same `layout()` the live board uses,
-   * recomputed from the flat typed buffer on every keystroke. Read-only
-   * cursor: the cell right after the last non-blank character, the same
-   * technique `switchLayout` below already uses to place Free's cursor
-   * after a carried-over switch. */
-  // Trailing Enters with nothing typed after them are inert, not stored -
-  // `layout()` counts every blank line toward vertical centering (a real
-  // paragraph gap should push content off-centre), so an accidental run of
-  // Enters at the end silently pushed "centre" upward with no visible way
-  // to tell Backspace was working (removing one from a trailing run
-  // changes the maths but not anything on screen until enough are gone to
-  // shift a whole row - Dan hit exactly this: "i cant undo them"). Enter
-  // typed *between* real text is untouched - that's a wanted paragraph gap.
+   * recomputed from the flat typed buffer on every keystroke.
+   *
+   * Trailing Enters with nothing typed after them are inert for *layout* -
+   * `layout()` counts every blank line toward vertical centering (a real
+   * paragraph gap should push content off-centre), so an accidental run of
+   * Enters at the end would otherwise silently push "centre" upward. But
+   * the cursor still has to show them - a first pass trimmed them for the
+   * cursor too, so Backspace gave no visible sign it was doing anything
+   * ("i cant undo them" - correctly, there was nothing to see). Now the
+   * cursor sits exactly where the buffer really ends, blank trailing rows
+   * and all: each trailing Enter drops it one row further below the last
+   * real line, so it's honestly on a blank row when there's a stray gap
+   * (a stray character typed mid-mash-of-Enters, then more Enters after
+   * it, shows up exactly where it is instead of vanishing into "somewhere
+   * below") - and Backspace visibly climbs back up one row per Enter
+   * removed, proving each press did something, all the way back to real
+   * content. Enter typed *between* real text stays a real paragraph gap,
+   * counted in `layout()`'s own centering same as ever. */
   const wrapText = text.replace(/\n+$/, '');
   const wrapped = layoutText(wrapText, {
     cols,
@@ -327,7 +333,12 @@ export function EditTextPopup({
   wrapPage.forEach((line, r) => {
     for (let c = 0; c < cols; c += 1) if (line[c] !== ' ') wrapLast = r * cols + c;
   });
-  const wrapCursor = Math.min(cols * rows - 1, wrapLast + 1);
+  const contentCursor = Math.min(cols * rows - 1, wrapLast + 1);
+  const trailingBreaks = text.length - wrapText.length;
+  const wrapCursor =
+    trailingBreaks > 0
+      ? Math.min(rows - 1, Math.floor(contentCursor / cols) + trailingBreaks) * cols
+      : contentCursor;
 
   /* One window, not two - switching Layout must never blank what's there.
      Snapshots the currently-typed text into rows (joined with newlines,
@@ -432,6 +443,16 @@ export function EditTextPopup({
     if (ok) onClose();
   }
 
+  /** Wipe whichever mode's own buffer is showing, rather than trying to
+   * Backspace out of a mess one keystroke at a time - the direct exit the
+   * cursor-position fix above was still one step short of. */
+  function clear() {
+    if (layout === 'align') setText('');
+    else setFreeRows(blankRows(cols, rows));
+    setFreePos(0);
+    gridRef.current?.focus();
+  }
+
   return (
     <div className="ui-modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="ui-modal ui-modal-wide flap-in" role="dialog" aria-modal="true" tabIndex={-1} ref={panelRef}>
@@ -490,6 +511,9 @@ export function EditTextPopup({
         <div className="ui-modal-actions">
           <Button variant="primary" onClick={done} disabled={saving}>
             {saving ? 'Saving…' : 'Done'}
+          </Button>
+          <Button variant="ghost" onClick={clear} disabled={saving}>
+            Clear
           </Button>
         </div>
       </div>
