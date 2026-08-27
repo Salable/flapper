@@ -892,14 +892,13 @@ in his own words; each needs its own look before it becomes real work.
       separately.
 - [ ] **No transition animations.** See *Transitions and washes* above -
       procedural washes as transitions are designed but not built.
-- [ ] **No fidget animations.** Flagged directly at odds with this file's
-      own "done" (`config.ambientMs`, wired end to end - see "The model, as
-      decided" above, and BoardSidebar's own Fidget field). Needs a live
-      check before assuming either: could be a real regression (fidget
-      stopped actually firing somewhere) or could mean something beyond
-      the twitch/sweep that exists today - the open "Types of Fidget, not
-      just a rate" question above is exactly that second reading. Not
-      assumed either way; check first.
+- [ ] **No fidget animations.** Settled 27 Aug 2026. Not a regression: the
+      wiring was checked end to end and is live (BoardSidebar's Fidget field
+      → `ambientMs` → `validators.mjs` → `createAmbient().start()` in both
+      BoardApp and ThemePreview). It is the second reading - what exists is
+      one rate and one hard-coded character. Dan's shape for it: **styles,
+      as assets, the way designs and animations are assets.** Scoped below
+      under *Fidget styles are assets*.
 
 ## Later: passes parked on purpose
 
@@ -985,13 +984,63 @@ just found while auditing the same ground.
    traced by a stroke 2.2% of tile width goes sub-pixel on a small board
    regardless of typeface. Fixable with a solid fill or a heavier stroke -
    not done, since it changes how Canary looks.
-5. **Types of Fidget, not just a rate.** Today "Fidget" is one knob - off, or
-   every N seconds - and idle.mjs picks what happens each tick with no say
-   from the board: flicker odds, how far a sweep travels, whether a sweep
-   happens at all. A named style or two (say, a twitchier one for a busy
-   space, a sweep-only one for something meant to be watched) plus the
-   existing interval as intensity, rather than the interval alone standing
-   in for both "how often" and "how much".
+5. ~~**Types of Fidget, not just a rate.**~~ Answered by Dan, 27 Aug 2026:
+   yes, and they are **assets** - authored and stored like a design, not
+   picked from a hard-coded list. See *Fidget styles are assets* below.
+
+## Fidget styles are assets
+
+*Dan, 27 Aug 2026: "we need options of fidget styles, in addition to how
+often. these are assets like design and animations."*
+
+Today Fidget is one number. `config.ambientMs` is off, or 5000-600000, and
+that single value stands in for both "how often" and "what kind" - because
+there is no "what kind". The character of the thing is three constants a
+board has no say over:
+
+- `idle.mjs` `SWEEP_EVERY = 12` - one tick in twelve is a whole-board sweep
+- `idle.mjs` `REST_ODDS = 2` - about half the rest do nothing at all
+- `ambient.ts` `900` - how long a flickered tile stays wrong before it
+  corrects itself
+
+Those three numbers *are* the style. Pull them out into a validated object
+and a style becomes data, which is the whole of Dan's point: the same move
+designs already made ("a design is validated data, not code"), so the same
+machinery applies - a set in the box, your own saved on the account, a
+validator that names every problem at once so an agent can fix them in one
+go, and a board storing what it was given rather than a link.
+
+The interval stays, and stops doing two jobs: **how often** is the rate,
+**what happens** is the style.
+
+### Decide first: its own asset, or part of the design
+
+Genuinely open, and it wants deciding before any code.
+
+- **Its own asset kind**, which is how Dan phrased it - a fidget style sits
+  beside a design and an animation, picked separately. Best if you want one
+  design to be calm on one wall and twitchy on another.
+- **Part of the design's pack**, which is where the argument from precedent
+  points: the board's *other* motion (Hold, Travel speed, Landing, Sweep,
+  Sweep shape, Full revolution) was deliberately moved out of board config
+  and into the pack, on the reasoning that how a board moves belongs to its
+  design. Fidget is how the board moves when nothing is driving it, which
+  is the same sentence. `advanced.sweepMs` and `advanced.staggerMode` are
+  already read by the fidget system's own sweep.
+
+The second is more consistent; the first is more flexible. Not picked.
+
+- [ ] Decide which of the two above, and say why in this file.
+- [ ] Lift `SWEEP_EVERY`, `REST_ODDS` and the 900ms restore out of the
+      constants and into a validated style object, defaults unchanged so
+      every existing board keeps the exact behaviour it has now.
+- [ ] A set of styles in the box. At least the two named in the old
+      question: a twitchier one for a busy space, a sweep-only one for
+      something meant to be watched. Plus today's numbers as the default,
+      under whatever it ends up being called.
+- [ ] Pick one per board, beside the rate, in BoardSidebar's Fidget field.
+- [ ] The API and MCP surface for it, in step - `get_capabilities`, the
+      validator's own message, and `docs/BOARD-API.md`.
 
 ## Refused by design, not missing
 
