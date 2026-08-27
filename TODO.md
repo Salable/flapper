@@ -325,6 +325,22 @@ Sync stops being a type and becomes a sentence about timetables.
       `cardSize: 'small'`, and the grid is worked out from that and the
       board's screen (`4313bac`)
 
+## A day/night ambient cycle
+
+*Raised 26 Aug 2026, alongside the clock/pause question - both of those
+turned out to already exist (Scheduled's `playback: 'clock'` timetable,
+and board-level Pause & export). This is the one part of the ask that
+doesn't: nothing today ties a design's appearance to the real time of day.
+
+Same reasoning as "Board motion belongs to the design, not the board" -
+this is a design property (an `advanced` field or its own pack section),
+not a board setting, since it's about how a *look* behaves, not what a
+particular board shows.
+
+- [ ] Decide the mechanism: a formula over the clock (dim/warm at night,
+      the way the tint's own drift already turns on a period) versus named
+      presets versus something else - not designed yet, just named.
+
 ## Transitions and washes
 
 Half of this exists: `sweepMs` and `staggerMode` (diagonal, column, row,
@@ -515,10 +531,12 @@ two hinged vanes, and the whole board looked too clean to have hung anywhere.
       is a section too, since it never did. `get_capabilities` → `themePack`
       was already correct (it derives from `RANGES`, not a hand list), so
       `frameMs`'s range needed no separate change there.
-- [ ] **`update_config` still has no way to set `screen` or `cardSize`** -
-      noticed alongside the stale fields above; the API supports both, the
-      MCP schema has never offered either. A real gap, not a staleness bug,
-      and a bigger one (new fields, not a removal) - left for its own pass.
+- [x] `update_config` can set `screen` and `cardSize` now, both `null`-
+      resettable like the REST API always allowed (`z.union([z.null(), ...])`
+      - an `enum` alone would have refused the reset). Found in the same
+      pass: the cols/rows rejection message told a caller to send
+      `screen: { w, h, diagonalIn }` - `diagonalIn` was never a real field,
+      only ever tested as refused; fixed the message too.
 
 ## A real bug, found but not yet fixed: a black band mid-flip
 

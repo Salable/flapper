@@ -245,6 +245,27 @@ test('get_theme reads the resolved pack; update_config can set a themePack and l
   assert.equal(reset.body.config.themePack, null);
 });
 
+test('update_config can set screen and cardSize - the REST API always could, the MCP schema never offered either', async () => {
+  const board = await makeBoard();
+  const patched = await run('update_config', { screen: { w: 9, h: 16 }, cardSize: 'small' }, board);
+  assert.equal(patched.isError, false, JSON.stringify(patched.body));
+  assert.deepEqual(patched.body.config.screen, { w: 9, h: 16 });
+  assert.equal(patched.body.config.cardSize, 'small');
+
+  // null resets each to its default, same as the REST API.
+  const reset = await run('update_config', { screen: null, cardSize: null }, board);
+  assert.equal(reset.isError, false, JSON.stringify(reset.body));
+  assert.equal(reset.body.config.screen, null);
+  assert.equal(reset.body.config.cardSize, null);
+
+  // Still refused: an unknown cardSize, and cols/rows directly (the grid
+  // remains something a screen and a cardSize come to, not a setting).
+  const badSize = await run('update_config', { cardSize: 'gigantic' }, board);
+  assert.equal(badSize.isError, true);
+  const badGrid = await run('update_config', { cols: 24 }, board);
+  assert.equal(badGrid.isError, true);
+});
+
 /* ---- error mapping ---- */
 
 test('handler rejections become isError results carrying the HTTP status', async () => {
