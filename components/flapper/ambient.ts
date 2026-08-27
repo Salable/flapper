@@ -19,6 +19,7 @@
  */
 
 import { idleAction, withFlicker, fidgetStyle } from '@/lib/board/idle.mjs';
+import { traveller, travellerFrame, withTraveller, runLength } from '@/lib/board/travellers.mjs';
 
 export function createAmbient(board: any) {
   /** Which fidget this board does. Set by `start`; classic until it is. */
@@ -36,6 +37,24 @@ export function createAmbient(board: any) {
   let settleTimer: ReturnType<typeof setInterval> | null = null;
   /** The board's own options, parked for the length of a fidget's gesture. */
   let parked: Record<string, unknown> | null = null;
+  /** Frame timer for a traveller, and the page it must put back after. */
+  let walkTimer: ReturnType<typeof setInterval> | null = null;
+  let walkBase: string[] | null = null;
+
+  /**
+   * Stop a traveller mid-walk and put the board back where it found it.
+   *
+   * Guarded the same way a misfire's restore is: if something else has
+   * painted since the last frame, the creature is abandoned rather than
+   * stamped over whatever arrived.
+   */
+  function endWalk(restore = true) {
+    if (walkTimer !== null) clearInterval(walkTimer);
+    walkTimer = null;
+    const base = walkBase;
+    walkBase = null;
+    if (restore && base) board.setPage(base);
+  }
 
   /**
    * Put the board back on its own Travel speed, now.
@@ -108,6 +127,7 @@ export function createAmbient(board: any) {
   function stop(restore = true) {
     if (ambientTimer !== null) clearInterval(ambientTimer);
     if (restoreTimer !== null) clearTimeout(restoreTimer);
+    endWalk(restore);
     // Before the restore below, so a board handed back mid-hurry is handed
     // back on its own Travel speed rather than a fidget's.
     unhurry();
@@ -126,6 +146,8 @@ export function createAmbient(board: any) {
     if (destroyed) return;
     if (!Number.isFinite(everyMs) || everyMs < 5000) return;
     ambientTimer = setInterval(() => {
+      // A creature already walking is the fidget; do not start a second one.
+      if (walkTimer !== null) return;
       if (board.isAnimating() || restoreTimer !== null) return;
       const page = board.page;
       if (!page || page.every((line: string) => line.trim() === '')) return;
@@ -144,6 +166,10 @@ export function createAmbient(board: any) {
       if (width === 0 || page.some((line: string) => line.length !== width)) return;
       const flat = page.join('');
       const action = idleAction(flat, board.charset, ambientTick, style);
+      if (action.kind === 'travel') {
+        walk(page, width, flat, action.traveller);
+        return;
+      }
       if (action.kind === 'sweep') {
         // Restore whatever the board was set to, not a hard-coded false: a
         // board configured to always flip would have quietly lost it.
@@ -171,6 +197,66 @@ export function createAmbient(board: any) {
         restore();
       }, style.holdMs);
     }, everyMs);
+  }
+
+  /**
+   * Walk a creature once round the board.
+   *
+   * Its own interval, because the ambient one is measured in seconds and a
+   * snake moves in frames. Each frame paints the standing page with only the
+   * creature's cells overwritten, so the board restores itself behind it
+   * with no bookkeeping - the cells it has left simply stop being in the
+   * frame. The colours it flies are borrowed for the whole walk and handed
+   * back at the end, the same loan a misfire takes.
+   */
+  function walk(page: string[], width: number, flat: string, name: string) {
+    const spec = traveller(name);
+    if (!spec) return;
+    const rows = page.length;
+    const total = runLength(spec, width, rows);
+    if (total === 0) return;
+
+    walkBase = page;
+    let frame = 0;
+    let last = flat;
+
+    const patch: Record<string, unknown> = { fastStepMs: Math.min(board.opts.fastStepMs, 30) };
+    if (style.flight) {
+      patch.flight = style.flight;
+      patch.flightStrength = style.flightStrength;
+    }
+    unhurry();
+    parked = {};
+    for (const key of Object.keys(patch)) parked[key] = board.opts[key];
+    board.setOptions(patch);
+
+    walkTimer = setInterval(() => {
+      // Something else painted the board - the creature gives way rather
+      // than fighting a message that has arrived.
+      const now = board.page;
+      if (!now || now.join('\u0000') !== rowsOf(last, width, rows).join('\u0000')) {
+        walkBase = null;
+        endWalk(false);
+        unhurry();
+        return;
+      }
+      if (frame >= total) {
+        endWalk();
+        unhurry();
+        return;
+      }
+      const cells = travellerFrame(spec, width, rows, frame);
+      last = withTraveller(flat, cells);
+      board.setPage(rowsOf(last, width, rows));
+      frame += 1;
+    }, spec.stepMs);
+  }
+
+  /** A flat page back into its rows. */
+  function rowsOf(flat: string, width: number, rows: number) {
+    const out: string[] = [];
+    for (let row = 0; row < rows; row += 1) out.push(flat.slice(row * width, (row + 1) * width));
+    return out;
   }
 
   /** For the way out. Not the restore - see `stop`'s own note. */

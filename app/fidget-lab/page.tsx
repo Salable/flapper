@@ -29,6 +29,8 @@ const NOTES: Record<string, string> = {
   twitchy: 'Three cards at once, most ticks, and a sweep now and then. For a busy space.',
   sweeping: 'Never a flicker - only the whole board turning over. For something being watched.',
   calm: 'Almost never, and it lingers when it does. For a quiet room.',
+  snake: 'A different animal: a creature that walks the edge, once round, and puts the board back behind it.',
+  'pac-man': 'The same, with three ghosts strung out behind him. ( is the mouth, O the ghosts - the ring has no sprites.',
 };
 
 export default function FidgetLab() {
@@ -72,7 +74,7 @@ export default function FidgetLab() {
                 pack={pack}
                 text={TEXT}
                 cols={16}
-                rows={3}
+                rows={4}
                 tilePx={40}
                 bar={false}
                 ambientMs={everyMs}
@@ -83,6 +85,7 @@ export default function FidgetLab() {
                 {style.flickerCount} · stepDistance {style.stepDistance} · holdMs {style.holdMs}
                 {style.returnStepMs !== null ? ` · returnStepMs ${style.returnStepMs}` : ''}
                 {style.flight ? ` · flight ${style.flight.length} colours @ ${style.flightStrength}` : ''}
+                {style.traveller ? ` · traveller "${style.traveller}" - walks the edge on its own clock` : ''}
               </p>
             </section>
           );
