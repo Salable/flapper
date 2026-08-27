@@ -1046,9 +1046,13 @@ Hold/Travel speed/Landing moved there because how a board moves belongs to
 its design - but those describe how a *tile* flips, whatever it is showing.
 A fidget is a thing done to particular words. Different layer.
 
-What it implies: the natural scope is per sheet, with a board-level
-default - the same shape *Per-sheet design* above already has. A busy
-sheet and a still one can want different fidgets on one board.
+Scope is the **board**, decided by Dan 27 Aug 2026: you select the fidget
+and its regularity, both on the board. (An earlier draft of this section
+reasoned its way to per-sheet from "happens to a slide" - overruled, and
+rightly. That a fidget acts *on* whatever slide is showing says which
+layer it operates in, not who chooses it. A fidget is a property of the
+installation - this wall twitches like this - not of any one message. The
+sheets come and go underneath it.)
 
 - [x] Decide whether a fidget is its own asset or part of the design -
       neither; it is an effect over a slide's content. Reasoning above.
@@ -1062,9 +1066,8 @@ sheet and a still one can want different fidgets on one board.
       question: a twitchier one for a busy space, a sweep-only one for
       something meant to be watched. Plus today's numbers as the default,
       under whatever it ends up being called.
-- [ ] Pick one per sheet, with a board-level default beside the rate in
-      BoardSidebar's Fidget field - the shape *Per-sheet design* already
-      has, for the same reason.
+- [ ] Two controls on the board, together in BoardSidebar's Fidget field:
+      **which fidget**, and **how regular**. Not per sheet.
 - [ ] The API and MCP surface for it, in step - `get_capabilities`, the
       validator's own message, and `docs/BOARD-API.md`.
 
