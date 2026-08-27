@@ -18,9 +18,11 @@
  * which is the one way this could have hurt.
  */
 
-import { idleAction, withFlicker } from '@/lib/board/idle.mjs';
+import { idleAction, withFlicker, fidgetStyle } from '@/lib/board/idle.mjs';
 
 export function createAmbient(board: any) {
+  /** Which fidget this board does. Set by `start`; classic until it is. */
+  let style: any = fidgetStyle(null);
   let ambientTimer: ReturnType<typeof setInterval> | null = null;
   let restoreTimer: ReturnType<typeof setTimeout> | null = null;
   let ambientTick = 0;
@@ -29,6 +31,56 @@ export function createAmbient(board: any) {
   /** Set once `destroy()` runs - a `start` racing in after must not arm a
    * timer against a board nobody owns any more. */
   let destroyed = false;
+  /** Watches for the fast return to finish so the board's own speed comes
+   * back. See `hurryHome` for why this cannot just be restored inline. */
+  let settleTimer: ReturnType<typeof setInterval> | null = null;
+  /** The board's own Travel speed, parked while a return is hurrying. */
+  let parkedStepMs: number | null = null;
+
+  /**
+   * Put the board back on its own Travel speed, now.
+   *
+   * Idempotent, and safe to call from anywhere: the way out, a new `start`,
+   * or the settle watcher noticing the return has landed.
+   */
+  function unhurry() {
+    if (settleTimer !== null) clearInterval(settleTimer);
+    settleTimer = null;
+    if (parkedStepMs !== null) {
+      board.setOptions({ fastStepMs: parkedStepMs });
+      parkedStepMs = null;
+    }
+  }
+
+  /**
+   * Make the journey home fast, and give it back afterwards.
+   *
+   * A tile only travels forward, so coming back from a one-step misfire is a
+   * whole lap of the ring - at the board's own Travel speed that reads as a
+   * full flip, the very thing a small tick was trying not to be. So a style
+   * may ask for the return alone to hurry.
+   *
+   * It cannot simply be set and unset around `setPage`: `stepDuration` reads
+   * `this.opts` afresh on every step (`flipboard.js`), so restoring inline
+   * would put the board back on its own speed before the first frame and the
+   * hurry would do nothing at all. It has to stay until the return lands,
+   * which is what the watcher below is for.
+   */
+  function hurryHome(run: () => void) {
+    const stepMs = style.returnStepMs;
+    if (stepMs === null || stepMs === undefined) {
+      run();
+      return;
+    }
+    unhurry();
+    parkedStepMs = board.opts.fastStepMs;
+    board.setOptions({ fastStepMs: stepMs });
+    run();
+    settleTimer = setInterval(() => {
+      if (board.isAnimating()) return;
+      unhurry();
+    }, 50);
+  }
 
   /*
    * `restore` is false on the way out.
@@ -42,6 +94,9 @@ export function createAmbient(board: any) {
   function stop(restore = true) {
     if (ambientTimer !== null) clearInterval(ambientTimer);
     if (restoreTimer !== null) clearTimeout(restoreTimer);
+    // Before the restore below, so a board handed back mid-hurry is handed
+    // back on its own Travel speed rather than a fidget's.
+    unhurry();
     ambientTimer = null;
     restoreTimer = null;
     const undo = undoFlicker;
@@ -51,8 +106,9 @@ export function createAmbient(board: any) {
 
   /** Off unless a board asks for it - a wall in an office should not clack
    * once a minute all night because a default said so. */
-  function start(everyMs: number) {
+  function start(everyMs: number, styleId?: string | null) {
     stop();
+    style = fidgetStyle(styleId ?? null);
     if (destroyed) return;
     if (!Number.isFinite(everyMs) || everyMs < 5000) return;
     ambientTimer = setInterval(() => {
@@ -73,7 +129,7 @@ export function createAmbient(board: any) {
       const width = page[0]?.length ?? 0;
       if (width === 0 || page.some((line: string) => line.length !== width)) return;
       const flat = page.join('');
-      const action = idleAction(flat, board.charset, ambientTick);
+      const action = idleAction(flat, board.charset, ambientTick, style);
       if (action.kind === 'sweep') {
         // Restore whatever the board was set to, not a hard-coded false: a
         // board configured to always flip would have quietly lost it.
@@ -91,14 +147,15 @@ export function createAmbient(board: any) {
         // Only if nothing else has painted since. A message that arrived
         // mid-flicker must not be replaced by the words it interrupted.
         const now = board.page;
-        if (now && now.join('\u0000') === flickered.join('\u0000')) board.setPage(page);
+        if (!now || now.join('\u0000') !== flickered.join('\u0000')) return;
+        hurryHome(() => board.setPage(page));
       };
       undoFlicker = restore;
       restoreTimer = setTimeout(() => {
         restoreTimer = null;
         undoFlicker = null;
         restore();
-      }, 900);
+      }, style.holdMs);
     }, everyMs);
   }
 

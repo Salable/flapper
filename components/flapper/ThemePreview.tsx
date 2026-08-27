@@ -31,6 +31,7 @@ export function ThemePreview({
   fixed = false,
   loop = 0,
   ambientMs = 0,
+  fidget,
   screenAspect,
   align,
   valign,
@@ -85,6 +86,11 @@ export function ThemePreview({
    * everywhere else Fidget is off unless a board asks for it.
    */
   ambientMs?: number;
+  /**
+   * Which fidget style the board does - the "what kind" beside `ambientMs`'s
+   * "how often". Omitted, the classic one every board has always done.
+   */
+  fidget?: string | null;
   /**
    * The screen a board's grid was fit to (its own `screen.w / screen.h`),
    * for framing the box against that instead of `cols / rows` directly.
@@ -318,8 +324,8 @@ export function ThemePreview({
   // reopening it.
   useEffect(() => {
     if (!ready) return;
-    ambientRef.current?.start(ambientMs);
-  }, [ambientMs, ready]);
+    ambientRef.current?.start(ambientMs, fidget ?? null);
+  }, [ambientMs, fidget, ready]);
 
   // On the way out, for good. A board with anything left to draw otherwise
   // keeps a frame loop alive on a canvas nobody can see, for the life of the

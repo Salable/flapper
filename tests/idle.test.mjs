@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { idleAction, withFlicker } from '../lib/board/idle.mjs';
+import { idleAction, withFlicker, fidgetStyle, FIDGET_STYLES } from '../lib/board/idle.mjs';
 
 /** The wordmark's ambient choreography: deterministic, restrained, total. */
 
@@ -51,4 +51,57 @@ test('a Set charset (what Flipboard actually passes) behaves like the array', ()
   for (let tick = 0; tick <= 60; tick += 1) {
     assert.deepEqual(idleAction('FLAPPER', asSet, tick), idleAction('FLAPPER', CHARSET, tick));
   }
+});
+
+test('a default style is byte-identical to the constants that preceded styles', () => {
+  // The whole safety claim of turning three constants into data: every board
+  // that names no style must behave exactly as it did before styles existed.
+  for (let tick = 0; tick <= 200; tick += 1) {
+    const bare = idleAction('FLAPPER', CHARSET, tick);
+    const classic = idleAction('FLAPPER', CHARSET, tick, FIDGET_STYLES.classic);
+    assert.deepEqual(classic, bare);
+  }
+});
+
+test('tick misfires to the ring neighbour and nowhere else', () => {
+  // The point of the style: a card ticks over, it does not jump the alphabet.
+  const ring = [...CHARSET];
+  let seen = 0;
+  for (let tick = 1; tick <= 300; tick += 1) {
+    const action = idleAction('FLAPPER', CHARSET, tick, FIDGET_STYLES.tick);
+    if (action.kind !== 'flicker') continue;
+    seen += 1;
+    const from = 'FLAPPER'[action.index];
+    const distance = (ring.indexOf(action.char) - ring.indexOf(from) + ring.length) % ring.length;
+    assert.equal(distance, 1, `tick ${tick} moved ${distance} steps, not 1`);
+  }
+  assert.ok(seen > 0, 'no flickers at all - the assertion above proved nothing');
+});
+
+test('a style with no sweeps never sweeps, and one with no flickers never flickers', () => {
+  for (let tick = 0; tick <= 200; tick += 1) {
+    assert.notEqual(idleAction('FLAPPER', CHARSET, tick, FIDGET_STYLES.tick).kind, 'sweep');
+    assert.notEqual(idleAction('FLAPPER', CHARSET, tick, FIDGET_STYLES.sweeping).kind, 'flicker');
+  }
+});
+
+test('flickerCount is how many tiles misfire at once, and never twice on one', () => {
+  let widest = 0;
+  for (let tick = 1; tick <= 200; tick += 1) {
+    const action = idleAction('FLAPPER', CHARSET, tick, FIDGET_STYLES.twitchy);
+    if (action.kind !== 'flicker') continue;
+    widest = Math.max(widest, action.picks.length);
+    assert.ok(action.picks.length <= FIDGET_STYLES.twitchy.flickerCount);
+    const indices = action.picks.map((p) => p.index);
+    assert.equal(new Set(indices).size, indices.length, 'one tile picked twice');
+    // withFlicker must place every one of them.
+    const shown = withFlicker('FLAPPER', action);
+    for (const { index, char } of action.picks) assert.equal(shown[index], char);
+  }
+  assert.ok(widest > 1, 'twitchy never actually flickered more than one tile');
+});
+
+test('an unknown style id falls back to classic rather than throwing', () => {
+  assert.deepEqual(fidgetStyle('no-such-style'), FIDGET_STYLES.classic);
+  assert.deepEqual(fidgetStyle(null), FIDGET_STYLES.classic);
 });
