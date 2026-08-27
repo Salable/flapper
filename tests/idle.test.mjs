@@ -28,13 +28,22 @@ test('sweeps are rare and rests are common - stillness is part of the design', (
   assert.ok(kinds.flicker >= 30, `flickers: ${kinds.flicker}`);
 });
 
-test('spaces never flicker; empty text always rests', () => {
-  for (let tick = 1; tick <= 60; tick += 1) {
+test('a fidget lands on any card, blank ones included; nothing at all rests', () => {
+  /*
+   * This test used to assert the opposite - that spaces never flicker. That
+   * was the old rule, and it quietly made a fidget a property of the words
+   * rather than of the board. It is the board's now: any card can misfire,
+   * blank or not, and a character surfacing in empty space is the point.
+   *
+   * A board with genuinely nothing on it is still left alone, but that guard
+   * lives in ambient.ts (it refuses to run on a blank page), not here.
+   */
+  let blanksSeen = 0;
+  for (let tick = 1; tick <= 200; tick += 1) {
     const action = idleAction('A B', CHARSET, tick);
-    if (action.kind === 'flicker') assert.notEqual(action.index, 1);
-    // All-space (and empty) text never flickers - only rests and sweeps.
-    assert.notEqual(idleAction('   ', CHARSET, tick).kind, 'flicker');
+    if (action.kind === 'flicker' && action.index === 1) blanksSeen += 1;
   }
+  assert.ok(blanksSeen > 0, 'the blank in "A B" never once fidgeted');
   assert.equal(idleAction('', CHARSET, 5).kind, 'rest');
 });
 

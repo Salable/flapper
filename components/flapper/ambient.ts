@@ -34,8 +34,8 @@ export function createAmbient(board: any) {
   /** Watches for the fast return to finish so the board's own speed comes
    * back. See `hurryHome` for why this cannot just be restored inline. */
   let settleTimer: ReturnType<typeof setInterval> | null = null;
-  /** The board's own Travel speed, parked while a return is hurrying. */
-  let parkedStepMs: number | null = null;
+  /** The board's own options, parked for the length of a fidget's gesture. */
+  let parked: Record<string, unknown> | null = null;
 
   /**
    * Put the board back on its own Travel speed, now.
@@ -46,9 +46,9 @@ export function createAmbient(board: any) {
   function unhurry() {
     if (settleTimer !== null) clearInterval(settleTimer);
     settleTimer = null;
-    if (parkedStepMs !== null) {
-      board.setOptions({ fastStepMs: parkedStepMs });
-      parkedStepMs = null;
+    if (parked !== null) {
+      board.setOptions(parked);
+      parked = null;
     }
   }
 
@@ -66,15 +66,29 @@ export function createAmbient(board: any) {
    * hurry would do nothing at all. It has to stay until the return lands,
    * which is what the watcher below is for.
    */
-  function hurryHome(run: () => void) {
-    const stepMs = style.returnStepMs;
-    if (stepMs === null || stepMs === undefined) {
+  function hurryHome(run: () => void, opts: { hurry?: boolean } = {}) {
+    const patch: Record<string, unknown> = {};
+    if (opts.hurry && style.returnStepMs !== null && style.returnStepMs !== undefined) {
+      patch.fastStepMs = style.returnStepMs;
+    }
+    /*
+     * A fidget is a mini flight, so it gets to say what colours the card
+     * passes through on the way. `flipboard.js` reads `opts.flight` ahead of
+     * the skin's, which is what makes this a loan rather than a change: the
+     * design's own flight comes back the moment the gesture lands.
+     */
+    if (style.flight) {
+      patch.flight = style.flight;
+      patch.flightStrength = style.flightStrength;
+    }
+    if (Object.keys(patch).length === 0) {
       run();
       return;
     }
     unhurry();
-    parkedStepMs = board.opts.fastStepMs;
-    board.setOptions({ fastStepMs: stepMs });
+    parked = {};
+    for (const key of Object.keys(patch)) parked[key] = board.opts[key];
+    board.setOptions(patch);
     run();
     settleTimer = setInterval(() => {
       if (board.isAnimating()) return;
@@ -142,13 +156,13 @@ export function createAmbient(board: any) {
       if (action.kind !== 'flicker') return;
       const changed = withFlicker(flat, action);
       const flickered = page.map((_: string, row: number) => changed.slice(row * width, (row + 1) * width));
-      board.setPage(flickered);
+      hurryHome(() => board.setPage(flickered));
       const restore = () => {
         // Only if nothing else has painted since. A message that arrived
         // mid-flicker must not be replaced by the words it interrupted.
         const now = board.page;
         if (!now || now.join('\u0000') !== flickered.join('\u0000')) return;
-        hurryHome(() => board.setPage(page));
+        hurryHome(() => board.setPage(page), { hurry: true });
       };
       undoFlicker = restore;
       restoreTimer = setTimeout(() => {

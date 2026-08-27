@@ -21,9 +21,12 @@ const TEXT = 'GATE 12 BOARDING';
 
 /** What each style is trying to be, in a sentence you can check by looking. */
 const NOTES: Record<string, string> = {
-  classic: 'What every board does today. A tile misfires anywhere in the set, then travels the long way home.',
-  tick: "Dan's: one card ticks over to its neighbour and hurries back. No sweeps.",
-  twitchy: 'Three tiles at once, most ticks, and a sweep now and then. For a busy space.',
+  classic: 'What every board does today. A card misfires anywhere in the set, then travels the long way home.',
+  tick: 'One card ticks over to its neighbour and hurries back. No sweeps, no colour.',
+  rainbow: 'A tick that flies a full spectrum on the way over and back.',
+  'pina-colada': 'Pineapple, coconut, a slice of lime. The same tick, drinking.',
+  scatter: 'A character surfaces somewhere and goes again - the whole set, not a step.',
+  twitchy: 'Three cards at once, most ticks, and a sweep now and then. For a busy space.',
   sweeping: 'Never a flicker - only the whole board turning over. For something being watched.',
   calm: 'Almost never, and it lingers when it does. For a quiet room.',
 };
@@ -36,10 +39,12 @@ export default function FidgetLab() {
   return (
     <main style={{ padding: 24, maxWidth: 1400, margin: '0 auto' }}>
       <h1>Fidget lab</h1>
-      <p className="ui-hint" style={{ maxWidth: 640 }}>
-        The same board and the same words, five times. The only difference is
-        which fidget each one is doing. Watch them for a minute rather than
-        reading the numbers — that is the whole point of the page.
+      <p className="ui-hint" style={{ maxWidth: 680 }}>
+        The same board and the same words, once per style. The only difference
+        is which fidget each one is doing. Watch them for a minute rather than
+        reading the numbers — that is the whole point of the page. Note that a
+        fidget lands on <b>any</b> card now, blank ones included, so watch the
+        empty space as much as the words.
       </p>
 
       <label style={{ display: 'block', margin: '16px 0' }}>
@@ -77,6 +82,7 @@ export default function FidgetLab() {
                 sweepEvery {style.sweepEvery} · restOdds {style.restOdds} · flickerCount{' '}
                 {style.flickerCount} · stepDistance {style.stepDistance} · holdMs {style.holdMs}
                 {style.returnStepMs !== null ? ` · returnStepMs ${style.returnStepMs}` : ''}
+                {style.flight ? ` · flight ${style.flight.length} colours @ ${style.flightStrength}` : ''}
               </p>
             </section>
           );
