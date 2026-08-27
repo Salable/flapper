@@ -287,4 +287,10 @@ test('a saved interrupter can carry align/valign, or rows instead of text - the 
   refused(() => validateInterrupterPreset({ name: 'FIRE', rows: ['', '   '] }), /rows must contain at least one/);
   // Neither text nor rows at all is still refused, same as before.
   refused(() => validateInterrupterPreset({ name: 'FIRE' }), /text is required/);
+  // wrap isn't silently dropped either, in either branch - a saved
+  // interrupter has no wrap of its own yet, so a caller sending it is told
+  // rather than having it vanish (caught in code review: this used to be
+  // the one option textOptions validates/rejects that this didn't mirror).
+  refused(() => validateInterrupterPreset({ name: 'FIRE', text: 'X', wrap: 'char' }), /wrap is not supported/);
+  refused(() => validateInterrupterPreset({ name: 'FIRE', rows: ['X'], wrap: 'char' }), /wrap does not apply when rows is given/);
 });

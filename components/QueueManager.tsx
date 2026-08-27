@@ -197,26 +197,38 @@ export function QueueManager({
    * gets, if the back of the queue is not where you want it.
    */
   async function addSlide() {
+    // Same reentrancy guard `act` uses, by hand - this doesn't go through
+    // `act` itself because it needs the created item's own id back (`act`
+    // only ever reports ok/not-ok) and needs to bail before posting at all
+    // once the queue's full. Without this, a fast double-click posted two
+    // blank slides at once and could push the queue past the cap the
+    // error above claims to enforce.
+    if (busyRef.current) return;
+    busyRef.current = true;
     setError('');
-    // The type's own cap rolls the oldest waiting item off to make room -
-    // built for a ticker fed by an API, where that item is disposable. On
-    // this rail, every item is a slide someone kept on purpose, and a blank
-    // filler is not worth losing one of them for. Refuse before that
-    // happens, rather than let it happen silently and call it "added".
-    const cap = snapshot?.config?.queueCap ?? 5;
-    if ((snapshot?.items.length ?? 0) >= cap) {
-      setError(`This board holds ${cap} message${cap === 1 ? '' : 's'} and is full - remove one, or raise Queue size in Settings, before adding another.`);
-      return;
+    try {
+      // The type's own cap rolls the oldest waiting item off to make room -
+      // built for a ticker fed by an API, where that item is disposable. On
+      // this rail, every item is a slide someone kept on purpose, and a blank
+      // filler is not worth losing one of them for. Refuse before that
+      // happens, rather than let it happen silently and call it "added".
+      const cap = snapshot?.config?.queueCap ?? 5;
+      if ((snapshot?.items.length ?? 0) >= cap) {
+        setError(`This board holds ${cap} message${cap === 1 ? '' : 's'} and is full - remove one, or raise Queue size in Settings, before adding another.`);
+        return;
+      }
+      const response = await post('/queue/items', 'POST', { text: '', loop: true });
+      if (!response.ok) {
+        const errBody = await response.json().catch(() => ({}));
+        setError(errBody.error || `HTTP ${response.status}`);
+        return;
+      }
+      const created = await response.json().catch(() => null);
+      await refresh();
+      if (created?.id) setSelectedId(created.id);
+    } finally {
+      busyRef.current = false;
     }
-    const response = await post('/queue/items', 'POST', { text: '', loop: true });
-    if (!response.ok) {
-      const errBody = await response.json().catch(() => ({}));
-      setError(errBody.error || `HTTP ${response.status}`);
-      return;
-    }
-    const created = await response.json().catch(() => null);
-    await refresh();
-    if (created?.id) setSelectedId(created.id);
     onSaved?.();
   }
 
@@ -256,6 +268,16 @@ export function QueueManager({
   async function savePreset() {
     const name = presetName.trim();
     if (name === '' || (presetRows === null && presetText.trim() === '')) return;
+    // Captured before the await, not read again after it - the rail
+    // selection can move to a different preset (or off a new, unsaved one)
+    // while this request is in flight, since only the Save button itself
+    // is disabled. Comparing against what it *was* when Save was clicked,
+    // rather than forcing it back to `name` unconditionally, is the same
+    // guard `deletePreset` already has for its own post-await state
+    // change - without it, a save landing after the user had switched away
+    // stole the rail's selection back and left every draft field on
+    // screen out of sync with what was actually just saved.
+    const wasSelectedName = presetSelectedName;
     setPresetSending(true);
     const body: Record<string, unknown> = { name };
     if (presetRows !== null) {
@@ -268,7 +290,7 @@ export function QueueManager({
     if (presetDuration !== '') body.durationMs = Number(presetDuration);
     const ok = await act(() => post('/interrupters', 'POST', body));
     setPresetSending(false);
-    if (ok) {
+    if (ok && presetSelectedName === wasSelectedName) {
       // Opens straight onto the saved tab - Fire is right there, the
       // moment there is something to fire.
       setPresetSelectedName(name);

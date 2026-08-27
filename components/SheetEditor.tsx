@@ -293,7 +293,23 @@ export function EditTextPopup({
     // should have the caret the instant this opens (the old textarea had
     // its own `autoFocus` for the same reason).
     gridRef.current?.focus();
-    return () => window.removeEventListener('keydown', onKey, true);
+    // Same scroll lock the shared Modal has (components/ui/Modal.tsx) and
+    // for the same reason - not built on Modal itself (see this file's own
+    // doc, the nested-Escape race), which meant this got left out as a
+    // side effect rather than a choice. Both <html> and <body>: this app's
+    // scrolling element is <html>, hiding overflow on body alone is a
+    // no-op.
+    const html = document.documentElement;
+    const body = document.body;
+    const previousHtmlOverflow = html.style.overflow;
+    const previousBodyOverflow = body.style.overflow;
+    html.style.overflow = 'hidden';
+    body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey, true);
+      html.style.overflow = previousHtmlOverflow;
+      body.style.overflow = previousBodyOverflow;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
@@ -335,9 +351,15 @@ export function EditTextPopup({
   });
   const contentCursor = Math.min(cols * rows - 1, wrapLast + 1);
   const trailingBreaks = text.length - wrapText.length;
+  // Clamp the final *position*, not the row before multiplying by cols -
+  // clamping the row alone always lands on column 0 of that row, which can
+  // already hold real content (a full last row + one more Enter used to
+  // snap the cursor back on top of it, rather than parking at the grid's
+  // own last cell the way every other "ran out of room" clamp in this
+  // file already does).
   const wrapCursor =
     trailingBreaks > 0
-      ? Math.min(rows - 1, Math.floor(contentCursor / cols) + trailingBreaks) * cols
+      ? Math.min(cols * rows - 1, (Math.floor(contentCursor / cols) + trailingBreaks) * cols)
       : contentCursor;
 
   /* One window, not two - switching Layout must never blank what's there.
@@ -392,6 +414,23 @@ export function EditTextPopup({
     setText((t) => t + event.clipboardData.getData('text'));
   }
 
+  /** Fold one typed key onto exactly one Free-text cell, the same rule the
+   * server's own `foldCell` (lib/board/layout.mjs) already applies at real
+   * render time - matched here so the editor never shows something the
+   * glass won't. Two things can break the one-key-one-cell invariant:
+   * some characters *widen* when uppercased (ß -> SS, on any German
+   * keyboard's own dedicated key) - written raw, that silently pushes
+   * every following character in the row one cell to the right, and the
+   * server's own row-width clipping then drops whatever fell off the end.
+   * Others simply aren't glyphs this board can draw at all (%, $, @...) -
+   * shown as typed here, then silently blanked for real. Both fold to a
+   * blank cell instead, same as the server does. */
+  function foldFreeChar(key: string): string {
+    const folded = key.toUpperCase();
+    if (folded.length !== 1) return ' ';
+    return EDITOR_CHARSET.has(folded) ? folded : ' ';
+  }
+
   /** One cell, written or cleared - the only mutation Free text has. */
   function writeCell(pos: number, char: string | null) {
     const r = Math.floor(pos / cols);
@@ -430,7 +469,7 @@ export function EditTextPopup({
     }
     if (event.key.length === 1 && !event.metaKey && !event.ctrlKey && !event.altKey) {
       event.preventDefault();
-      writeCell(freePos, event.key.toUpperCase());
+      writeCell(freePos, foldFreeChar(event.key));
       setFreePos(Math.min(total - 1, freePos + 1));
     }
   }
