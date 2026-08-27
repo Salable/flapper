@@ -877,9 +877,10 @@ in his own words; each needs its own look before it becomes real work.
       is left is not a diagnosis any more, it is a judgement call about a
       thing that works, so it is booked as its own later pass below rather
       than left open here pretending to be undiagnosed.
-- [ ] **The designer view uses clunky language.** A copy pass on
-      DesignEditor/DesignGallery's own wording - which strings, not yet
-      specified.
+- [x] **The designer view uses clunky language.** Parked 27 Aug 2026 at
+      Dan's call - moved to *Later: passes parked on purpose* below rather
+      than left here reading as unlooked-at. Still a copy pass on
+      DesignEditor/DesignGallery; still no list of which strings.
 - [ ] **The docs are probably a mess.** Broader than today's targeted
       BOARD-API/QUEUES/SCREENS/agents-doc fixes (see the review section
       above) - a real full-doc audit, not yet scoped.
@@ -900,20 +901,44 @@ in his own words; each needs its own look before it becomes real work.
       just a rate" question above is exactly that second reading. Not
       assumed either way; check first.
 
-## Later: a second look at the text editor
+## Later: passes parked on purpose
 
-Dan's 26 Aug flag above is closed - the editor was reviewed on 27 Aug 2026
-and is, in his words, "still not perfect but much better now". That last
-word is the whole entry: *better* is not *done*, and nobody has written
-down which part still reads as wrong.
+Two of Dan's 26 Aug flags are parked here rather than left in the
+not-yet-scoped list above, where an unscoped entry reads as "nobody has
+looked" when somebody has. Both are judgement calls about things that
+already work, and both are cheap to pick up whenever there is appetite.
 
-Deliberately not scoped now. The next pass starts by using it rather than
-by reading it - open the Edit sheet popup, compose a real multi-line
-message in both Word break and Free, and note where it fights back. Only
-then is there something worth calling a task.
+### A second look at the text editor
+
+Reviewed with Dan on 27 Aug 2026 and, in his words, "still not perfect but
+much better now". That last word is the whole entry: *better* is not
+*done*, and nobody has written down which part still reads as wrong.
+
+The next pass starts by using it rather than by reading it - open the Edit
+sheet popup, compose a real multi-line message in both Word break and Free,
+and note where it fights back. Only then is there something worth calling a
+task.
 
 - [ ] Use the text editor properly and write down what is still off about
       it, in specifics. Not a rewrite; a list.
+
+### The designer view's wording
+
+Parked 27 Aug 2026. A copy pass on DesignEditor/DesignGallery, still with
+no list of which strings are the clunky ones - which is exactly why it is
+parked rather than started.
+
+Worth knowing before it begins: the same job was just done properly one
+group over. **Travel speed** and **Full revolution** (the *Named for the
+mechanism* work above) are the standard - a label says what the control
+does, and every place that names it agrees, docs included. That pass also
+found the real cost of getting this wrong: five documents still routed
+people to a "Settings → Display → Theme" that does not exist. Copy drifts
+quietly, so the deliverable is the sweep, not just the new words.
+
+- [ ] Go through DesignEditor and DesignGallery's own strings and list the
+      ones that name something other than what it does. Then rename them
+      everywhere they are shown or referenced, docs included.
 
 ## Found today, not fixed: Scheduled has no board preview at all
 
