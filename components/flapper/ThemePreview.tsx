@@ -190,8 +190,8 @@ export function ThemePreview({
         .then((skin) => {
           if (cancelled) return;
           /*
-           * The flip's mechanical feel comes from the pack too - Scroll
-           * speed, Landing, Sweep, Sweep shape, Always flip - so a design
+           * The flip's mechanical feel comes from the pack too - Travel
+           * speed, Landing, Sweep, Sweep shape, Full revolution - so a design
            * being edited previews how it moves, not just what colour it is.
            * `dwellMs` is not here: that is a queue's pacing between
            * messages, and this preview has no queue, just a demo replay.
@@ -201,7 +201,7 @@ export function ThemePreview({
            * every pass, not just the first: a board already built still
            * needs these re-applied on every later pack change, the same as
            * setSkin two lines down - otherwise a slider moved after the
-           * first paint (Always flip included) changes nothing on screen.
+           * first paint (Full revolution included) changes nothing on screen.
            */
           const advanced = { ...PACK_DEFAULTS.advanced, ...((pack as any)?.advanced ?? {}) };
           if (!boardRef.current) {

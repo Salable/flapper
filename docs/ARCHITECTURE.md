@@ -103,7 +103,7 @@ connection with heartbeats, and the display catches up on its next refetch
 ### A theme, from the editor to every display
 
 ```
-Settings → Display → Theme   components/ThemeSettings.tsx
+/designs/{id} (DesignEditor)  components/ThemeSettings.tsx
   lib/board/theme-editor.mjs   draft operations; draftToPatch = the diff from the preset
 PATCH /api/b/{slug}/config   {theme, themePack}
   lib/board/board-theme.mjs    merge onto the preset, validate, store only the difference

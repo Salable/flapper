@@ -29,8 +29,9 @@ or ChatGPT, or over a REST API from anywhere.
   needs it
 - **A look of its own per board** — start from Classic or Canary, change the
   palette, the type, the hinge, the motion, give any character its own ink
-  or an uploaded mark, on a live board in Settings → Display → Theme; saved
-  as the difference from the preset and drawn the same on every display
+  or an uploaded mark, in the design editor at **/designs** — and the board's
+  own sidebar picks which design it wears; saved as the difference from the
+  preset and drawn the same on every display
 - **An MCP server built in** — add `/api/mcp` as a connector in claude.ai,
   Claude Desktop, Claude Code, or ChatGPT and sign in; the agent can list,
   create, and drive your boards. A single board connects with its key alone.

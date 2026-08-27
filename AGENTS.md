@@ -230,7 +230,8 @@ Mute and volume (M, ↑/↓) are the display's, kept in localStorage under
 ### Add a theme
 
 A theme is the *same* ring in different paint. A board's theme is in its
-config (`PATCH /config {"theme":"canary"}`, or Settings → Display → Theme);
+config (`PATCH /config {"theme":"canary"}`, or the board's sidebar under
+**Design & shape**);
 the display loads the new skin in the background and `Flipboard.setSkin()`
 swaps it under the tiles in place. Every registered id reaches the
 validator, the theme editor's preset picker, `/capabilities` and the MCP
@@ -251,8 +252,9 @@ To ship a new preset, add a pack to `THEMES` in `themes.mjs`:
 `validatePack` runs at module load, so a bad value fails `npm test`, not the
 wall. Every field and its range is in `PACK_DEFAULTS`/`RANGES` in
 `theme-pack.mjs`; unspecified fields are the Classic look. Iterate in a
-board's Settings → Display → Theme, which draws the pack live and has the
-whole thing as JSON under "Advanced"; copy it back here when it is right. A
+design editor at `/designs/{id}`, which draws the pack live and has the
+whole thing as JSON under "Advanced: the pack as JSON"; copy it back here
+when it is right. A
 pack cannot change the ring — that is `RING`, above.
 
 Boards that were set to `classic-p` or `canary-p` while the drawn themes ran
@@ -264,14 +266,24 @@ a sparse set of overrides on top of its `theme` (`lib/board/board-theme.mjs`
 - merge, limits, `sparsify`, the revision). The server stores only what
 differs from the preset, `/queue` carries just the revision, and the display
 fetches `/theme` when it moves. `docs/BOARD-API.md` "A board's own look" is
-the contract; Settings → Display → Theme (`components/ThemeSettings.tsx`,
-decisions in `lib/board/theme-editor.mjs`) is the UI for it.
+the contract; the design editor at `/designs/{id}` (`DesignEditor` wrapping
+`components/ThemeSettings.tsx`, decisions in `lib/board/theme-editor.mjs`) is
+the UI for it, and a board's sidebar under **Design & shape** picks which
+design it wears.
 
 ### Change how it moves
 
-Everything is in `lib/board/timing.mjs` and live-tunable from the panel under
-**Motion**, or over `PATCH /api/b/{slug}/config`: `fastStepMs`,
-`landStepMs`, `easeSteps`, `sweepMs`, `staggerMode`.
+Everything is in `lib/board/timing.mjs`. How a board moves belongs to its
+**design**, not to the board, so it is tuned in the design editor at
+`/designs/{id}` under **Advanced** — Hold (`dwellMs`), Travel speed
+(`fastStepMs`), Landing (`landStepMs`), Frame gap (`frameMs`), Sweep
+(`sweepMs`), Sweep shape (`staggerMode`) and Full revolution
+(`alwaysFlip`) — or by writing
+`themePack.advanced` over the API. `PATCH /api/b/{slug}/config` *refuses*
+all seven with a 422 naming where they moved (`lib/api/validators.mjs`);
+they were board settings once and the refusal is deliberate. `easeSteps` is
+not among them: it is an internal `timing.mjs` default and the pack does not
+carry it.
 
 ### Change the layout rules
 

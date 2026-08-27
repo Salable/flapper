@@ -644,11 +644,11 @@ separate PR" turned out to fit on this branch after all.*
 
 Six of the ten fields there describe how the physical board moves, not what a
 particular board is showing, and belong in the design instead: **Hold**
-(`dwellMs`), **Scroll speed** (`fastStepMs`), **Landing** (`landStepMs`),
-**Sweep** (`sweepMs`), **Sweep shape** (`staggerMode`), **Always flip**
+(`dwellMs`), **Travel speed** (`fastStepMs`), **Landing** (`landStepMs`),
+**Sweep** (`sweepMs`), **Sweep shape** (`staggerMode`), **Full revolution**
 (`alwaysFlip`). Two of those are already shared machinery, not just
 similar in kind: the fidget system's own "sweep" idle action borrows Sweep,
-Sweep shape and Always flip rather than owning copies, so a design's value is
+Sweep shape and Full revolution rather than owning copies, so a design's value is
 the only one that will exist once this lands.
 
 Three stay exactly where they are, per-board and per-slide, WYSIWYG: **Align**,
@@ -657,7 +657,7 @@ board moves.
 
 **Fidget** stays a per-board setting, in its own section - some walls want a
 quiet board and some want personality, regardless of which design is worn. It
-stops carrying its own Sweep/Sweep shape/Always flip and reads whichever
+stops carrying its own Sweep/Sweep shape/Full revolution and reads whichever
 design the board wears for them when it acts.
 
 **Hold** specifically: hidden entirely on a static board (a sign). Verified
@@ -670,12 +670,22 @@ back to the design's Hold instead of the board's.
 - [x] A new pack section for the six fields - called `advanced` for now.
       No existing section fit: `motion` was already taken, for the flip's
       lighting (shading/shadow/highlight/perspective) (`6aeb2a1`).
-- [ ] Rename **Scroll speed** - it is the mid-flip cycling speed, not
-      scrolling (see "There is no scrolling" below). Still open; naming was
-      deliberately left for later.
-- [ ] Rename **Always flip** - flagged as unclear. What it does: force every
+- [x] Rename **Scroll speed** - it is the mid-flip cycling speed, not
+      scrolling (see "There is no scrolling" below). Now **Travel speed**,
+      which pairs with the **Landing** beside it and matches the pair the
+      keys already made (`fastStepMs`/`landStepMs`): a tile travels, then
+      it lands.
+- [x] Rename **Always flip** - flagged as unclear. What it does: force every
       tile through a full revolution even when the letter is unchanged, as a
-      permanent style choice. Still open, same reason.
+      permanent style choice. Now **Full revolution**, which is what
+      `flipboard.js` already called it in its own comment. The pack keys
+      (`fastStepMs`, `alwaysFlip`) are unchanged - they are API contract and
+      were never the confusing part. Renamed wherever either label is shown
+      or named: the theme editor, the MCP `themePack` description an agent
+      reads, and the prose in BoardApp/ThemePreview/headless-board/
+      board-types. AGENTS.md's "Change how it moves" was stale on more than
+      the names - it still sent callers to `PATCH /config`, which has
+      refused all seven with a 422 since they moved to the design's pack.
 - [x] The compose panel's "Hold: Board default" falls back to the design's
       Hold rather than `config.dwellMs` - not a separate change: the
       controller's own default dwellMs is populated from the resolved pack
@@ -684,7 +694,7 @@ back to the design's Hold instead of the board's.
 - [x] Hold hidden wherever it is offered on a static board - the compose
       panel and the sidebar (Display no longer exists) (`6aeb2a1`, `2571577`).
 - [x] Fidget's sweep action reads the resolved pack's Sweep, Sweep shape and
-      Always flip rather than its own copies - also not separate work: the
+      Full revolution rather than its own copies - also not separate work: the
       board's own opts (which the fidget system reads) are populated from the
       resolved pack, so there is only ever one copy (`6aeb2a1`).
 

@@ -366,7 +366,7 @@ export function ThemeSettings({
                       TODO.md, "Board motion belongs to the design". */}
                   <legend>Advanced</legend>
                   {slider('Hold', 'advanced.dwellMs', 25)}
-                  {slider('Scroll speed', 'advanced.fastStepMs')}
+                  {slider('Travel speed', 'advanced.fastStepMs')}
                   {slider('Landing', 'advanced.landStepMs')}
                   {slider('Sweep', 'advanced.sweepMs', 5)}
                   <Field label="Sweep shape" htmlFor="th-stagger">
@@ -382,7 +382,7 @@ export function ThemeSettings({
                       ))}
                     </Select>
                   </Field>
-                  <Field label="Always flip" htmlFor="th-always-flip">
+                  <Field label="Full revolution" htmlFor="th-always-flip">
                     <Checkbox
                       id="th-always-flip"
                       label="Every tile does a full revolution, even unchanged"

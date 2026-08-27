@@ -50,7 +50,7 @@ entrances: modals, tab panels, hero tiles. Stagger children with
 | `useConfirm` | destructive/irreversible actions — **native `confirm()` is banned** |
 | `Card`, `Chip`, `Segmented`, `EmptyState` | layout & state vocabulary |
 | `ColorInput` | a colour as a theme pack holds it — the text is the truth (raw while typing, committed on blur/Enter once it parses), the native picker a second writer of `#rrggbb`, a swatch, and a None for nullable fields |
-| `ThemePreview` (components/flapper/) | a board drawn from a pack, re-skinned (debounced) as the pack changes; the live half of Settings → Display → Theme |
+| `ThemePreview` (components/flapper/) | a board drawn from a pack, re-skinned (debounced) as the pack changes; the live half of the design editor at /designs/{id} |
 | `rasterize.ts` (components/flapper/) | an uploaded image as a theme pack wants it: ≤ 128 px, WebP or PNG, inline, under the art size cap |
 | `SiteFooter` | the company line and the legal documents, on every product page |
 | `CopyButton`, `KeyReveal` | credentials and copyable values — a secret is shown only behind Reveal; any text that quotes it renders through `maskSecret` (lib/api/mask.mjs) and copies the real value |

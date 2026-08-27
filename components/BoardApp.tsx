@@ -54,7 +54,7 @@ function sanitizeConfig(config: any) {
 /**
  * How the board moves, from the design rather than the board.
  *
- * Hold, Scroll speed, Landing, Sweep, Sweep shape and Always flip are
+ * Hold, Travel speed, Landing, Sweep, Sweep shape and Full revolution are
  * `pack.advanced` now - a property of the design being worn, not of this
  * board's own config - so they reach the controller from here instead of
  * from sanitizeConfig above. Read on every theme resolution, so a design

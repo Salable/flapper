@@ -58,7 +58,7 @@ connected.
   React components are in the same position. Anything with a decision in it
   belongs in `lib/board/`, `lib/api/`, or `lib/db/` instead.
   The skins are tested against a stub 2D context (call sequence, not
-  pixels); for *looks*, open a board's Settings → Display → Theme.
+  pixels); for *looks*, open a design in the editor at `/designs/{id}`.
 - **`lib/auth.ts` changes need a dev-server restart.** `getAuth` is one of
   the `globalThis` singletons below, so editing Better Auth options (fields,
   hooks) while `npm run dev` runs leaves the old instance serving; a signup
