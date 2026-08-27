@@ -173,7 +173,19 @@ grid; the real build diverged from that in one place, deliberately:
   now there usually isn't a literal `\n` in typed text at all. Found via
   screenshot (a 39-character typed string round-tripped through Free and
   back landed 20 characters) before it shipped, fixed by seeding Free
-  from the already-wrapped page instead of the raw buffer. Carries its
+  from the already-wrapped page instead of the raw buffer. **A second real
+  bug, caught the same way (screenshot, Dan looking at it live):** an
+  accidental run of extra Enters at the end of a line, with nothing typed
+  after them, silently pushed "centre" off centre - `layout()` counts every
+  blank line toward vertical centring, so trailing blanks ate into the slack
+  a real paragraph gap is supposed to use, and Backspace *did* remove them
+  one at a time but nothing visible changed until enough were gone to shift
+  a whole row - "i cant undo them," correctly, there was no way to see it
+  working. Fixed at the popup level (not in `layout()` itself, which plenty
+  else still relies on): trailing Enters with nothing after them are
+  trimmed before preview and before save, so they're simply inert rather
+  than needing to be found and undone - Enter typed *between* real text is
+  untouched, still a real paragraph gap. Carries its
   own **Align** (left/center/right)
   and **Valign** (top/middle/bottom) dropdowns - the full three-way ×
   three-way pair, after a pass that tried to simplify it away to "always

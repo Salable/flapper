@@ -304,7 +304,16 @@ export function EditTextPopup({
    * cursor: the cell right after the last non-blank character, the same
    * technique `switchLayout` below already uses to place Free's cursor
    * after a carried-over switch. */
-  const wrapped = layoutText(text, {
+  // Trailing Enters with nothing typed after them are inert, not stored -
+  // `layout()` counts every blank line toward vertical centering (a real
+  // paragraph gap should push content off-centre), so an accidental run of
+  // Enters at the end silently pushed "centre" upward with no visible way
+  // to tell Backspace was working (removing one from a trailing run
+  // changes the maths but not anything on screen until enough are gone to
+  // shift a whole row - Dan hit exactly this: "i cant undo them"). Enter
+  // typed *between* real text is untouched - that's a wanted paragraph gap.
+  const wrapText = text.replace(/\n+$/, '');
+  const wrapped = layoutText(wrapText, {
     cols,
     rows,
     align,
@@ -417,7 +426,7 @@ export function EditTextPopup({
 
   async function done() {
     setSaving(true);
-    const patch: TextPatch = layout === 'free' ? { rows: freeRows } : { text, align, valign };
+    const patch: TextPatch = layout === 'free' ? { rows: freeRows } : { text: wrapText, align, valign };
     const ok = await onSave(patch);
     setSaving(false);
     if (ok) onClose();
