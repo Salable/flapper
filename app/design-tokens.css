@@ -29,6 +29,13 @@
   --danger: #e08870;         /* destructive, errors */
   --danger-dim: rgba(224, 136, 112, 0.4);
   --ring: var(--amber);      /* keyboard focus - attention, so amber */
+  /* The text designer's own field focus, deliberately not --ring - amber is
+     right everywhere else (the universal ring exists to fix a real 2.17:1
+     contrast failure, WCAG wants 3:1), but on a field stared at while
+     writing it read as a stamped orange box. Bone ink instead: still a real
+     fix (near --ink's own contrast), just not shouting. See TODO.md, "Focus
+     indicator". */
+  --ring-quiet: rgba(236, 231, 221, 0.85);
 
   /* ---- type ---- */
   --font-mono: var(--next-font-mono, ui-monospace, "SF Mono", Menlo, monospace);

@@ -32,6 +32,9 @@ export function ThemePreview({
   loop = 0,
   ambientMs = 0,
   screenAspect,
+  align,
+  valign,
+  wrap,
 }: {
   pack: ThemePack;
   /**
@@ -94,6 +97,15 @@ export function ThemePreview({
    * preview with no screen of its own to be true to (Designs, /new).
    */
   screenAspect?: number;
+  /**
+   * How `text` lays out, passed straight through to `Flipboard.setText`'s
+   * own overrides (`lib/board/layout.mjs`'s `align`/`valign`/`wrap`) -
+   * omitted, the layout engine's own defaults apply (center/middle/word),
+   * same as before this prop existed.
+   */
+  align?: 'left' | 'center' | 'right';
+  valign?: 'top' | 'middle' | 'bottom';
+  wrap?: 'word' | 'char' | 'none';
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const boardRef = useRef<any>(null);
@@ -135,6 +147,23 @@ export function ThemePreview({
   const gap = Math.round(tilePx * 0.035);
   const width = cols * tilePx + (cols - 1) * gap + 12;
   const height = rows * tilePx + (rows - 1) * gap + 12;
+
+  /*
+   * Only the keys actually given - `layout()` (`lib/board/layout.mjs`)
+   * spreads its defaults under `options`, and an explicit `align:
+   * undefined` in that spread overrides the default to undefined rather
+   * than leaving it alone (`{...{align:'center'}, ...{align: undefined}}`
+   * is `{align: undefined}`, not `{align:'center'}`). `alignLine`'s own
+   * fallback for anything that isn't 'right'/'center' reads as 'left', so
+   * every caller that doesn't pass these - which is everywhere but the
+   * one panel that will - would have silently gone left/top/word instead
+   * of the engine's real center/middle/word default.
+   */
+  const layoutOverrides: { align?: string; valign?: string; wrap?: string } = {
+    ...(align !== undefined ? { align } : {}),
+    ...(valign !== undefined ? { valign } : {}),
+    ...(wrap !== undefined ? { wrap } : {}),
+  };
 
   /*
    * A fixed board already knows its own exact pixel box (`width`/`height`
@@ -194,7 +223,7 @@ export function ThemePreview({
             // when it starts observing - before this board exists - and never
             // again if the box does not change afterwards.
             if (!fixed) requestAnimationFrame(() => boardRef.current?.resize());
-            boardRef.current.setText(firstText.current);
+            boardRef.current.setText(firstText.current, layoutOverrides);
             ambientRef.current = createAmbient(boardRef.current);
             setReady(true);
           } else {
@@ -313,13 +342,14 @@ export function ThemePreview({
     // blanking first would send every tile from the blank and make the travel
     // even again, which is the thing we are trying to show.
     if (replays === 0 || messages.length > 1) {
-      board.setText(showing);
+      board.setText(showing, layoutOverrides);
       return;
     }
     board.clear();
-    const timer = setTimeout(() => board.setText(showing), 400);
+    const timer = setTimeout(() => board.setText(showing, layoutOverrides), 400);
     return () => clearTimeout(timer);
-  }, [showing, replays, messages.length]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showing, replays, messages.length, align, valign, wrap]);
 
   // A board that is demonstrating rather than sitting still.
   useEffect(() => {

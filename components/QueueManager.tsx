@@ -22,33 +22,9 @@ import { Button } from '@/components/ui/Button';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { Field, Select, TextInput } from '@/components/ui/Field';
 import { ThemePreview } from '@/components/flapper/ThemePreview';
+import { SheetEditor } from '@/components/SheetEditor';
+import { type QueueItem, payloadToBody } from '@/components/queue-item';
 import type { ThemePack } from '@/lib/board/theme-pack.mjs';
-
-/*
- * A stored item's payload is not the shape you posted it in: `rows` arrives
- * as a top-level field (rowsOption reads body.rows) and comes back nested
- * under `options` (textOptions builds { text, options: { rows, ... } } for
- * either mode). `text` is always present, empty string for a rows-mode item.
- */
-type QueueItem = {
-  id: string;
-  payload: { text?: string; options?: { rows?: string[]; [key: string]: unknown } };
-  loop: boolean;
-  source: string;
-  /** When this item is gone outright, not just done with its turn - null
-   * (the default) means it stands until dismissed. */
-  expiresAtMs?: number | null;
-};
-
-/** The stored shape, turned back into something POST /queue/items accepts. */
-function payloadToBody(payload: QueueItem['payload'] | undefined): Record<string, unknown> {
-  if (!payload) return {};
-  const { text, options } = payload;
-  // `options` already uses the input's own key names (rows included - it is
-  // nested here but top-level on the way in), so spreading it reconstructs
-  // the original body; `text` only belongs back in it when there was one.
-  return { ...(options ?? {}), ...(text ? { text } : {}) };
-}
 
 /** A saved interrupter - named once, fired by that name later, never sent
  * straight from typed text. `durationMs` is one or the other: a number is
@@ -137,12 +113,12 @@ export function QueueManager({
    * would slip past `act`'s own `busyRef` reentrancy check and read as
    * having fired when the request was never sent. */
   const [presetFiring, setPresetFiring] = useState<string | null>(null);
-  /** Which slide the tab rail has open, and the text box's own draft for it -
-   * kept apart from the item's own stored text so a keystroke mid-edit is
-   * never clobbered by the next poll landing behind it. */
+  /** Which slide the tab rail has open. Its own content is edited in
+   * SheetEditor now, a popup with its own local draft state and an
+   * explicit Save/Cancel - nothing here needs a draft of its own to
+   * protect from the poll the way inline editing once did. */
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [draftText, setDraftText] = useState('');
-  const [nameDraft, setNameDraft] = useState('');
+  const [editorOpen, setEditorOpen] = useState(false);
   const [error, setError] = useState('');
   const busyRef = useRef(false);
   const { confirm, dialog } = useConfirm();
@@ -228,7 +204,10 @@ export function QueueManager({
     await refresh();
     if (created?.id) {
       setSelectedId(created.id);
-      setDraftText('');
+      // Straight into editing it - a blank slide with no editor open on
+      // it, now that editing lives behind a button rather than always
+      // being the panel, would just look like nothing happened.
+      setEditorOpen(true);
     }
     onSaved?.();
   }
@@ -377,39 +356,15 @@ export function QueueManager({
     return undefined;
   }
 
-  /**
-   * Save the text panel's current draft against `item`, if it actually
-   * changed. Blur used to just close the field and drop whatever was typed -
-   * the same shape of bug ColorInput's own commit-on-blur exists to avoid
-   * elsewhere in this app. Enter, clicking another tab, and clicking away
-   * all save now; only Escape discards, by reverting the draft in place
-   * rather than closing anything - there is no longer a closed state to
-   * return to, the panel always shows whichever tab is selected.
-   */
-  function commitDraft(item: QueueItem) {
-    const text = draftText.trim();
-    if (text === '' || text === (item.payload.text ?? '')) {
-      setDraftText(item.payload.text ?? '');
-      return;
-    }
-    // Merged over the item's existing payload, not sent as text alone - the
-    // handler rebuilds the whole entry from whatever body it gets, so a bare
-    // {text} would silently drop this item's align/valign/wrap the moment
-    // you fixed a typo.
-    act(() => post(`/queue/items/${item.id}`, 'PATCH', { ...payloadToBody(item.payload), text }));
-  }
-
-  /** Switch the rail's selection, saving whatever draft the tab you're
-   * leaving had - so clicking straight from one slide to another never
-   * silently drops an edit the way blur alone would have missed. */
+  /** Switch the rail's selection. Editing a slide's content is SheetEditor's
+   * own popup now, with its own draft and an explicit Save/Cancel - nothing
+   * to commit or revert here on the way out the way inline editing once
+   * needed. */
   function selectItem(item: QueueItem) {
-    if (selected) {
-      commitDraft(selected);
-      commitName(selected);
-    }
     setSelectedId(item.id);
-    setDraftText(item.payload.text ?? '');
-    setNameDraft(nameOf(item));
+    // Reopening on a different slide than whichever one is being edited
+    // would be editing the wrong thing.
+    setEditorOpen(false);
     // Same reasoning as selectPreset's own reset: a failed reorder/add on
     // the tab you're leaving should not go on reading as still-current
     // once you're looking at a different slide entirely.
@@ -433,6 +388,18 @@ export function QueueManager({
     if (value === '') delete body.dwellMs;
     else body.dwellMs = Number(value);
     act(() => post(`/queue/items/${item.id}`, 'PATCH', body));
+  }
+
+  /** Align/Valign, read-only here - SheetEditor is what sets them now. Kept
+   * for the outer preview beside the rail, which shows the item's own
+   * saved layout, not a draft (there is no draft out here any more). */
+  function alignOf(item: QueueItem): 'left' | 'center' | 'right' | '' {
+    const align = item.payload.options?.align;
+    return align === 'left' || align === 'center' || align === 'right' ? align : '';
+  }
+  function valignOf(item: QueueItem): 'top' | 'middle' | 'bottom' | '' {
+    const valign = item.payload.options?.valign;
+    return valign === 'top' || valign === 'middle' || valign === 'bottom' ? valign : '';
   }
 
   function label(item: QueueItem) {
@@ -471,17 +438,6 @@ export function QueueManager({
     return item.payload.options?.interrupt === true;
   }
 
-  /** Save the name panel's current draft against `item` - same shape as
-   * commitDraft, a field of its own rather than text's, so clearing it back
-   * to '' is enough to drop the override rather than needing a sentinel. */
-  function commitName(item: QueueItem) {
-    const name = nameDraft.trim();
-    if (name === nameOf(item)) return;
-    const body = { ...payloadToBody(item.payload) };
-    if (name === '') delete body.label;
-    else body.label = name;
-    act(() => post(`/queue/items/${item.id}`, 'PATCH', body));
-  }
 
   // The board's own dwell, from the design itself - "Board default" in the
   // Hold field otherwise names a number nobody can see without going and
@@ -539,9 +495,9 @@ export function QueueManager({
   // select - defaulting to whatever is playing, so the rail opens on the
   // thing you are most likely watching. Only runs when the current
   // selection is gone (nothing yet, or the selected item was removed
-  // elsewhere): every other poll leaves selectedId and draftText alone, or
-  // a keystroke mid-edit would be clobbered the moment the next poll
-  // landed.
+  // elsewhere): every other poll leaves selectedId alone, or the tab
+  // you're looking at (or editing, in SheetEditor) would jump out from
+  // under you the moment the next poll landed.
   useEffect(() => {
     // Recomputed from `items`, not read from the `railItems` above - a
     // fresh .filter() result on every render would never compare equal to
@@ -556,8 +512,6 @@ export function QueueManager({
     if (selectedId && rail.some((entry) => entry.id === selectedId)) return;
     const next = rail.find((entry) => entry.id === playingId) ?? rail[0];
     setSelectedId(next.id);
-    setDraftText(next.payload.text ?? '');
-    setNameDraft(nameOf(next));
   }, [items, selectedId, playingId]);
 
   // Opens on the first saved interrupter, the same reasoning the rail
@@ -578,11 +532,15 @@ export function QueueManager({
   // single line would silently throw its row structure away on save, so it
   // stays read-only wherever it would otherwise take the live draft.
   const selectedIsRows = Boolean(selected) && !selected!.payload.text && Array.isArray(selected!.payload.options?.rows);
-  // What you actually have open, live as you type it - not necessarily what
-  // is playing (the preview caption below says "not what is playing" when
-  // they differ; the rail itself carries no such marker - "playing" and
-  // "being looked at" are different things, said once, not on every tab).
-  const previewText = selected ? (selectedIsRows ? label(selected) : draftText) : '';
+  // The item's own saved content - not a live draft (there is no draft out
+  // here any more; SheetEditor's own preview, inside the popup, is what
+  // shows live-as-you-type now). Not necessarily what is playing either -
+  // the caption below says "not what is playing" when they differ.
+  const previewText = selected ? (selectedIsRows ? label(selected) : (selected.payload.text ?? '')) : '';
+  // '' (board default) becomes undefined so ThemePreview falls back to the
+  // layout engine's real default rather than an empty string it would refuse.
+  const previewAlign = selected && !selectedIsRows ? alignOf(selected) || undefined : undefined;
+  const previewValign = selected && !selectedIsRows ? valignOf(selected) || undefined : undefined;
 
   return (
     <>
@@ -632,64 +590,17 @@ export function QueueManager({
                 ) : (
                   selected &&
                   (() => {
-                    // Editing a rows item as a single line would silently
-                    // throw its row structure away on save (Hold, Name, and
-                    // reordering are still safe; none touches the payload's
-                    // text/rows shape).
-                    const isRowsItem = selectedIsRows;
                     return (
                       <div className="queue-panel">
-                        <Field
-                          label="Name"
-                          htmlFor="queue-panel-name"
-                          hint="What the rail calls this slide - not what it says. Blank shows the text itself instead."
-                        >
-                          <TextInput
-                            id="queue-panel-name"
-                            value={nameDraft}
-                            placeholder={label(selected)}
-                            onChange={(event) => setNameDraft(event.target.value)}
-                            onKeyDown={(event) => {
-                              if (event.key === 'Enter') commitName(selected);
-                              if (event.key === 'Escape') setNameDraft(nameOf(selected));
-                            }}
-                            onBlur={(event) => {
-                              const next = event.relatedTarget as Node | null;
-                              if (next && event.currentTarget.parentElement?.parentElement?.contains(next)) return;
-                              commitName(selected);
-                            }}
-                          />
-                        </Field>
-                        <div className="queue-panel-text">
-                          <p className="interrupt-form-label">Text</p>
-                          <textarea
-                            className="queue-edit as-board queue-edit-large"
-                            rows={4}
-                            value={isRowsItem ? label(selected) : draftText}
-                            disabled={isRowsItem}
-                            title={isRowsItem ? 'Set with literal rows - edit over the API' : undefined}
-                            onChange={(event) => setDraftText(event.target.value)}
-                            onKeyDown={(event) => {
-                              // Enter writes a newline here, the same as
-                              // any real textarea - it does not commit.
-                              // Update text used to be a separate button
-                              // opening a modal for exactly this (a real
-                              // multi-line box); it is this box now.
-                              if (event.key === 'Escape') setDraftText(selected.payload.text ?? '');
-                            }}
-                            onBlur={(event) => {
-                              // Moving focus to Hold, still inside this same
-                              // panel, is not leaving the edit - committing
-                              // (and so reverting the draft) here was
-                              // exactly what made clicking Hold look like it
-                              // deselected the slide instead of opening the
-                              // dropdown: the input blurred and reset
-                              // before the click on it could land.
-                              const next = event.relatedTarget as Node | null;
-                              if (next && event.currentTarget.parentElement?.parentElement?.contains(next)) return;
-                              commitDraft(selected);
-                            }}
-                          />
+                        <div className="sheet-source-setup">
+                          <div className="sheet-text-preview">
+                            <span className={`sheet-text-preview-sample${label(selected) === '(blank)' ? ' is-empty' : ''}`}>
+                              {tabLabel(selected)}
+                            </span>
+                            <Button size="sm" onClick={() => setEditorOpen(true)}>
+                              Edit sheet →
+                            </Button>
+                          </div>
                         </div>
                         <div className="queue-panel-row">
                           {/* No Loop toggle here - being in the rotation
@@ -712,6 +623,17 @@ export function QueueManager({
                             </Select>
                           </Field>
                         </div>
+                        <SheetEditor
+                          open={editorOpen}
+                          item={selected}
+                          pack={pack}
+                          cols={cols}
+                          rows={rows}
+                          screenAspect={screenAspect}
+                          ambientMs={ambientMs}
+                          onClose={() => setEditorOpen(false)}
+                          onSave={(body) => act(() => post(`/queue/items/${selected.id}`, 'PATCH', body))}
+                        />
                         <div className="queue-panel-actions">
                           <button
                             onClick={() => reorder(selected, -1)}
@@ -750,7 +672,17 @@ export function QueueManager({
                   })()
                 )}
                 <div className="board-preview">
-                  <ThemePreview pack={pack} text={previewText} cols={cols} rows={rows} tilePx={56} ambientMs={ambientMs} screenAspect={screenAspect} />
+                  <ThemePreview
+                    pack={pack}
+                    text={previewText}
+                    cols={cols}
+                    rows={rows}
+                    tilePx={56}
+                    ambientMs={ambientMs}
+                    screenAspect={screenAspect}
+                    align={previewAlign}
+                    valign={previewValign}
+                  />
                   <div className="design-preview-bar">
                     <p className="design-preview-caption">
                       {cols} × {rows} cards{previewText === '' ? ' · this slide is blank' : ''}

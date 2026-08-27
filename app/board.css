@@ -1042,6 +1042,143 @@ main.landing .error {
   border-color: var(--danger-dim);
 }
 
+/* ---- SheetEditor: Edit sheet, and its own nested Edit text popup ---- */
+
+.sheet-source-setup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px dashed var(--edge);
+}
+
+.sheet-text-preview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  background: var(--shade);
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+}
+
+.sheet-text-preview-sample {
+  font: 400 13px / 1.4 var(--font-mono);
+  letter-spacing: var(--track-wide);
+  text-transform: uppercase;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sheet-text-preview-sample.is-empty {
+  color: var(--faint);
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.sheet-controls-row {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.sheet-controls-row .ui-field {
+  flex: 1;
+  min-width: 120px;
+}
+
+/* Overrides the universal amber :focus-visible ring (app/ui.css) - see
+   --ring-quiet's own doc in design-tokens.css for why. Higher specificity
+   (one class + the pseudo-class) than the bare :focus-visible rule it
+   replaces, so this wins regardless of source order. */
+.sheet-align-textarea:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 1px var(--ring-quiet);
+}
+
+.sheet-align-preview {
+  align-self: center;
+  max-width: 460px;
+  width: 100%;
+}
+
+/* The grid (Free text) - a real field, styled to read as the board's own
+   cells, not a canvas render of the actual skin (that would mean teaching
+   Flipboard a cursor cell it has never needed to have; see TODO.md). */
+.sheet-grid-frame {
+  border-radius: var(--radius-md);
+  padding: 4px;
+  outline: none;
+  align-self: center;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+/* :focus, not :focus-visible - a real caret shows the instant you click
+   in, it does not wait for a keypress to prove you're a keyboard user
+   (some browsers only grant :focus-visible to a plain tabindex div after
+   the first keystroke, which reads as "no cursor until I start typing").
+   outline: none repeated here, not just on the bare selector above - the
+   universal :focus-visible ring (app/ui.css) ties this rule's own
+   specificity outside :focus, and a tie is broken by source order, which
+   this lost when ui.css happened to load after board.css. Written inside
+   :focus too, this rule's specificity is strictly higher and wins
+   regardless of load order - the amber ring leaked through here exactly
+   this way before it was caught. */
+.sheet-grid-frame:focus {
+  outline: none;
+  box-shadow: 0 0 0 1px var(--ring-quiet);
+}
+
+.sheet-grid {
+  display: grid;
+  gap: 3px;
+  width: 100%;
+  max-width: 560px;
+}
+
+.sheet-cell {
+  aspect-ratio: 1;
+  min-width: 12px;
+  background: var(--tile-hi);
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font: 600 13px / 1 var(--font-mono);
+  color: var(--ink);
+  position: relative;
+}
+
+.sheet-cell.is-cursor::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 3px;
+  background: var(--ring-quiet);
+  opacity: 0;
+  animation: sheet-cursor-blink 1s steps(1) infinite;
+}
+
+.sheet-grid-frame:not(:focus) .sheet-cell.is-cursor::after {
+  animation: none;
+  opacity: 0;
+}
+
+.sheet-cell-glyph {
+  position: relative;
+  z-index: 1;
+  mix-blend-mode: difference;
+}
+
+@keyframes sheet-cursor-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
 .config-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));

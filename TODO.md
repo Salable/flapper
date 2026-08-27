@@ -52,6 +52,145 @@ per-sheet dwell is what makes "a minute of each" work — no new machinery.
 Because the source is per sheet, the `template` / `api` / `ui` tag on a queue
 row stops being needed: the sheet's own kind says where its words come from.
 
+**The source picker itself, as decided 27 Aug 2026.** A dropdown, three
+choices, each with its own setup step, all inside one popup - Name at the
+top, shared by every source, then the picker, then whichever setup step
+applies:
+
+| Pick | Setup step |
+| --- | --- |
+| Text | Edit text |
+| API | Nothing extra - see below |
+| Animation | Pick which one, from a dropdown |
+
+**No separate slot name for API - the sheet's own Name is the address.**
+Caught in the prototype: a first pass asked for a "slot name" on top of
+the sheet's own Name (the rail's tab label, needed regardless of source) -
+redundant, typing the same fact twice. A board can hold several API
+sheets at once, each independently addressable, so a name is genuinely
+needed - it is just the one every sheet already has, not a second field.
+`POST /api/b/{slug}/sheets/{name}` derives live from Name as you type it,
+shown in the prototype.
+
+**Built for real, 27 Aug 2026 - the whole shape below, not just the
+Align/Valign slice that shipped first.** Started as that smaller slice
+(two `Select`s next to Hold, committing immediately like Hold already
+does) with the popup and Source picker deliberately left for after -
+turned out that undersold what was asked for. Rebuilt the same day into
+the real thing: `components/SheetEditor.tsx` (new), the shared
+`QueueItem`/`payloadToBody` shape pulled out to `components/
+queue-item.ts` so both it and `QueueManager.tsx` draw from one
+definition. `QueueManager`'s own inline Name/Text/Hold/Align/Valign
+block is gone - along with the immediate-commit machinery that existed
+only to serve it (`commitDraft`, `commitName`, `commitAlign`,
+`commitValign`, the `draftText`/`nameDraft` state) - replaced by a
+one-line preview and an "Edit sheet →" button. `ThemePreview` gained
+`align`/`valign`/`wrap` props either way, threaded through to
+`Flipboard.setText`'s own overrides, so every live preview (this one
+included) actually shows what they do. One real bug caught before it
+shipped: naively passing `{align, valign, wrap}` as overrides when
+they're `undefined` would have overridden `layout()`'s own defaults to
+`undefined` too (object spread copies an explicit `undefined`, it
+doesn't skip it) - every other `ThemePreview` caller that never sets
+these would have silently gone left/top/word instead of center/middle/
+word. Fixed by only including defined keys.
+
+**Text's own setup step is a popup modal, and it is a nested one** - not
+folded into Edit sheet's own body. Edit sheet shows a one-line preview
+plus an "Edit text →" button; that button opens a second, wider popup
+with the actual grid editor, the same reasoning ComposeModal was its own
+popup in the first place: a real text designer needs room a Name/
+Source-sized dialog doesn't have. Not built on the shared `<Modal>`
+component - two independent `Modal`s each bind their own window Escape
+listener, and the outer's (registered first) would win a race against
+the inner's, closing both at once instead of just the one just opened.
+`EditTextPopup` reuses `.ui-modal*`'s own classes for identical chrome,
+with its own capture-phase Escape handler that stops the event before it
+reaches the outer modal's bubble-phase one. Sized to reflect the board's
+actual grid (its real cols × rows at the card size and screen currently
+chosen), same as ComposeModal's own textarea was "a fixed cols x rows
+box, a dot for every cell nothing has reached" (see *Done on this
+branch* above). The prototype had both modes rendering as the same tile
+grid; the real build diverged from that in one place, deliberately:
+
+- **Word break** - the default mode (renamed twice: "Just type", then
+  "Alignment", settled on "Word break" since that's the one fact that
+  actually distinguishes it from Free). A real `<textarea>` (cursor,
+  selection, paste all just work, the same reasoning ComposeModal was
+  built on) with a live `ThemePreview` beside it - the real engine, real
+  skin, so what's shown is what lands. **Not** the tile-grid rendering
+  the prototype used for this mode too: a per-character blinking cursor
+  inside the real preview would mean teaching `Flipboard`/canvas a
+  cursor-cell concept it has never needed, a materially bigger lift than
+  the rest of this build - skipped for now, real preview fidelity won
+  over the cursor nicety. Carries its own **Align** (left/center/right)
+  and **Valign** (top/middle/bottom) dropdowns - the full three-way ×
+  three-way pair, after a pass that tried to simplify it away to "always
+  centred, one word-break toggle" turned out to be removing a real,
+  wanted control, not just clutter. Hard line breaks already work at the
+  layout-engine level regardless of wrap - `layout()` splits on `\n` into
+  paragraphs before wrapping either one (`lib/board/layout.mjs`), so
+  Enter always forces a new line; word break only reflows a line too
+  long to fit.
+- **Free** - a genuine tile grid (`.sheet-grid`/`.sheet-cell` in
+  `app/board.css`, CSS tokens, not a canvas render of the actual skin -
+  see the note above for why), one character per square, placed exactly
+  where typed. What rows-mode composing (`options.rows`) already is at
+  the API layer, just not offered as a typing experience until now. Has
+  its own blinking cursor: the next square, not the field-focus ring
+  (see "Focus indicator" below - two different facts, two different
+  treatments). Enter jumps to the start of the next row.
+
+Both are "Typed" in the table above; this is the UI shape for it, not a
+new source. **One window, not two** - caught in the prototype: switching
+between them used to swap in a second, independently-blank editing
+surface, which read as "where did my text go". Fixed by carrying the
+content across the switch instead - the grid's current content is
+snapshotted into the other mode's own representation (aligned text joins
+into rows and re-flows; free-text rows join with `\n` and get wrapped
+fresh) rather than the switch ever starting from empty. Controls
+themselves are plain dropdowns/checkboxes now, not a two-button
+mode-switcher styled like a pair of tabs - the tab styling was itself
+part of what made this read as "two different windows" rather than one
+with a setting.
+
+**Focus indicator, built.** Not the app's universal amber ring (`--ring`,
+`:focus-visible` in `app/ui.css`) - a deliberate, scoped exception,
+`--ring-quiet` in `app/design-tokens.css`. Amber is right everywhere else
+(the fix for a real 2.17:1 contrast failure, WCAG wants 3:1) but reads as
+a stamped orange box on a field you stare at while writing. A real bug
+caught live, not just in the prototype: the first pass gave
+`.sheet-grid-frame:focus` a quiet box-shadow but left `outline` alone,
+so the universal `:focus-visible` amber ring - tied on specificity with
+the bare `:focus` rule, and source order happened to favour amber - kept
+showing through anyway. `outline: none` written inside the `:focus`
+block itself (not just the bare selector) gives it strictly higher
+specificity, which is the only way to reliably win regardless of which
+stylesheet loads last. Caught by an actual screenshot showing the amber
+ring still there after the "fix"; re-verified with another screenshot
+after the real fix before calling it done.
+
+**Card size changing after text exists is a real hazard, flagged
+outright, not yet solved.** Free text especially - it has no layout to
+re-flow, so a smaller grid after the fact can leave characters with
+nowhere to land. Needs an answer (warn before applying, re-flow what can
+be re-flowed and flag what can't, cap how small a size a board with free-
+text sheets can go, or something else) before free text ships - not
+picked yet.
+
+**Animation is new** - not in the table above at all. A sheet whose content
+is a designed or picked motion, not text. **Nothing to pick yet - no
+animations exist.** The dropdown can exist before they do; it is just
+always empty until "Movement" (see *Bigger, each its own branch*) or
+something like it ships.
+
+This is the real shape of *Then — sheets* below, not a separate ask -
+supersedes the stale ComposeModal wrap-preview item under *Left by the code
+review* (marked resolved there, cross-referenced back to here), and closes
+the "no way to set a slide or interrupter to be an API thing" line under
+*Raised by Dan* - it is this same source picker's second choice, not
+separate work.
+
 **Designs are a library, in their own place.** Not a tab among the sheets,
 because a design is a thing you make once and apply to many sheets. Ten or so
 shipped, plus new ones. Two families, because the ink has to read against the
@@ -642,13 +781,12 @@ deliberately left rather than fixed blind.
       candidate caller and they draw on a canvas instead, which shows a design's
       behaviour as well as its colours. The canvas won on every surface, so a
       CSS tile in a design has nowhere left to be wanted.
-- [ ] **ComposeModal's "By character" wrap doesn't preview as character-wrap.**
-      `wrap={layout.wrap === 'none' ? 'off' : 'soft'}` maps both `word` and
-      `char` to the textarea's native `soft`, which only breaks on whitespace -
-      so picking "By character" changes what the server will do to the text
-      without changing how the compose box itself wraps it while typing.
-      Flagged in the file's own doc comment as an accepted approximation, not
-      confirmed as worth fixing yet.
+- [x] ~~ComposeModal's "By character" wrap doesn't preview as
+      character-wrap~~ — moot: ComposeModal doesn't exist any more (checked
+      27 Aug 2026, superseded by the current tri-tab rework's plain Text
+      panel), and along with it, Align/Vertical/Wrap have no UI anywhere
+      today - a bigger gap than a wrong preview. Real shape of the fix is
+      now "The source picker itself" under *A sheet has a source* above.
 - [ ] **`.ui-chip-tip::after`'s flyout has no viewport-edge handling** —
       `left: 0; width: max-content; max-width: 260px`, unclipped. A tip opened
       near a narrow-viewport edge could push a few pixels of horizontal
@@ -669,10 +807,12 @@ in his own words; each needs its own look before it becomes real work.
 - [ ] **The docs are probably a mess.** Broader than today's targeted
       BOARD-API/QUEUES/SCREENS/agents-doc fixes (see the review section
       above) - a real full-doc audit, not yet scoped.
-- [ ] **No way to set a slide or interrupter to be an API thing.** Same gap
-      the sheets rework already names as "Pushed" (see "A sheet has a
-      source" above) and "one addressable slot per sheet" under *Then —
-      sheets* - raised again here as a felt-now gap, not a duplicate ask.
+- [x] **No way to set a slide or interrupter to be an API thing** - given
+      real shape 27 Aug 2026 under "The source picker itself" (*A sheet has
+      a source* above): the picker's second choice, "API", same gap the
+      sheets rework already named as "Pushed". Not built - scoped now,
+      folded into the same work as the sheets rework rather than tracked
+      separately.
 - [ ] **No transition animations.** See *Transitions and washes* above -
       procedural washes as transitions are designed but not built.
 - [ ] **No fidget animations.** Flagged directly at odds with this file's
