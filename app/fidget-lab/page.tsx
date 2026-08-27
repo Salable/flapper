@@ -29,8 +29,8 @@ const NOTES: Record<string, string> = {
   twitchy: 'Three cards at once, most ticks, and a sweep now and then. For a busy space.',
   sweeping: 'Never a flicker - only the whole board turning over. For something being watched.',
   calm: 'Almost never, and it lingers when it does. For a quiet room.',
-  snake: 'A different animal: a creature that walks the edge, once round, and puts the board back behind it.',
-  'pac-man': 'The same, with three ghosts strung out behind him. ( is the mouth, O the ghosts - the ring has no sprites.',
+  snake: 'A different animal: a creature that walks the edge, once round, and puts the board back behind it - in a few flips per cell, so it no longer smears.',
+  'pac-man': 'The same, with three ghosts behind him. ( is the mouth and ) a ghost - the ring has no sprites, and both sit near blank so a cell costs four flips, not thirty.',
 };
 
 export default function FidgetLab() {

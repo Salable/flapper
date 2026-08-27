@@ -8,6 +8,7 @@ import {
   traveller,
   TRAVELLERS,
 } from '../lib/board/travellers.mjs';
+import { ringChars } from '../lib/board/ring.mjs';
 
 test('the border is one lap of the edge, every cell once, and adjacent throughout', () => {
   for (const [cols, rows] of [[6, 4], [16, 3], [20, 11], [2, 2]]) {
@@ -46,7 +47,7 @@ test('every actor appears, in order, and the run ends empty', () => {
   for (let frame = 0; frame < total; frame += 1) {
     for (const { char } of travellerFrame(spec, cols, rows, frame)) seen.add(char);
   }
-  assert.deepEqual([...seen].sort(), ['(', 'O'], 'pac-man or his ghosts never showed');
+  assert.deepEqual([...seen].sort(), ['(', ')'], 'pac-man or his ghosts never showed');
   // Past the end nothing is left on the board - the tail has walked off.
   assert.deepEqual(travellerFrame(spec, cols, rows, total), []);
 });
@@ -77,4 +78,20 @@ test('an unknown traveller is null, not a throw', () => {
   assert.equal(traveller('no-such-creature'), null);
   assert.equal(traveller(null), null);
   assert.ok(traveller('snake'));
+});
+
+test('every traveller glyph is cheap enough to be a gesture, not a revolution', () => {
+  // The point of the whole shortest-path change: a cell a creature touches
+  // must cost a handful of flips, not a lap. Eight round trip is the budget.
+  const chars = ringChars();
+  const cost = (glyph) => {
+    const at = chars.indexOf(glyph);
+    assert.ok(at >= 0, `${glyph} is not on the ring at all`);
+    return Math.min(at, chars.length - at);
+  };
+  for (const [name, spec] of Object.entries(TRAVELLERS)) {
+    for (const actor of spec.actors) {
+      assert.ok(cost(actor.glyph) * 2 <= 8, `${name}'s ${actor.glyph} costs ${cost(actor.glyph) * 2} flips round trip`);
+    }
+  }
 });

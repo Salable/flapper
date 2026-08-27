@@ -100,6 +100,7 @@ export function createAmbient(board: any) {
       patch.flight = style.flight;
       patch.flightStrength = style.flightStrength;
     }
+    if (style.shortestPath) patch.shortestPath = true;
     if (Object.keys(patch).length === 0) {
       run();
       return;
@@ -221,6 +222,7 @@ export function createAmbient(board: any) {
     let last = flat;
 
     const patch: Record<string, unknown> = { fastStepMs: Math.min(board.opts.fastStepMs, 30) };
+    if (style.shortestPath) patch.shortestPath = true;
     if (style.flight) {
       patch.flight = style.flight;
       patch.flightStrength = style.flightStrength;
