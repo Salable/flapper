@@ -1042,7 +1042,24 @@ main.landing .error {
   border-color: var(--danger-dim);
 }
 
-/* ---- SheetEditor: Edit sheet, and its own nested Edit text popup ---- */
+/* ---- SheetEditor: inline Name/Source, and the nested Edit text popup ---- */
+
+.sheet-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.sheet-editor-row {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.sheet-editor-row .ui-field {
+  flex: 1;
+  min-width: 140px;
+}
 
 .sheet-source-setup {
   display: flex;

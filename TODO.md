@@ -95,6 +95,35 @@ doesn't skip it) - every other `ThemePreview` caller that never sets
 these would have silently gone left/top/word instead of center/middle/
 word. Fixed by only including defined keys.
 
+**Revised same day: no outer Modal at all.** "This is NOTHIG like what we
+just planned" - the popup-with-Save/Cancel above was still one layer too
+indirect; Dan's ask was Name and Source sat directly in the panel, committing
+immediately, the same way Hold already does. `SheetEditor` is now a plain
+`<div>` (`.sheet-editor-row`: required Name `TextInput` + Source `Select`,
+inline, no wrapping `<Modal>`, no Save/Cancel of its own) rendered straight
+into the Board tab's `.queue-panel`, keyed on `selected.id` so switching
+slides remounts it cleanly - replaced the `editorOpen`/`setEditorOpen` state
+that used to gate the old "Edit sheet →" button entirely. `EditTextPopup`
+itself is the one thing still a popup (see below, unchanged reasoning) -
+just no longer nested inside a second one.
+
+**Interruptions got the same depth, not a lighter version.** Asked
+outright rather than assumed, after the under-scoping above: full
+Align/Valign/Free-text grid for a saved interrupter's Text source, same as
+a slide, not just Source picker + Name. `InterrupterPreset` gained
+`rows`/`align`/`valign` fields; `validateInterrupterPreset`
+(`lib/api/validators.mjs`) now accepts `rows` as an alternative to
+`text`(+`align`+`valign`), mirroring the live-message `textOptions`
+either-or exactly rather than inventing a new shape; `fireInterrupter`
+(`lib/api/handlers.mjs`) builds its fire body either-or to match. Name +
+Source sit inline in the preset form the same as a slide's; the preset's
+own Save/Cancel stays batched though (a saved interrupter is deliberately
+not a live edit - `EditTextPopup`'s `onSave` here only updates local draft
+state, the real `POST /interrupters` happens on the form's own Save).
+Covered in `tests/validators.test.mjs` and `tests/api.test.mjs`; verified
+live end to end (name → align text → save → list → fire → correct content
+on the glass).
+
 **Text's own setup step is a popup modal, and it is a nested one** - not
 folded into Edit sheet's own body. Edit sheet shows a one-line preview
 plus an "Edit text →" button; that button opens a second, wider popup

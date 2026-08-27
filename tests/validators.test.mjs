@@ -253,3 +253,38 @@ test('a saved interrupter needs a name and text; Duration is optional and one-or
   refused(() => validateInterrupterPreset({ name: 'Reorder', text: 'X' }), /"reorder" is reserved/);
   refused(() => validateInterrupterPreset({ name: '  REORDER  ', text: 'X' }), /"reorder" is reserved/);
 });
+
+test('a saved interrupter can carry align/valign, or rows instead of text - the same either-or textOptions itself has', () => {
+  assert.deepEqual(validateInterrupterPreset({ name: 'FIRE', text: 'X', align: 'left', valign: 'top' }), {
+    name: 'FIRE',
+    text: 'X',
+    align: 'left',
+    valign: 'top',
+  });
+  refused(() => validateInterrupterPreset({ name: 'FIRE', text: 'X', align: 'diagonal' }), /align must be one of/);
+  refused(() => validateInterrupterPreset({ name: 'FIRE', text: 'X', valign: 'center' }), /valign must be one of/);
+
+  assert.deepEqual(validateInterrupterPreset({ name: 'FIRE', rows: ['ROW ONE', 'ROW TWO'] }), {
+    name: 'FIRE',
+    rows: ['ROW ONE', 'ROW TWO'],
+  });
+  // Neither text nor align/valign apply once rows is given - same reasoning
+  // textOptions refuses them there too, rows are taken literally.
+  refused(
+    () => validateInterrupterPreset({ name: 'FIRE', rows: ['X'], text: 'Y' }),
+    /text does not apply when rows is given/,
+  );
+  refused(
+    () => validateInterrupterPreset({ name: 'FIRE', rows: ['X'], align: 'left' }),
+    /align does not apply when rows is given/,
+  );
+  refused(
+    () => validateInterrupterPreset({ name: 'FIRE', rows: ['X'], valign: 'top' }),
+    /valign does not apply when rows is given/,
+  );
+  // A blank rows array is content-free the same way empty text is refused.
+  refused(() => validateInterrupterPreset({ name: 'FIRE', rows: [] }), /rows must contain at least one/);
+  refused(() => validateInterrupterPreset({ name: 'FIRE', rows: ['', '   '] }), /rows must contain at least one/);
+  // Neither text nor rows at all is still refused, same as before.
+  refused(() => validateInterrupterPreset({ name: 'FIRE' }), /text is required/);
+});

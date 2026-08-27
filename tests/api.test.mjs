@@ -1358,6 +1358,48 @@ test('a saved interrupter with no Duration is the switch: max dwell, no expiry',
   assert.equal(item.expiresAtMs, null, 'no expiry - stands until dismissed or broken by a higher rank');
 });
 
+test('a saved interrupter fires with align/valign, or as rows - the same either-or a live message has', async () => {
+  // Separate boards - both presets are "until dismissed" (no durationMs),
+  // and firing one on the same board the other is already blocking the
+  // rotation on would hit the rank check this test isn't about.
+  const alignedBoard = await makeBoard({ slug: 'interrupter-aligned' });
+  const alignedKey = alignedBoard.apiKey;
+  await jsonOf(
+    call(saveInterrupter, ctx(alignedBoard.slug), '/x', {
+      method: 'POST',
+      key: alignedKey,
+      body: { name: 'ALIGNED', text: 'GATE 5', align: 'left', valign: 'top' },
+    }),
+  );
+  const firedAligned = await jsonOf(
+    call(fireInterrupter, { ...ctx(alignedBoard.slug), name: 'ALIGNED' }, '/x', { method: 'POST', key: alignedKey }),
+  );
+  assert.equal(firedAligned.status, 202, JSON.stringify(firedAligned.body));
+  const alignedQueue = (await jsonOf(call(getQueue, ctx(alignedBoard.slug), '/x'))).body;
+  const alignedItem = alignedQueue.items.find((entry) => entry.id === firedAligned.body.id);
+  assert.equal(alignedItem.payload.options.align, 'left');
+  assert.equal(alignedItem.payload.options.valign, 'top');
+  assert.equal(alignedItem.payload.text, 'GATE 5');
+
+  const gridBoard = await makeBoard({ slug: 'interrupter-grid' });
+  const gridKey = gridBoard.apiKey;
+  await jsonOf(
+    call(saveInterrupter, ctx(gridBoard.slug), '/x', {
+      method: 'POST',
+      key: gridKey,
+      body: { name: 'GRID', rows: ['ROW ONE', 'ROW TWO'] },
+    }),
+  );
+  const firedGrid = await jsonOf(
+    call(fireInterrupter, { ...ctx(gridBoard.slug), name: 'GRID' }, '/x', { method: 'POST', key: gridKey }),
+  );
+  assert.equal(firedGrid.status, 202, JSON.stringify(firedGrid.body));
+  const gridQueue = (await jsonOf(call(getQueue, ctx(gridBoard.slug), '/x'))).body;
+  const gridItem = gridQueue.items.find((entry) => entry.id === firedGrid.body.id);
+  assert.deepEqual(gridItem.payload.options.rows, ['ROW ONE', 'ROW TWO']);
+  assert.equal(gridItem.payload.text, '', 'rows-mode items carry no text');
+});
+
 test('dismissing a saved interrupter clears every queued instance of it, not just the one showing', async () => {
   // The bug this guards: firing an already-live "until dismissed" preset
   // queues a second copy behind the first rather than replacing it (Fire

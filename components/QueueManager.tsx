@@ -22,7 +22,7 @@ import { Button } from '@/components/ui/Button';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { Field, Select, TextInput } from '@/components/ui/Field';
 import { ThemePreview } from '@/components/flapper/ThemePreview';
-import { SheetEditor } from '@/components/SheetEditor';
+import { SheetEditor, EditTextPopup, type Align, type Valign } from '@/components/SheetEditor';
 import { type QueueItem, payloadToBody } from '@/components/queue-item';
 import type { ThemePack } from '@/lib/board/theme-pack.mjs';
 
@@ -30,10 +30,16 @@ import type { ThemePack } from '@/lib/board/theme-pack.mjs';
  * straight from typed text. `durationMs` is one or the other: a number is
  * a hard limit (shown, then gone outright, whichever comes first between
  * its turn ending and the limit); absent is the switch - blocks the
- * rotation entirely until dismissed or broken by a higher-ranked one. */
+ * rotation entirely until dismissed or broken by a higher-ranked one.
+ * Content is `text` (+ optional align/valign) or `rows` - the same
+ * either-or a queue item's own payload has, and the same reasoning:
+ * `validateInterrupterPreset` refuses align/valign alongside rows. */
 type InterrupterPreset = {
   name: string;
-  text: string;
+  text?: string;
+  rows?: string[];
+  align?: Align;
+  valign?: Valign;
   durationMs?: number;
 };
 
@@ -93,6 +99,16 @@ export function QueueManager({
    * straight to the glass: save it, then fire the saved one. */
   const [presetName, setPresetName] = useState('');
   const [presetText, setPresetText] = useState('');
+  /** null - text mode (Align/Valign apply). A non-null array - Free text,
+   * taken literally, the same either-or a slide's own content has. */
+  const [presetRows, setPresetRows] = useState<string[] | null>(null);
+  const [presetAlign, setPresetAlign] = useState<Align>('center');
+  const [presetValign, setPresetValign] = useState<Valign>('middle');
+  /** Source, same three choices a slide has (Text/API/Animation) - local
+   * only, nothing to persist for API/Animation yet (see SheetEditor's own
+   * doc). Always resets to Text on selecting a different tab. */
+  const [presetSource, setPresetSource] = useState<'text' | 'api' | 'animation'>('text');
+  const [presetTextOpen, setPresetTextOpen] = useState(false);
   /** '' is the switch - blocks the rotation entirely until dismissed or
    * broken by a higher-ranked one. Anything else is a hard limit in
    * milliseconds: shown, then gone outright, sent as `durationMs`. */
@@ -113,12 +129,10 @@ export function QueueManager({
    * would slip past `act`'s own `busyRef` reentrancy check and read as
    * having fired when the request was never sent. */
   const [presetFiring, setPresetFiring] = useState<string | null>(null);
-  /** Which slide the tab rail has open. Its own content is edited in
-   * SheetEditor now, a popup with its own local draft state and an
-   * explicit Save/Cancel - nothing here needs a draft of its own to
-   * protect from the poll the way inline editing once did. */
+  /** Which slide the tab rail has open. Its own content is edited by
+   * SheetEditor, rendered inline below and keyed on the item's id - no
+   * draft state needed out here, the same reasoning Hold never needed one. */
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [editorOpen, setEditorOpen] = useState(false);
   const [error, setError] = useState('');
   const busyRef = useRef(false);
   const { confirm, dialog } = useConfirm();
@@ -202,13 +216,7 @@ export function QueueManager({
     }
     const created = await response.json().catch(() => null);
     await refresh();
-    if (created?.id) {
-      setSelectedId(created.id);
-      // Straight into editing it - a blank slide with no editor open on
-      // it, now that editing lives behind a button rather than always
-      // being the panel, would just look like nothing happened.
-      setEditorOpen(true);
-    }
+    if (created?.id) setSelectedId(created.id);
     onSaved?.();
   }
 
@@ -217,9 +225,27 @@ export function QueueManager({
   function selectPreset(preset: InterrupterPreset | null) {
     setPresetSelectedName(preset?.name ?? null);
     setPresetName(preset?.name ?? '');
-    setPresetText(preset?.text ?? '');
+    setPresetSource('text');
+    setPresetTextOpen(false);
+    if (preset?.rows !== undefined) {
+      setPresetRows(preset.rows);
+      setPresetText('');
+      setPresetAlign('center');
+      setPresetValign('middle');
+    } else {
+      setPresetRows(null);
+      setPresetText(preset?.text ?? '');
+      setPresetAlign(preset?.align ?? 'center');
+      setPresetValign(preset?.valign ?? 'middle');
+    }
     setPresetDuration(preset?.durationMs !== undefined ? String(preset.durationMs) : '');
     setError('');
+  }
+
+  /** What "Edit text" is currently showing, as the plain shape it edits -
+   * same reasoning a slide's own `contentOf` has (SheetEditor.tsx). */
+  function presetContent(): { text: string; rows: string[] | null; align: Align; valign: Valign } {
+    return { text: presetText, rows: presetRows, align: presetAlign, valign: presetValign };
   }
 
   /**
@@ -229,10 +255,16 @@ export function QueueManager({
    */
   async function savePreset() {
     const name = presetName.trim();
-    const text = presetText.trim();
-    if (name === '' || text === '') return;
+    if (name === '' || (presetRows === null && presetText.trim() === '')) return;
     setPresetSending(true);
-    const body: Record<string, unknown> = { name, text };
+    const body: Record<string, unknown> = { name };
+    if (presetRows !== null) {
+      body.rows = presetRows;
+    } else {
+      body.text = presetText.trim();
+      body.align = presetAlign;
+      body.valign = presetValign;
+    }
     if (presetDuration !== '') body.durationMs = Number(presetDuration);
     const ok = await act(() => post('/interrupters', 'POST', body));
     setPresetSending(false);
@@ -357,14 +389,12 @@ export function QueueManager({
   }
 
   /** Switch the rail's selection. Editing a slide's content is SheetEditor's
-   * own popup now, with its own draft and an explicit Save/Cancel - nothing
-   * to commit or revert here on the way out the way inline editing once
-   * needed. */
+   * own component now (`SheetEditor`, keyed on the item's id so switching
+   * slides remounts it fresh rather than carrying over a stale draft or a
+   * text popup left open on the wrong one), immediate-commit the same way
+   * Hold already is - nothing to commit or revert here on the way out. */
   function selectItem(item: QueueItem) {
     setSelectedId(item.id);
-    // Reopening on a different slide than whichever one is being edited
-    // would be editing the wrong thing.
-    setEditorOpen(false);
     // Same reasoning as selectPreset's own reset: a failed reorder/add on
     // the tab you're leaving should not go on reading as still-current
     // once you're looking at a different slide entirely.
@@ -467,16 +497,19 @@ export function QueueManager({
   // back to the save form here is enough.
   const showingNewPreset = selectedPreset === null;
   // What the preset tab's own preview shows: the draft as it's typed for a
-  // new one, or the saved text for an existing tab - the same "what this
-  // looks like on the glass" the Board tab's panel gives a slide.
-  const presetPreviewText = showingNewPreset ? presetText : selectedPreset.text;
+  // new one, or the saved content for an existing tab - the same "what
+  // this looks like on the glass" the Board tab's panel gives a slide.
+  const presetPreviewText = presetRows !== null ? presetRows.join(' / ') : presetText;
   // Whether the form actually differs from what's saved (or, for a new
   // one, from blank) - Save/Revert otherwise offer to do something to
   // nothing, which reads as "what do these even do" the moment you look
   // at them with no edit made.
   const presetDirty = showingNewPreset
-    ? presetName.trim() !== '' || presetText.trim() !== '' || presetDuration !== ''
-    : presetText !== selectedPreset.text ||
+    ? presetName.trim() !== '' || presetText.trim() !== '' || presetRows !== null || presetDuration !== ''
+    : presetText !== (selectedPreset.text ?? '') ||
+      JSON.stringify(presetRows) !== JSON.stringify(selectedPreset.rows ?? null) ||
+      presetAlign !== (selectedPreset.align ?? 'center') ||
+      presetValign !== (selectedPreset.valign ?? 'middle') ||
       presetDuration !== (selectedPreset.durationMs !== undefined ? String(selectedPreset.durationMs) : '');
   // Mirrors the Board tab's own "not what is playing" caption - the one
   // thing worth saying about a saved interrupter's preview is whether
@@ -592,16 +625,16 @@ export function QueueManager({
                   (() => {
                     return (
                       <div className="queue-panel">
-                        <div className="sheet-source-setup">
-                          <div className="sheet-text-preview">
-                            <span className={`sheet-text-preview-sample${label(selected) === '(blank)' ? ' is-empty' : ''}`}>
-                              {tabLabel(selected)}
-                            </span>
-                            <Button size="sm" onClick={() => setEditorOpen(true)}>
-                              Edit sheet →
-                            </Button>
-                          </div>
-                        </div>
+                        <SheetEditor
+                          key={selected.id}
+                          item={selected}
+                          pack={pack}
+                          cols={cols}
+                          rows={rows}
+                          screenAspect={screenAspect}
+                          ambientMs={ambientMs}
+                          onSave={(body) => act(() => post(`/queue/items/${selected.id}`, 'PATCH', body))}
+                        />
                         <div className="queue-panel-row">
                           {/* No Loop toggle here - being in the rotation
                               already means coming back round; that is
@@ -623,17 +656,6 @@ export function QueueManager({
                             </Select>
                           </Field>
                         </div>
-                        <SheetEditor
-                          open={editorOpen}
-                          item={selected}
-                          pack={pack}
-                          cols={cols}
-                          rows={rows}
-                          screenAspect={screenAspect}
-                          ambientMs={ambientMs}
-                          onClose={() => setEditorOpen(false)}
-                          onSave={(body) => act(() => post(`/queue/items/${selected.id}`, 'PATCH', body))}
-                        />
                         <div className="queue-panel-actions">
                           <button
                             onClick={() => reorder(selected, -1)}
@@ -741,28 +763,96 @@ export function QueueManager({
                     this one (Save is an upsert by name) - delete and
                     re-save under a new name instead. */}
                 <div className="interrupt-form">
-                  <Field
-                    label="Name"
-                    htmlFor="interrupt-name"
-                    hint="How this interrupter is fired - from its own tab here, or by name over the API, later."
-                  >
-                    <TextInput
-                      id="interrupt-name"
-                      value={presetName}
-                      disabled={!showingNewPreset}
-                      placeholder="FIRE"
-                      onChange={(event) => setPresetName(event.target.value)}
-                    />
-                  </Field>
-                  <div className="queue-panel-text">
-                    <p className="interrupt-form-label">Text</p>
-                    <textarea
-                      className="queue-edit as-board queue-edit-large"
-                      rows={4}
-                      value={presetText}
-                      onChange={(event) => setPresetText(event.target.value)}
-                    />
+                  <div className="sheet-editor-row">
+                    <Field
+                      label="Name"
+                      htmlFor="interrupt-name"
+                      hint="Required - how this interrupter is fired, from its own tab here or by name over the API. Locked once saved (Save is an upsert by name, not a rename) - delete and re-save under a new name instead."
+                    >
+                      <TextInput
+                        id="interrupt-name"
+                        required
+                        value={presetName}
+                        disabled={!showingNewPreset}
+                        placeholder="FIRE"
+                        onChange={(event) => setPresetName(event.target.value)}
+                      />
+                    </Field>
+                    <Field label="Source" htmlFor="interrupt-source">
+                      <Select
+                        id="interrupt-source"
+                        value={presetSource}
+                        onChange={(event) => setPresetSource(event.target.value as 'text' | 'api' | 'animation')}
+                      >
+                        <option value="text">Text</option>
+                        <option value="api">API</option>
+                        <option value="animation">Animation</option>
+                      </Select>
+                    </Field>
                   </div>
+
+                  {presetSource === 'text' && (
+                    <div className="sheet-source-setup">
+                      <div className="sheet-text-preview">
+                        <span className={`sheet-text-preview-sample${presetPreviewText.trim() === '' ? ' is-empty' : ''}`}>
+                          {presetPreviewText.trim() === '' ? 'Nothing typed yet' : presetPreviewText}
+                        </span>
+                        <Button size="sm" onClick={() => setPresetTextOpen(true)}>
+                          Edit text →
+                        </Button>
+                      </div>
+                      <EditTextPopup
+                        open={presetTextOpen}
+                        onClose={() => setPresetTextOpen(false)}
+                        pack={pack}
+                        cols={cols}
+                        rows={rows}
+                        screenAspect={screenAspect}
+                        ambientMs={ambientMs}
+                        initial={presetContent()}
+                        onSave={async (patch) => {
+                          if (patch.rows !== undefined) {
+                            setPresetRows(patch.rows);
+                          } else {
+                            if (patch.text !== undefined) setPresetText(patch.text);
+                            if (patch.align !== undefined) setPresetAlign(patch.align);
+                            if (patch.valign !== undefined) setPresetValign(patch.valign);
+                            setPresetRows(null);
+                          }
+                          // Local draft only - the interrupter's own Save/
+                          // Save changes below is still the real commit
+                          // point, same as every other field in this form.
+                          return true;
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  {presetSource === 'api' && (
+                    <div className="sheet-source-setup">
+                      <Field label="Endpoint">
+                        <code className="curl">
+                          {`POST /api/b/{slug}/sheets/${presetName.trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-') || '…'}`}
+                        </code>
+                      </Field>
+                      <p className="ui-hint">
+                        This interrupter's own Name, above, is the address - nothing extra to set here. Not built
+                        yet - the endpoint above isn't live.
+                      </p>
+                    </div>
+                  )}
+
+                  {presetSource === 'animation' && (
+                    <div className="sheet-source-setup">
+                      <Field label="Animation" htmlFor="interrupt-animation">
+                        <Select id="interrupt-animation" disabled>
+                          <option>No animations yet</option>
+                        </Select>
+                      </Field>
+                      <p className="ui-hint">Nothing to pick - none exist yet. The picker can wait here until some do.</p>
+                    </div>
+                  )}
+
                   <div className="interrupt-form-row">
                     <Field
                       label="Duration"
@@ -796,7 +886,11 @@ export function QueueManager({
                     <div className="interrupt-form-actions">
                       <Button
                         variant="primary"
-                        disabled={presetName.trim() === '' || presetText.trim() === '' || presetSending}
+                        disabled={
+                          presetName.trim() === '' ||
+                          (presetRows === null && presetText.trim() === '') ||
+                          presetSending
+                        }
                         onClick={savePreset}
                       >
                         {showingNewPreset ? 'Save' : 'Save changes'}
@@ -862,7 +956,17 @@ export function QueueManager({
                   )}
                 </div>
                 <div className="board-preview">
-                  <ThemePreview pack={pack} text={presetPreviewText} cols={cols} rows={rows} tilePx={56} ambientMs={ambientMs} screenAspect={screenAspect} />
+                  <ThemePreview
+                    pack={pack}
+                    text={presetPreviewText}
+                    cols={cols}
+                    rows={rows}
+                    tilePx={56}
+                    ambientMs={ambientMs}
+                    screenAspect={screenAspect}
+                    align={presetRows === null ? presetAlign : undefined}
+                    valign={presetRows === null ? presetValign : undefined}
+                  />
                   <div className="design-preview-bar">
                     <p className="design-preview-caption">
                       {cols} × {rows} cards{presetPreviewText === '' ? ' · nothing typed yet' : ''}

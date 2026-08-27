@@ -1,30 +1,49 @@
 'use client';
 
 /**
- * The popup that edits one slide's content - Name, Source, and whichever
- * setup step the source needs. Text is the only source that does anything
- * real today; API and Animation are honest about not being connected to
- * anything yet (see TODO.md, "The source picker itself" and "Then —
- * sheets") rather than pretending a picker with nowhere to send its choice.
+ * A slide's own content: Name, Source, and whichever setup step the source
+ * needs. Inline in the panel now, not a popup of its own - Name and Source
+ * are small, frequent edits, the same kind of thing Hold already is right
+ * next to them, and committing immediately (blur/Enter, no separate Save)
+ * matches that rather than asking for a bigger gesture than the edit
+ * warrants. Only "Edit text" - a real multi-field editing surface, not a
+ * quick toggle - still opens its own popup.
  *
- * Nothing here saves until "Save" - unlike Hold/Align/Valign's own
- * immediate-commit pattern elsewhere in this panel, a popup with a Cancel
- * button has to mean it: closing without saving must actually discard
- * whatever was typed, so every field here is local draft state until then.
+ * `EditTextPopup` is exported too, generic over what it edits (a plain
+ * `{text, rows, align, valign}` shape, not a `QueueItem`) - a saved
+ * interrupter's own text is the same editing surface, wired up from
+ * `QueueManager`'s own preset state instead of a queue item's, with its
+ * own existing Save/Save changes batching rather than this file's
+ * immediate-commit.
+ *
+ * Text is the only source that does anything real today; API and Animation
+ * are honest about not being connected to anything yet (see TODO.md, "The
+ * source picker itself" and "Then — sheets") rather than pretending a
+ * picker with nowhere to send its choice.
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Field, Select, TextInput } from '@/components/ui/Field';
 import { ThemePreview } from '@/components/flapper/ThemePreview';
 import { type QueueItem, payloadToBody } from '@/components/queue-item';
 import type { ThemePack } from '@/lib/board/theme-pack.mjs';
 
-type Align = 'left' | 'center' | 'right';
-type Valign = 'top' | 'middle' | 'bottom';
+export type Align = 'left' | 'center' | 'right';
+export type Valign = 'top' | 'middle' | 'bottom';
 type Source = 'text' | 'api' | 'animation';
 type Layout = 'align' | 'free';
+
+/** The plain shape `EditTextPopup` edits - independent of whether it came
+ * from a queue item's payload or a saved interrupter preset. `rows: null`
+ * means "not rows-mode"; a non-null array (even empty) means Free text,
+ * seeded from it. */
+export type TextContent = { text: string; rows: string[] | null; align: Align; valign: Valign };
+
+/** What "Done" hands back - only the keys that actually changed shape,
+ * same as `commitHold`'s own "delete or set" pattern elsewhere in this
+ * panel; the caller decides how that merges into its own save shape. */
+export type TextPatch = { text?: string; rows?: string[]; align?: Align; valign?: Valign };
 
 function alignOf(item: QueueItem): Align {
   const a = item.payload.options?.align;
@@ -46,98 +65,79 @@ function blankRows(cols: number, rows: number): string[] {
   return Array.from({ length: rows }, () => ' '.repeat(cols));
 }
 
+/** A `QueueItem`'s own content, read down to the plain shape `EditTextPopup`
+ * edits. */
+function contentOf(item: QueueItem): TextContent {
+  if (isRowsItem(item)) {
+    const raw = item.payload.options?.rows;
+    return { text: '', rows: Array.isArray(raw) ? raw : [], align: 'center', valign: 'middle' };
+  }
+  return { text: item.payload.text ?? '', rows: null, align: alignOf(item), valign: valignOf(item) };
+}
+
 export function SheetEditor({
-  open,
   item,
   pack,
   cols,
   rows,
   screenAspect,
   ambientMs = 0,
-  onClose,
   onSave,
 }: {
-  open: boolean;
   item: QueueItem;
   pack: ThemePack;
   cols: number;
   rows: number;
   screenAspect?: number;
   ambientMs?: number;
-  onClose: () => void;
   /** Returns whether it worked - the caller's own `error` state reports a
-   * failure; this popup just stays open on one rather than losing the draft. */
+   * failure; a rejected commit here just leaves the field as it was. */
   onSave: (body: Record<string, unknown>) => Promise<boolean>;
 }) {
-  const [name, setName] = useState('');
+  const [name, setName] = useState(nameOf(item));
   const [source, setSource] = useState<Source>('text');
   const [textOpen, setTextOpen] = useState(false);
-  const [layout, setLayout] = useState<Layout>('align');
-  const [align, setAlign] = useState<Align>('center');
-  const [valign, setValign] = useState<Valign>('middle');
-  const [text, setText] = useState('');
-  const [freeRows, setFreeRows] = useState<string[]>([]);
-  const [saving, setSaving] = useState(false);
 
-  // Seeded fresh each time the popup opens for a given item - not on every
-  // render, or an edit in progress would be clobbered by the item's own
-  // poll landing behind it.
+  // Re-seed when the selection itself changes - not on every poll, or a
+  // name mid-edit would be clobbered the moment the next one landed.
   useEffect(() => {
-    if (!open) return;
     setName(nameOf(item));
     setSource('text');
-    setAlign(alignOf(item));
-    setValign(valignOf(item));
-    if (isRowsItem(item)) {
-      setLayout('free');
-      const raw = item.payload.options?.rows;
-      const seeded = Array.isArray(raw) ? raw.slice(0, rows) : [];
-      while (seeded.length < rows) seeded.push('');
-      setFreeRows(seeded.map((line) => line.padEnd(cols, ' ').slice(0, cols)));
-      setText('');
-    } else {
-      setLayout('align');
-      setText(item.payload.text ?? '');
-      setFreeRows(blankRows(cols, rows));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, item.id]);
+  }, [item.id]);
 
-  async function save() {
-    setSaving(true);
-    const body: Record<string, unknown> = { ...payloadToBody(item.payload) };
-    if (name === '') delete body.label;
-    else body.label = name;
-    if (layout === 'free') {
-      body.rows = freeRows;
-      delete body.text;
-      delete body.align;
-      delete body.valign;
-    } else {
-      body.text = text;
-      delete body.rows;
-      body.align = align;
-      body.valign = valign;
+  /** Required - a blank commit is refused, reverting to the last real name,
+   * the same shape Escape already has elsewhere in this panel (Hold's own
+   * "" is a real, meaningful choice - "board default" - so this is not
+   * that pattern; a slide's Name has no meaningful blank to fall back to
+   * any more). */
+  function commitName() {
+    const trimmed = name.trim();
+    if (trimmed === '') {
+      setName(nameOf(item));
+      return;
     }
-    const ok = await onSave(body);
-    setSaving(false);
-    if (ok) onClose();
+    if (trimmed === nameOf(item)) return;
+    onSave({ ...payloadToBody(item.payload), label: trimmed });
   }
 
-  const previewSample = layout === 'free' ? freeRows.join(' / ').trim() : text.trim();
   const endpointSlot = name.trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-') || '…';
 
   return (
-    <>
-      <Modal open={open} title="Edit sheet" onClose={onClose}>
-        <Field
-          label="Name"
-          htmlFor="sheet-name"
-          hint="What the rail calls this slide - not what it says. Blank shows the text itself instead. For an API sheet, also what a pusher posts to - one name, not two."
-        >
-          <TextInput id="sheet-name" value={name} onChange={(event) => setName(event.target.value)} />
+    <div className="sheet-editor">
+      <div className="sheet-editor-row">
+        <Field label="Name" htmlFor="sheet-name" hint="Required - the rail's own tab label.">
+          <TextInput
+            id="sheet-name"
+            required
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') commitName();
+              if (event.key === 'Escape') setName(nameOf(item));
+            }}
+            onBlur={commitName}
+          />
         </Field>
-
         <Field label="Source" htmlFor="sheet-source">
           <Select id="sheet-source" value={source} onChange={(event) => setSource(event.target.value as Source)}>
             <option value="text">Text</option>
@@ -145,135 +145,152 @@ export function SheetEditor({
             <option value="animation">Animation</option>
           </Select>
         </Field>
+      </div>
 
-        {source === 'text' && (
-          <div className="sheet-source-setup">
-            <div className="sheet-text-preview">
-              <span className={`sheet-text-preview-sample${previewSample === '' ? ' is-empty' : ''}`}>
-                {previewSample === '' ? 'Nothing typed yet' : previewSample}
-              </span>
-              <Button size="sm" onClick={() => setTextOpen(true)}>
-                Edit text →
-              </Button>
-            </div>
+      {source === 'text' && (
+        <div className="sheet-source-setup">
+          <div className="sheet-text-preview">
+            <span className={`sheet-text-preview-sample${samplePreview(item) === '' ? ' is-empty' : ''}`}>
+              {samplePreview(item) === '' ? 'Nothing typed yet' : samplePreview(item)}
+            </span>
+            <Button size="sm" onClick={() => setTextOpen(true)}>
+              Edit text →
+            </Button>
           </div>
-        )}
-
-        {source === 'api' && (
-          <div className="sheet-source-setup">
-            <Field label="Endpoint">
-              <code className="curl">{`POST /api/b/{slug}/sheets/${endpointSlot}`}</code>
-            </Field>
-            <p className="ui-hint">
-              This sheet's own Name, above, is the address - nothing extra to set here. A board can hold several
-              API sheets; each is reached by its own name. Not built yet - the endpoint above isn't live.
-            </p>
-          </div>
-        )}
-
-        {source === 'animation' && (
-          <div className="sheet-source-setup">
-            <Field label="Animation" htmlFor="sheet-animation">
-              <Select id="sheet-animation" disabled>
-                <option>No animations yet</option>
-              </Select>
-            </Field>
-            <p className="ui-hint">Nothing to pick - none exist yet. The picker can wait here until some do.</p>
-          </div>
-        )}
-
-        <div className="ui-modal-actions">
-          <Button onClick={onClose} disabled={saving}>
-            Cancel
-          </Button>
-          <Button variant="primary" onClick={save} disabled={saving}>
-            {saving ? 'Saving…' : 'Save'}
-          </Button>
+          <EditTextPopup
+            open={textOpen}
+            onClose={() => setTextOpen(false)}
+            pack={pack}
+            cols={cols}
+            rows={rows}
+            screenAspect={screenAspect}
+            ambientMs={ambientMs}
+            initial={contentOf(item)}
+            onSave={(patch) => {
+              const body: Record<string, unknown> = { ...payloadToBody(item.payload) };
+              if (patch.rows !== undefined) {
+                body.rows = patch.rows;
+                delete body.text;
+                delete body.align;
+                delete body.valign;
+              } else {
+                if (patch.text !== undefined) body.text = patch.text;
+                delete body.rows;
+                if (patch.align !== undefined) body.align = patch.align;
+                if (patch.valign !== undefined) body.valign = patch.valign;
+              }
+              return onSave(body);
+            }}
+          />
         </div>
-      </Modal>
+      )}
 
-      <EditTextPopup
-        open={open && textOpen}
-        onDone={() => setTextOpen(false)}
-        pack={pack}
-        cols={cols}
-        rows={rows}
-        screenAspect={screenAspect}
-        ambientMs={ambientMs}
-        layout={layout}
-        onLayout={setLayout}
-        align={align}
-        onAlign={setAlign}
-        valign={valign}
-        onValign={setValign}
-        text={text}
-        onText={setText}
-        freeRows={freeRows}
-        onFreeRows={setFreeRows}
-      />
-    </>
+      {source === 'api' && (
+        <div className="sheet-source-setup">
+          <Field label="Endpoint">
+            <code className="curl">{`POST /api/b/{slug}/sheets/${endpointSlot}`}</code>
+          </Field>
+          <p className="ui-hint">
+            This sheet's own Name, above, is the address - nothing extra to set here. A board can hold several
+            API sheets; each is reached by its own name. Not built yet - the endpoint above isn't live.
+          </p>
+        </div>
+      )}
+
+      {source === 'animation' && (
+        <div className="sheet-source-setup">
+          <Field label="Animation" htmlFor="sheet-animation">
+            <Select id="sheet-animation" disabled>
+              <option>No animations yet</option>
+            </Select>
+          </Field>
+          <p className="ui-hint">Nothing to pick - none exist yet. The picker can wait here until some do.</p>
+        </div>
+      )}
+    </div>
   );
 }
 
+function samplePreview(item: QueueItem): string {
+  if (isRowsItem(item)) return ((item.payload.options?.rows as string[]) ?? []).join(' / ').trim();
+  return (item.payload.text ?? '').trim();
+}
+
 /**
- * The nested popup, not folded into Edit sheet's own body - a real text
- * designer needs room a Name/Source-sized dialog doesn't have, the same
+ * The nested popup, not folded into the panel's own body - a real text
+ * designer needs room a row of inline fields doesn't have, the same
  * reasoning ComposeModal was its own popup in the first place.
  *
- * Not built on the shared <Modal>: two independent <Modal>s each bind their
- * own window Escape listener, and the outer's (registered first, on mount)
- * would win a race against the inner's, closing both at once instead of
- * just this one. Reuses `.ui-modal*`'s own classes for identical chrome,
- * with its own capture-phase Escape handler that stops the event before it
- * ever reaches the outer modal's bubble-phase one.
+ * Not built on the shared <Modal> component: this app's other modals never
+ * nest, so Modal's own window Escape listener never had to consider one
+ * already being open when it registers another - closing this one only,
+ * not every modal on the page, needs its own capture-phase handler that
+ * stops the event before a listener like Modal's own could see it.
+ *
+ * Generic over `TextContent`/`TextPatch`, not `QueueItem` - a saved
+ * interrupter's own text is the same editing surface (same grid, same
+ * Align/Valign/Word-break/Free), wired up from wherever the caller's own
+ * content and save mechanics actually live.
  */
-function EditTextPopup({
+export function EditTextPopup({
   open,
-  onDone,
+  onClose,
   pack,
   cols,
   rows,
   screenAspect,
   ambientMs,
-  layout,
-  onLayout,
-  align,
-  onAlign,
-  valign,
-  onValign,
-  text,
-  onText,
-  freeRows,
-  onFreeRows,
+  initial,
+  onSave,
 }: {
   open: boolean;
-  onDone: () => void;
+  onClose: () => void;
   pack: ThemePack;
   cols: number;
   rows: number;
   screenAspect?: number;
   ambientMs?: number;
-  layout: Layout;
-  onLayout: (layout: Layout) => void;
-  align: Align;
-  onAlign: (align: Align) => void;
-  valign: Valign;
-  onValign: (valign: Valign) => void;
-  text: string;
-  onText: (text: string) => void;
-  freeRows: string[];
-  onFreeRows: (rows: string[]) => void;
+  initial: TextContent;
+  /** "Done" is the one commit point this has - returns whether it worked,
+   * the same convention as the rest of this panel's own saves. */
+  onSave: (patch: TextPatch) => Promise<boolean>;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
+  const [layout, setLayout] = useState<Layout>('align');
+  const [align, setAlign] = useState<Align>('center');
+  const [valign, setValign] = useState<Valign>('middle');
+  const [text, setText] = useState('');
+  const [freeRows, setFreeRows] = useState<string[]>([]);
   const [freePos, setFreePos] = useState(0);
-  const [gridFocused, setGridFocused] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  // Seeded fresh each time this popup opens - not on every render, or a
+  // keystroke mid-edit would be clobbered by the item's own poll landing
+  // behind it.
+  useEffect(() => {
+    if (!open) return;
+    setAlign(initial.align);
+    setValign(initial.valign);
+    if (initial.rows !== null) {
+      setLayout('free');
+      const seeded = initial.rows.slice(0, rows);
+      while (seeded.length < rows) seeded.push('');
+      setFreeRows(seeded.map((line) => line.padEnd(cols, ' ').slice(0, cols)));
+      setText('');
+    } else {
+      setLayout('align');
+      setText(initial.text);
+      setFreeRows(blankRows(cols, rows));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.stopPropagation();
-        onDone();
+        onClose();
       }
     };
     window.addEventListener('keydown', onKey, true);
@@ -294,16 +311,16 @@ function EditTextPopup({
     if (next === 'free') {
       const lines = text.toUpperCase().split('\n');
       const seeded = Array.from({ length: rows }, (_, i) => (lines[i] ?? '').padEnd(cols, ' ').slice(0, cols));
-      onFreeRows(seeded);
+      setFreeRows(seeded);
       let last = -1;
       seeded.forEach((line, r) => {
         for (let c = 0; c < cols; c += 1) if (line[c] !== ' ') last = r * cols + c;
       });
       setFreePos(Math.min(cols * rows - 1, last + 1));
     } else {
-      onText(freeRows.map((line) => line.trimEnd()).join('\n').replace(/\n+$/, ''));
+      setText(freeRows.map((line) => line.trimEnd()).join('\n').replace(/\n+$/, ''));
     }
-    onLayout(next);
+    setLayout(next);
   }
 
   /** One cell, written or cleared - the only mutation Free text has. */
@@ -314,7 +331,7 @@ function EditTextPopup({
     const line = (next[r] ?? ' '.repeat(cols)).split('');
     line[c] = char ?? ' ';
     next[r] = line.join('');
-    onFreeRows(next);
+    setFreeRows(next);
   }
 
   function onGridKeyDown(event: React.KeyboardEvent) {
@@ -349,8 +366,16 @@ function EditTextPopup({
     }
   }
 
+  async function done() {
+    setSaving(true);
+    const patch: TextPatch = layout === 'free' ? { rows: freeRows } : { text, align, valign };
+    const ok = await onSave(patch);
+    setSaving(false);
+    if (ok) onClose();
+  }
+
   return (
-    <div className="ui-modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onDone()}>
+    <div className="ui-modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="ui-modal ui-modal-wide flap-in" role="dialog" aria-modal="true" tabIndex={-1} ref={panelRef}>
         <h2 className="ui-modal-title">Edit text</h2>
 
@@ -364,14 +389,14 @@ function EditTextPopup({
           {layout === 'align' && (
             <>
               <Field label="Align" htmlFor="sheet-align">
-                <Select id="sheet-align" value={align} onChange={(event) => onAlign(event.target.value as Align)}>
+                <Select id="sheet-align" value={align} onChange={(event) => setAlign(event.target.value as Align)}>
                   <option value="left">Left</option>
                   <option value="center">Center</option>
                   <option value="right">Right</option>
                 </Select>
               </Field>
               <Field label="Valign" htmlFor="sheet-valign">
-                <Select id="sheet-valign" value={valign} onChange={(event) => onValign(event.target.value as Valign)}>
+                <Select id="sheet-valign" value={valign} onChange={(event) => setValign(event.target.value as Valign)}>
                   <option value="top">Top</option>
                   <option value="middle">Middle</option>
                   <option value="bottom">Bottom</option>
@@ -388,7 +413,7 @@ function EditTextPopup({
               rows={4}
               autoFocus
               value={text}
-              onChange={(event) => onText(event.target.value)}
+              onChange={(event) => setText(event.target.value)}
             />
             <div className="sheet-align-preview">
               <ThemePreview
@@ -405,13 +430,7 @@ function EditTextPopup({
             </div>
           </>
         ) : (
-          <div
-            className={`sheet-grid-frame${gridFocused ? ' is-focused' : ''}`}
-            tabIndex={0}
-            onKeyDown={onGridKeyDown}
-            onFocus={() => setGridFocused(true)}
-            onBlur={() => setGridFocused(false)}
-          >
+          <div className="sheet-grid-frame" tabIndex={0} onKeyDown={onGridKeyDown}>
             <div className="sheet-grid" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
               {Array.from({ length: cols * rows }, (_, i) => {
                 const r = Math.floor(i / cols);
@@ -428,8 +447,8 @@ function EditTextPopup({
         )}
 
         <div className="ui-modal-actions">
-          <Button variant="primary" onClick={onDone}>
-            Done
+          <Button variant="primary" onClick={done} disabled={saving}>
+            {saving ? 'Saving…' : 'Done'}
           </Button>
         </div>
       </div>
