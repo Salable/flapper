@@ -871,9 +871,12 @@ deliberately left rather than fixed blind.
 Six things flagged in one pass, not yet investigated or broken down. Logged
 in his own words; each needs its own look before it becomes real work.
 
-- [ ] **The text editor has fallen out of shape.** Not yet diagnosed - which
-      editor (compose, a design's own text field, something else) and what
-      "fallen out" means visually is still to be pinned down.
+- [x] **The text editor has fallen out of shape.** Reviewed with Dan,
+      27 Aug 2026: "still not perfect but much better now". Closed as the
+      *flag* it was - the shape it had fallen into has been dealt with. What
+      is left is not a diagnosis any more, it is a judgement call about a
+      thing that works, so it is booked as its own later pass below rather
+      than left open here pretending to be undiagnosed.
 - [ ] **The designer view uses clunky language.** A copy pass on
       DesignEditor/DesignGallery's own wording - which strings, not yet
       specified.
@@ -896,6 +899,21 @@ in his own words; each needs its own look before it becomes real work.
       the twitch/sweep that exists today - the open "Types of Fidget, not
       just a rate" question above is exactly that second reading. Not
       assumed either way; check first.
+
+## Later: a second look at the text editor
+
+Dan's 26 Aug flag above is closed - the editor was reviewed on 27 Aug 2026
+and is, in his words, "still not perfect but much better now". That last
+word is the whole entry: *better* is not *done*, and nobody has written
+down which part still reads as wrong.
+
+Deliberately not scoped now. The next pass starts by using it rather than
+by reading it - open the Edit sheet popup, compose a real multi-line
+message in both Word break and Free, and note where it fights back. Only
+then is there something worth calling a task.
+
+- [ ] Use the text editor properly and write down what is still off about
+      it, in specifics. Not a rewrite; a list.
 
 ## Found today, not fixed: Scheduled has no board preview at all
 
