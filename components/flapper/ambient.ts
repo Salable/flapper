@@ -106,7 +106,12 @@ export function createAmbient(board: any) {
       patch.flight = style.flight;
       patch.flightStrength = style.flightStrength;
     }
-    if (style.cardWash) patch.cardWash = style.cardWash;
+    // The way home may go unpainted - see `washOutboundOnly`.
+    if (style.cardWash && !(opts.hurry && style.washOutboundOnly)) {
+      patch.cardWash = style.cardWash;
+    } else if (style.cardWash) {
+      patch.cardWash = null;
+    }
     if (style.shortestPath) patch.shortestPath = true;
     if (Object.keys(patch).length === 0) {
       run();
