@@ -72,19 +72,33 @@ test('a default style is byte-identical to the constants that preceded styles', 
   }
 });
 
-test('tick misfires to the ring neighbour and nowhere else', () => {
-  // The point of the style: a card ticks over, it does not jump the alphabet.
+test('tick stays within its radius, and still looks arbitrary', () => {
+  /*
+   * Two things at once, because they pull against each other. The gesture
+   * must stay cheap - nothing outside the radius, either way round the ring
+   * - and it must not be predictable, which an exact distance was: at
+   * exactly one step every blank card ticked to A, and since most of a real
+   * board is blank that was 78% of every fidget you ever saw.
+   */
   const ring = [...CHARSET];
+  const radius = FIDGET_STYLES.tick.stepDistance;
+  const page = ('GATE 12 BOARDING' + ' '.repeat(16)).padEnd(64, ' ');
+  const counts = new Map();
   let seen = 0;
-  for (let tick = 1; tick <= 300; tick += 1) {
-    const action = idleAction('FLAPPER', CHARSET, tick, FIDGET_STYLES.tick);
+  for (let tick = 1; tick <= 1200; tick += 1) {
+    const action = idleAction(page, CHARSET, tick, FIDGET_STYLES.tick);
     if (action.kind !== 'flicker') continue;
     seen += 1;
-    const from = 'FLAPPER'[action.index];
-    const distance = (ring.indexOf(action.char) - ring.indexOf(from) + ring.length) % ring.length;
-    assert.equal(distance, 1, `tick ${tick} moved ${distance} steps, not 1`);
+    const from = page[action.index];
+    assert.notEqual(action.char, ' ', 'a card went blank, which reads as falling out');
+    const forward = (ring.indexOf(action.char) - ring.indexOf(from) + ring.length) % ring.length;
+    const distance = Math.min(forward, ring.length - forward);
+    assert.ok(distance <= radius, `tick ${tick} moved ${distance} steps, past a radius of ${radius}`);
+    counts.set(action.char, (counts.get(action.char) ?? 0) + 1);
   }
-  assert.ok(seen > 0, 'no flickers at all - the assertion above proved nothing');
+  assert.ok(seen > 0, 'no flickers at all - the assertions above proved nothing');
+  const commonest = Math.max(...counts.values()) / seen;
+  assert.ok(commonest < 0.25, `one character was ${Math.round(commonest * 100)}% of all fidgets`);
 });
 
 test('a style with no sweeps never sweeps, and one with no flickers never flickers', () => {

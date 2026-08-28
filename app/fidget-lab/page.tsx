@@ -22,7 +22,7 @@ const TEXT = 'GATE 12 BOARDING';
 /** What each style is trying to be, in a sentence you can check by looking. */
 const NOTES: Record<string, string> = {
   classic: 'What every board does today. A card misfires anywhere in the set, then travels the long way home.',
-  tick: 'One card ticks over to its neighbour and hurries back. No sweeps, no colour.',
+  tick: 'One card ticks over to something near it and hurries back - near, not exactly one step, or every blank card would show you an A. No sweeps, no colour.',
   rainbow: 'A tick that flies a full spectrum on the way over and back.',
   'pina-colada': 'Pineapple, coconut, a slice of lime. The same tick, drinking.',
   scatter: 'A character surfaces somewhere and goes again - the whole set, not a step.',
