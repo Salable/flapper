@@ -21,11 +21,11 @@
  *    the only real bug it had.
  */
 
-import { fidgetById, nextGapMs, pickCells, runMs } from '@/lib/board/fidgets.mjs';
+import { nextGapMs, pickCells, resolveFidget, runMs } from '@/lib/board/fidgets.mjs';
 import { MAIN } from '@/lib/board/regions.mjs';
 
 export function createAmbient(board: any) {
-  let spec: any = fidgetById(null);
+  let spec: any = resolveFidget(null);
   let enabled = false;
   let tick = 0;
   let gapTimer: ReturnType<typeof setTimeout> | null = null;
@@ -249,11 +249,11 @@ export function createAmbient(board: any) {
    * @param everyMs the board's Fidget setting. How often is the fidget's own
    *   business now, so this is only ever on or off - 0 is off, which is what
    *   a wall in an office should be unless somebody asked otherwise.
-   * @param id which fidget
+   * @param id which fidget: a name, or a whole one somebody made
    */
-  function start(everyMs: number, id?: string | null) {
+  function start(everyMs: number, id?: string | Record<string, unknown> | null) {
     if (destroyed) return;
-    const wanted = fidgetById(id ?? null);
+    const wanted = resolveFidget(id ?? null);
     const on = Number.isFinite(everyMs) && everyMs > 0;
     /*
      * Idempotent, and it has to be.

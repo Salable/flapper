@@ -295,14 +295,31 @@ test('a saved interrupter can carry align/valign, or rows instead of text - the 
   refused(() => validateInterrupterPreset({ name: 'FIRE', rows: ['X'], wrap: 'char' }), /wrap does not apply when rows is given/);
 });
 
-test('fidget must name one that ships, and says which when it does not', () => {
+test('fidget is a name it knows, or a whole one somebody made', () => {
   // Refused rather than ignored, the same as every other config field: a
   // caller sending pina_colada should be told it is pina-colada, not watch
   // its board sit still and have to work out why.
-  refused(() => validateConfigPatch({ fidget: 'pina_colada' }), /fidget must be null or one of/);
-  refused(() => validateConfigPatch({ fidget: 42 }), /fidget must be null or one of/);
+  refused(() => validateConfigPatch({ fidget: 'pina_colada' }), /one of tick, twitchy/);
+  refused(() => validateConfigPatch({ fidget: 42 }), /or a fidget of your own/);
+  refused(() => validateConfigPatch({ fidget: [] }), /or a fidget of your own/);
   // null is the quiet one, and both of these are ordinary settings.
   validateConfigPatch({ fidget: null });
   validateConfigPatch({ fidget: 'pina-colada' });
   validateConfigPatch({ fidget: 'ping-pong', ambientMs: 30000 });
+
+  // And one made rather than named - what the designer produces.
+  validateConfigPatch({
+    fidget: {
+      everyMs: 12000,
+      varyMs: 4000,
+      cards: 2,
+      beatMs: 600,
+      beats: [{ kind: 'colour', colour: '#f2d16b' }, { kind: 'origin' }],
+    },
+  });
+  // A bad one is refused with every fault at once, not just the first.
+  refused(
+    () => validateConfigPatch({ fidget: { cards: 0, beats: [{ kind: 'colour', colour: 'lime' }] } }),
+    /cards must be between.*colour must be a #rgb/s,
+  );
 });

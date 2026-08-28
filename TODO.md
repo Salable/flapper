@@ -1135,7 +1135,12 @@ tested, working) are kept as the seed of that feature, not deleted.
 - [x] Wire it to a real board: one control in the sidebar (fidget and pace
       are one choice), `fidget` in the config validator, in the MCP
       `update_config` schema, and in `docs/BOARD-API.md`.
-- [ ] The designer, which is a UI over exactly those four controls
+- [x] The designer - `/fidget-designer`. Four controls and the beat list,
+      with the real engine running the real fidget beside them, because a
+      fidget is nothing but motion. It produces a whole spec rather than a
+      name, which is why `fidget` in a board's config now takes either: a
+      fidget somebody makes works on any board without shipping in the app.
+      `validateFidget` finally has a production caller.
 - [ ] Animation overlays (snake, pac-man) as their own feature, later -
       `lib/board/travellers.mjs` is the seed, tested and working.
 

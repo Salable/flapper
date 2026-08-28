@@ -90,7 +90,7 @@ export function ThemePreview({
    * Which fidget style the board does - the "what kind" beside `ambientMs`'s
    * "how often". Omitted, the classic one every board has always done.
    */
-  fidget?: string | null;
+  fidget?: string | Record<string, unknown> | null;
   /**
    * The screen a board's grid was fit to (its own `screen.w / screen.h`),
    * for framing the box against that instead of `cols / rows` directly.
