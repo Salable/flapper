@@ -25,6 +25,8 @@ export type BoardTypeEditorProps = {
   screenAspect?: number;
   /** The board's Fidget setting, so a still preview isn't a lie. */
   ambientMs?: number;
+  /** Which fidget it does - a preview should twitch the way the wall does. */
+  fidget?: string | null;
 };
 
 export type BoardTypeClient = {

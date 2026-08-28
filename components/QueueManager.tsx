@@ -66,6 +66,7 @@ export function QueueManager({
   rows,
   screenAspect,
   ambientMs = 0,
+  fidget,
   onSaved,
 }: {
   slug: string;
@@ -85,6 +86,8 @@ export function QueueManager({
   /** The board's Fidget setting, so the "what's on the glass" preview
    * fidgets too - see ThemePreview's own doc for why. */
   ambientMs?: number;
+  /** Which fidget the board does, so a preview fidgets like the wall does. */
+  fidget?: string | null;
   /** The same shared "Saved" the sidebar flags - composing is saving too,
    * and showing confirmation in one place but not the other reads as
    * "this part doesn't actually save". */
@@ -720,6 +723,7 @@ export function QueueManager({
                     rows={rows}
                     tilePx={56}
                     ambientMs={ambientMs}
+                    fidget={fidget}
                     screenAspect={screenAspect}
                     align={previewAlign}
                     valign={previewValign}
@@ -979,6 +983,7 @@ export function QueueManager({
                     rows={rows}
                     tilePx={56}
                     ambientMs={ambientMs}
+                    fidget={fidget}
                     screenAspect={screenAspect}
                     align={presetRows === null ? presetAlign : undefined}
                     valign={presetRows === null ? presetValign : undefined}
