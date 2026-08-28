@@ -14,8 +14,30 @@ import { presetDraft, draftToPatch } from '@/lib/board/theme-editor.mjs';
 import { resolveBoardTheme } from '@/lib/board/board-theme.mjs';
 import { ThemePreview } from '@/components/flapper/ThemePreview';
 import { SAMPLE_MESSAGES } from '@/lib/board/sample-messages.mjs';
+import { FIDGETS, DEFAULT_AMBIENT_MS } from '@/lib/board/fidgets.mjs';
 
 /** The shapes offered by name; anything else is shown as its own ratio. */
+const FIDGET_IDS = Object.keys(FIDGETS);
+
+/**
+ * What each fidget is called on the glass side of the app.
+ *
+ * The ids are what the API and the designer use; these are for somebody
+ * choosing one for a wall, who does not need to know that "house" is a beat
+ * kind. Unlisted ids fall back to the id itself, so a fidget somebody
+ * authors later still appears rather than vanishing from the menu.
+ */
+const FIDGET_LABELS: Record<string, string> = {
+  tick: 'Tick - one card turns over now and then',
+  twitchy: 'Twitchy - three cards, more often',
+  calm: 'Calm - hardly ever, unhurried',
+  riffle: 'Riffle - a card settling through a few letters',
+  'pina-colada': 'Pina colada - pineapple, coconut, lime',
+  rainbow: 'Rainbow - red, amber, blue',
+  sherbet: 'Sherbet - three pastels, barely caught',
+  'ping-pong': 'Ping pong - out, back, out again',
+};
+
 const SCREENS = [
   { label: '16:9', w: 16, h: 9 },
   { label: '4:3', w: 4, h: 3 },
@@ -74,6 +96,13 @@ export function BoardSidebar({
   const screen = screenOf(config);
   const shape = screenLabel(screen);
   const grid = gridForConfig(config);
+  /*
+   * '' is off. Fidget and rate are one choice now, so the two board fields
+   * behind it have to agree: a board with a fidget named but ambientMs 0 is
+   * off, because off is what the wall is actually doing.
+   */
+  const fidgetValue =
+    Number(config.ambientMs) > 0 && typeof config.fidget === 'string' ? config.fidget : '';
   const onList = SCREENS.some((option) => option.w === screen.w && option.h === screen.h);
   const [custom, setCustom] = useState(false);
   // The pair being typed, so neither half is saved on its own.
@@ -238,21 +267,32 @@ export function BoardSidebar({
           <p className="board-side-grid muted">
             {grid.cols} × {grid.rows} cards{!chosen && ' · default screen'}
           </p>
+          {/* One control, not two. How often a fidget happens is part of the
+              fidget - "pina colada, but every three seconds" is not pina
+              colada - so picking one picks its pace with it. */}
           <Field
             label="Fidget"
-            htmlFor="side-ambient"
-            hint="A board holding one message sits perfectly still, which a real one never does. On, it twitches a tile now and then and corrects itself, and sweeps about once in twelve. Off by default - a wall should not clack all night unless you asked it to."
+            htmlFor="side-fidget"
+            hint="A board holding one message sits perfectly still, which a real one never does. Each fidget carries its own pace, so this is the only choice to make. Off by default - a wall should not clack all night unless you asked it to."
           >
             <Select
-              id="side-ambient"
-              value={String(Number(config.ambientMs) || 0)}
-              onChange={(event) => apply({ ambientMs: Number(event.target.value) })}
+              id="side-fidget"
+              value={fidgetValue}
+              onChange={(event) => {
+                const picked = event.target.value;
+                apply(
+                  picked === ''
+                    ? { ambientMs: 0, fidget: null }
+                    : { ambientMs: DEFAULT_AMBIENT_MS, fidget: picked },
+                );
+              }}
             >
-              <option value="0">Off - perfectly still</option>
-              <option value="15000">Every 15 seconds</option>
-              <option value="30000">Every 30 seconds</option>
-              <option value="60000">Every minute</option>
-              <option value="300000">Every 5 minutes</option>
+              <option value="">Off - perfectly still</option>
+              {FIDGET_IDS.map((id) => (
+                <option key={id} value={id}>
+                  {FIDGET_LABELS[id] ?? id}
+                </option>
+              ))}
             </Select>
           </Field>
         </div>
@@ -268,6 +308,7 @@ export function BoardSidebar({
             rows={grid.rows}
             tilePx={56}
             ambientMs={Number(config.ambientMs) || 0}
+            fidget={fidgetValue || null}
             screenAspect={screen.w / screen.h}
           />
           <p className="design-preview-caption">{grid.cols} × {grid.rows} cards</p>

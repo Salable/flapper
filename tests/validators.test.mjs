@@ -294,3 +294,15 @@ test('a saved interrupter can carry align/valign, or rows instead of text - the 
   refused(() => validateInterrupterPreset({ name: 'FIRE', text: 'X', wrap: 'char' }), /wrap is not supported/);
   refused(() => validateInterrupterPreset({ name: 'FIRE', rows: ['X'], wrap: 'char' }), /wrap does not apply when rows is given/);
 });
+
+test('fidget must name one that ships, and says which when it does not', () => {
+  // Refused rather than ignored, the same as every other config field: a
+  // caller sending pina_colada should be told it is pina-colada, not watch
+  // its board sit still and have to work out why.
+  refused(() => validateConfigPatch({ fidget: 'pina_colada' }), /fidget must be null or one of/);
+  refused(() => validateConfigPatch({ fidget: 42 }), /fidget must be null or one of/);
+  // null is the quiet one, and both of these are ordinary settings.
+  validateConfigPatch({ fidget: null });
+  validateConfigPatch({ fidget: 'pina-colada' });
+  validateConfigPatch({ fidget: 'ping-pong', ambientMs: 30000 });
+});

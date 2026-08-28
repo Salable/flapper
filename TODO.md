@@ -1124,13 +1124,20 @@ It does not handle them. They are not fidgets.
 The travellers built on `claude/fidget-styles` (`lib/board/travellers.mjs`,
 tested, working) are kept as the seed of that feature, not deleted.
 
-- [ ] Rewrite the style shape as the five rows above, defaults unchanged
-      where they can be
-- [ ] Move the sweep out of the fidget model into its own thing
-- [ ] Re-express the eleven built styles in it; the lab is the proof they
-      did not change
-- [ ] Then the designer, which is a UI over exactly those five rows
-- [ ] Animation overlays (snake, pac-man) as their own feature, later
+- [x] Rewrite the style shape as the rows above - `lib/board/fidgets.mjs`,
+      four numbers and a list of beats, eleven fields down to four.
+- [x] Move the sweep out of the fidget model - it is gone from it entirely.
+      A whole-board revolution is not a fidget landing on a random card, and
+      the wordmark's own idle animation (`idle.mjs`, which is where all this
+      started) still has one because that is a different thing.
+- [x] Re-express the built styles in it. Eight ship; the lab is the proof,
+      since every caption on it is the fidget's own numbers and list.
+- [x] Wire it to a real board: one control in the sidebar (fidget and pace
+      are one choice), `fidget` in the config validator, in the MCP
+      `update_config` schema, and in `docs/BOARD-API.md`.
+- [ ] The designer, which is a UI over exactly those four controls
+- [ ] Animation overlays (snake, pac-man) as their own feature, later -
+      `lib/board/travellers.mjs` is the seed, tested and working.
 
 ## Refused by design, not missing
 
