@@ -28,6 +28,7 @@ const NOTES: Record<string, string> = {
   scatter: 'A character surfaces somewhere and goes again - the whole set, not a step.',
   twitchy: 'Three cards at once, most ticks, and a sweep now and then. For a busy space.',
   sweeping: 'Never a flicker - only the whole board turning over. For something being watched.',
+  sherbet: "Colour only - five or six flips of pastel and no readable change. It never sits still long enough to show you a letter.",
   calm: 'Almost never, and it lingers when it does. For a quiet room.',
   snake: 'A different animal: a creature that walks the edge, once round, and puts the board back behind it - in a few flips per cell, so it no longer smears.',
   'pac-man': 'The same, with three ghosts behind him. ( is the mouth and ) a ghost - the ring has no sprites, and both sit near blank so a cell costs four flips, not thirty.',
