@@ -212,7 +212,18 @@ export function createAmbient(board: any) {
         // Only if nothing else has painted since. A message that arrived
         // mid-flicker must not be replaced by the words it interrupted.
         const now = board.page;
-        if (!now || now.join('\u0000') !== flickered.join('\u0000')) return;
+        if (!now || now.join('\u0000') !== flickered.join('\u0000')) {
+          /*
+           * Something else painted while the card was out. The gesture is
+           * abandoned - but the options it borrowed are still on the board,
+           * and only the return leg hands them back. Without this the wash,
+           * the slow step and shortest-path stayed on for good, so every
+           * later movement on that board wore the colour: "fidgeting through
+           * the whole cycle".
+           */
+          unhurry();
+          return;
+        }
         hurryHome(() => board.setPage(page), { hurry: true });
       };
       undoFlicker = restore;
