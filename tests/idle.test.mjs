@@ -97,6 +97,30 @@ test('tick stays within its radius, and still looks arbitrary', () => {
     counts.set(action.char, (counts.get(action.char) ?? 0) + 1);
   }
   assert.ok(seen > 0, 'no flickers at all - the assertions above proved nothing');
+  // Deliberately NOT asserting variety here. A tick is one step, so on a
+  // mostly-blank board it mostly shows A - that is the gesture, not a bug,
+  // and a test demanding a spread would quietly push the radius back up.
+  assert.equal(FIDGET_STYLES.tick.stepDistance, 1, 'a tick that wanders is not a tick');
+});
+
+test('a wider radius is what buys variety, for a style that wants it', () => {
+  // The radius mechanism itself, tested away from tick so that neither
+  // constrains the other: at four steps a blank card has eight characters
+  // to reach for, both ways round the ring.
+  const ring = [...CHARSET];
+  const page = ('GATE 12 BOARDING' + ' '.repeat(16)).padEnd(64, ' ');
+  const roomy = { ...FIDGET_STYLES.tick, stepDistance: 4 };
+  const counts = new Map();
+  let seen = 0;
+  for (let tick = 1; tick <= 1200; tick += 1) {
+    const action = idleAction(page, CHARSET, tick, roomy);
+    if (action.kind !== 'flicker') continue;
+    seen += 1;
+    const from = page[action.index];
+    const forward = (ring.indexOf(action.char) - ring.indexOf(from) + ring.length) % ring.length;
+    assert.ok(Math.min(forward, ring.length - forward) <= 4, 'left the radius');
+    counts.set(action.char, (counts.get(action.char) ?? 0) + 1);
+  }
   const commonest = Math.max(...counts.values()) / seen;
   assert.ok(commonest < 0.25, `one character was ${Math.round(commonest * 100)}% of all fidgets`);
 });
