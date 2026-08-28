@@ -96,8 +96,8 @@ export function createAmbient(board: any) {
     const homeward = style.returnStepMs ?? style.stepMs;
     const chosen = opts.hurry ? homeward : outward;
     if (chosen !== null && chosen !== undefined) patch.fastStepMs = chosen;
-    // The way home may go unpainted - see `washOutboundOnly`.
-    if (style.cardWash && !(opts.hurry && style.washOutboundOnly)) {
+    // The way home may not be painted at all - see `vanishHome`.
+    if (style.cardWash && !(opts.hurry && style.vanishHome)) {
       patch.cardWash = style.cardWash;
       patch.cardWashGlyphs = style.washGlyphs;
       // The cards this gesture is using, so they keep their colour through
@@ -224,7 +224,14 @@ export function createAmbient(board: any) {
           unhurry();
           return;
         }
-        hurryHome(() => board.setPage(page), { hurry: true });
+        /*
+         * A vanishing style does not fly home: it is put back with no
+         * animation at all. Anything else shows either the colours again in
+         * reverse or - worse - the letters on the cards it passes through.
+         */
+        hurryHome(() => board.setPage(page, { immediate: Boolean(style.vanishHome) }), {
+          hurry: true,
+        });
       };
       undoFlicker = restore;
       restoreTimer = setTimeout(() => {
