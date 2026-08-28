@@ -96,19 +96,10 @@ export function createAmbient(board: any) {
     const homeward = style.returnStepMs ?? style.stepMs;
     const chosen = opts.hurry ? homeward : outward;
     if (chosen !== null && chosen !== undefined) patch.fastStepMs = chosen;
-    /*
-     * A fidget is a mini flight, so it gets to say what colours the card
-     * passes through on the way. `flipboard.js` reads `opts.flight` ahead of
-     * the skin's, which is what makes this a loan rather than a change: the
-     * design's own flight comes back the moment the gesture lands.
-     */
-    if (style.flight) {
-      patch.flight = style.flight;
-      patch.flightStrength = style.flightStrength;
-    }
     // The way home may go unpainted - see `washOutboundOnly`.
     if (style.cardWash && !(opts.hurry && style.washOutboundOnly)) {
       patch.cardWash = style.cardWash;
+      patch.cardWashGlyphs = style.washGlyphs;
     } else if (style.cardWash) {
       patch.cardWash = null;
     }
@@ -235,10 +226,9 @@ export function createAmbient(board: any) {
 
     const patch: Record<string, unknown> = { fastStepMs: Math.min(board.opts.fastStepMs, 30) };
     if (style.shortestPath) patch.shortestPath = true;
-    if (style.cardWash) patch.cardWash = style.cardWash;
-    if (style.flight) {
-      patch.flight = style.flight;
-      patch.flightStrength = style.flightStrength;
+    if (style.cardWash) {
+      patch.cardWash = style.cardWash;
+      patch.cardWashGlyphs = style.washGlyphs;
     }
     unhurry();
     parked = {};
