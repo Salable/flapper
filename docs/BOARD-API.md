@@ -150,14 +150,22 @@ You can change it (with the key), and so can the person at the display:
 ```bash
 curl -X PATCH {apiBase}/config \
   -H 'authorization: Bearer KEY' -H 'content-type: application/json' \
-  -d '{"cols":20,"rows":8,"align":"center","valign":"middle"}'
+  -d '{"screen":{"w":16,"h":9},"cardSize":"medium","align":"center","valign":"middle"}'
 ```
 
-Supported ranges are 1–80 columns and 1–40 rows. Changing the grid re-lays out
-whatever is showing and everything still queued, so it is safe to do
-mid-message. Be considerate: if a user asked you to display something, do not
-silently reshape their board to make your text fit. Fit the text to the board,
-or ask.
+**A grid is not something you set.** `cols` and `rows` are refused with a
+`422`, and have been since the grid became a consequence rather than a
+setting: a board fills whatever window it is in, so what you choose is the
+*shape of the screen* it is designed for and *how big the cards are*, and the
+grid follows. `screen` is any two positive numbers in any units - `16` and
+`9`, or a ticker's `300` and `20` - because only the ratio matters.
+`cardSize` is one of `huge`, `large`, `medium`, `small`, `tiny`, biggest
+first. Either resets to its default with `null`.
+
+Changing them re-lays out whatever is showing and everything still queued, so
+it is safe to do mid-message. Be considerate: if a user asked you to display
+something, do not silently reshape their board to make your text fit. Fit the
+text to the board, or ask.
 
 The same call sets the theme: `{"theme":"canary"}` repaints every display of
 the board in Norwich green; `"classic"` is the charcoal original. Always take

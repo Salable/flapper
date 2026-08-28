@@ -22,6 +22,7 @@
  */
 
 import { fidgetById, nextGapMs, pickCells, runMs } from '@/lib/board/fidgets.mjs';
+import { MAIN } from '@/lib/board/regions.mjs';
 
 export function createAmbient(board: any) {
   let spec: any = fidgetById(null);
@@ -136,10 +137,29 @@ export function createAmbient(board: any) {
     gapTimer = setTimeout(begin, nextGapMs(spec, tick));
   }
 
-  /** Is the board still showing exactly what this run last put there? */
+  /**
+   * The band a fidget lives in.
+   *
+   * The main one, and only the main one. `board.page` stitches every band
+   * together but `board.setPage` writes the main band alone, so reading the
+   * whole board and indexing into it meant that on a board with a footer, a
+   * cell could be picked in the footer, mutated in the run's own copy, never
+   * actually written - and then the next comparison would find the board
+   * "touched", abandon the run, and leave the main-band cells it *had*
+   * stepped permanently wrong on the glass. A footer repaint would abort an
+   * innocent run for the same reason.
+   *
+   * Latent today, because the display forces `footerRows: 0`. Multi-band
+   * boards are a documented future release and this would have been waiting
+   * for them.
+   */
+  const bandPage = (): string[] | null =>
+    typeof board.regionPage === 'function' ? board.regionPage(MAIN) : board.page;
+
+  /** Is the band still showing exactly what this run last put there? */
   function untouched() {
     if (!run) return false;
-    const now = board.page;
+    const now = bandPage();
     if (!now) return false;
     const mine = rowsOf(run.shown, run.width, run.page.length);
     return now.length === mine.length && now.every((line: string, i: number) => line === mine[i]);
@@ -147,7 +167,7 @@ export function createAmbient(board: any) {
 
   function begin() {
     if (!enabled || destroyed) return;
-    const page = board.page;
+    const page = bandPage();
     const width = page?.[0]?.length ?? 0;
     // Nothing to fidget on, an uneven page, or something already moving: wait
     // for the next gap rather than forcing it.
