@@ -85,7 +85,7 @@ export function createAmbient(board: any) {
    * hurry would do nothing at all. It has to stay until the return lands,
    * which is what the watcher below is for.
    */
-  function hurryHome(run: () => void, opts: { hurry?: boolean } = {}) {
+  function hurryHome(run: () => void, opts: { hurry?: boolean; cells?: number[] } = {}) {
     const patch: Record<string, unknown> = {};
     /*
      * Two legs, two speeds. The way out takes the style's own pace if it has
@@ -100,8 +100,13 @@ export function createAmbient(board: any) {
     if (style.cardWash && !(opts.hurry && style.washOutboundOnly)) {
       patch.cardWash = style.cardWash;
       patch.cardWashGlyphs = style.washGlyphs;
+      // The cards this gesture is using, so they keep their colour through
+      // the pause at the far end instead of blinking back to the design's
+      // own paint - letter and all - in the middle of the gesture.
+      patch.cardWashCells = opts.cells ?? null;
     } else if (style.cardWash) {
       patch.cardWash = null;
+      patch.cardWashCells = null;
     }
     if (style.shortestPath) patch.shortestPath = true;
     if (Object.keys(patch).length === 0) {
@@ -113,6 +118,20 @@ export function createAmbient(board: any) {
     for (const key of Object.keys(patch)) parked[key] = board.opts[key];
     board.setOptions(patch);
     run();
+    /*
+     * Only the way home gives the board its options back.
+     *
+     * The obvious thing - hand them back as soon as the board stops moving -
+     * is wrong for anything with a pause in it, and wrong at exactly the
+     * moment you are looking at. The card lands, the board goes still, this
+     * fires, and the colour comes off *at the start of the hold* rather than
+     * at the end of the gesture: three coloured cards, then a plain letter
+     * sitting there for a quarter of a second. The outbound leg therefore
+     * keeps what it borrowed until the return leg takes over - which begins
+     * by calling `unhurry` itself - and `stop()` covers a gesture abandoned
+     * in between.
+     */
+    if (!opts.hurry) return;
     settleTimer = setInterval(() => {
       if (board.isAnimating()) return;
       unhurry();
@@ -186,7 +205,9 @@ export function createAmbient(board: any) {
       if (action.kind !== 'flicker') return;
       const changed = withFlicker(flat, action);
       const flickered = page.map((_: string, row: number) => changed.slice(row * width, (row + 1) * width));
-      hurryHome(() => board.setPage(flickered));
+      hurryHome(() => board.setPage(flickered), {
+        cells: (action.picks ?? []).map((pick: { index: number }) => pick.index),
+      });
       const restore = () => {
         // Only if nothing else has painted since. A message that arrived
         // mid-flicker must not be replaced by the words it interrupted.
