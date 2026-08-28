@@ -105,6 +105,7 @@ export function createAmbient(board: any) {
     if (style.flight) {
       patch.flight = style.flight;
       patch.flightStrength = style.flightStrength;
+      if (style.flightMode) patch.flightMode = style.flightMode;
     }
     if (style.shortestPath) patch.shortestPath = true;
     if (Object.keys(patch).length === 0) {
