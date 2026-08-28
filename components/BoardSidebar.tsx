@@ -16,7 +16,7 @@ import { ThemePreview } from '@/components/flapper/ThemePreview';
 import { SAMPLE_MESSAGES } from '@/lib/board/sample-messages.mjs';
 import { FIDGETS, DEFAULT_AMBIENT_MS } from '@/lib/board/fidgets.mjs';
 
-/** The shapes offered by name; anything else is shown as its own ratio. */
+/** Every fidget that ships, in the order the model lists them. */
 const FIDGET_IDS = Object.keys(FIDGETS);
 
 /**

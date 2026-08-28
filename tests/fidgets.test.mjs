@@ -130,3 +130,111 @@ test('the defaults are slower than the first model shipped', () => {
   assert.ok(FIDGET_DEFAULTS.beatMs >= 500, 'the default beat is back to being brisk');
   assert.deepEqual(BEAT_KINDS, ['colour', 'house', 'origin']);
 });
+
+/*
+ * The tests below exist because an adversarial pass mutated the source
+ * sixteen ways and this suite caught two of them. Each one here pins a
+ * mutation that survived: what a beat helper actually builds, that the gap
+ * can fall *early* as well as late, the clamp on cards, the lookup that must
+ * not see Object.prototype, and the defaults themselves. A suite that only
+ * checks the happy path is a suite that agrees with whatever the code does.
+ */
+
+test('each beat helper builds its own kind, and nothing else', () => {
+  // house() returning origin() passed every other test in this file.
+  assert.deepEqual(house(), { kind: 'house' });
+  assert.deepEqual(origin(), { kind: 'origin' });
+  assert.deepEqual(colour('#abcdef'), { kind: 'colour', colour: '#abcdef' });
+  for (const beat of [house(), origin(), colour('#abcdef')]) {
+    assert.ok(Object.isFrozen(beat), 'a beat should not be editable in place');
+  }
+});
+
+test('the gap falls early as often as late', () => {
+  /*
+   * The variance is `(roll * 2 - 1) * varyMs`, and dropping the `* 2 - 1`
+   * leaves a fidget that is only ever *late* - still inside the bounds, still
+   * varied, and wrong. A board that never fidgets sooner than its interval
+   * drifts steadily later, which is the metronome problem wearing a hat.
+   */
+  const spec = fidget({ everyMs: 10000, varyMs: 4000 });
+  let early = 0;
+  let late = 0;
+  for (let tick = 0; tick < 300; tick += 1) {
+    const gap = nextGapMs(spec, tick);
+    if (gap < spec.everyMs) early += 1;
+    if (gap > spec.everyMs) late += 1;
+  }
+  assert.ok(early > 60, `only ${early} of 300 gaps were early`);
+  assert.ok(late > 60, `only ${late} of 300 gaps were late`);
+});
+
+test('cards is clamped to the board, not merely exhausted by it', () => {
+  // Dropping the clamp happens to give the right count on a small grid, since
+  // the loop runs out of distinct cells anyway. On a large grid it does not.
+  assert.equal(pickCells(fidget({ cards: 64 }), 4096, 11).length, 64);
+  assert.equal(pickCells(fidget({ cards: 64 }), 20, 11).length, 20);
+});
+
+test('a fidget lookup never reaches Object.prototype', () => {
+  // `id in FIDGETS` instead of hasOwnProperty hands back a function for
+  // 'toString', and a board config is caller-supplied text.
+  for (const id of ['toString', 'constructor', '__proto__', 'hasOwnProperty']) {
+    assert.equal(fidgetById(id), FIDGETS.tick, `${id} resolved to something`);
+  }
+});
+
+test('the defaults are the defaults', () => {
+  // Every one of these was unpinned, so a mutation to any of them passed.
+  assert.equal(FIDGET_DEFAULTS.cards, 1);
+  assert.equal(FIDGET_DEFAULTS.everyMs, 14000);
+  assert.equal(FIDGET_DEFAULTS.varyMs, 5000);
+  assert.ok(FIDGET_DEFAULTS.varyMs > 0, 'a fidget with no variance is a clock');
+  assert.deepEqual(FIDGET_DEFAULTS.beats, [house()]);
+  assert.ok(Object.isFrozen(fidget({})), 'a fidget should not be editable in place');
+});
+
+test('a spec is checked as numbers, not coerced into them', () => {
+  /*
+   * A form sends strings. `Number("14000")` validated fine and then
+   * `everyMs + roll * varyMs` concatenated, giving NaN gaps - and
+   * setTimeout(fn, NaN) is setTimeout(fn, 0), a fidget running flat out.
+   */
+  assert.ok(validateFidget({ everyMs: '14000' }).some((e) => /everyMs must be a number/.test(e)));
+  assert.ok(validateFidget({ beatMs: '600' }).some((e) => /beatMs must be a number/.test(e)));
+  assert.ok(validateFidget({ cards: '2' }).some((e) => /cards must be a number/.test(e)));
+  assert.ok(validateFidget({ cards: 1.5 }).some((e) => /whole number/.test(e)));
+  assert.ok(validateFidget({ everyMs: NaN }).some((e) => /everyMs must be a number/.test(e)));
+});
+
+test('the bounds are real bounds at both ends', () => {
+  assert.deepEqual(validateFidget({ cards: 64 }), []);
+  assert.ok(validateFidget({ cards: 65 }).some((e) => /cards must be between/.test(e)));
+  assert.ok(validateFidget({ everyMs: 3_600_001 }).some((e) => /everyMs must be between/.test(e)));
+  assert.ok(validateFidget({ beatMs: 5001 }).some((e) => /beatMs must be between/.test(e)));
+  assert.ok(validateFidget({ beatMs: 39 }).some((e) => /beatMs must be between/.test(e)));
+});
+
+test('a gesture cannot be arbitrarily long', () => {
+  // 5000 beats at the top beatMs is one gesture lasting most of a working day.
+  assert.deepEqual(validateFidget({ beats: Array(32).fill(house()) }), []);
+  assert.ok(
+    validateFidget({ beats: Array(33).fill(house()) }).some((e) => /the most a gesture may have/.test(e)),
+  );
+});
+
+test('the variance can never be clamped into a metronome', () => {
+  /*
+   * everyMs 1000 with varyMs 999 passed the old rule and then hit the floor
+   * in nextGapMs: four gaps in five came out at exactly 1000. Refused at the
+   * spec now, so the floor is a backstop rather than a behaviour.
+   */
+  assert.ok(
+    validateFidget({ everyMs: 1000, varyMs: 999 }).some((e) => /metronome/.test(e)),
+  );
+  const fine = fidget({ everyMs: 6000, varyMs: 4000 });
+  assert.deepEqual(validateFidget(fine), []);
+  const gaps = new Set();
+  for (let tick = 0; tick < 200; tick += 1) gaps.add(nextGapMs(fine, tick));
+  assert.ok(gaps.size > 80, `only ${gaps.size} distinct gaps - that is a clock`);
+});

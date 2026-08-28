@@ -59,10 +59,24 @@ export function createAmbient(board: any) {
     return at < 0 ? char : ring[(at + 1) % ring.length];
   };
 
+  /**
+   * Borrow options, remembering the board's own the first time each is taken.
+   *
+   * It used to hand everything back before taking it again on every beat,
+   * which was correct and expensive: `cardWash` going null and straight back
+   * threw away the board's baked card set and rebuilt all forty-two of them,
+   * twice a beat. A three-beat colour gesture allocated a hundred and
+   * twenty-six canvases every fourteen seconds, forever.
+   *
+   * Remembering only the first value of each key keeps the run's borrowing
+   * accumulative and the board's own values intact, and lets a beat set the
+   * same wash it already had without touching the cache at all.
+   */
   function park(patch: Record<string, unknown>) {
-    unpark();
-    parked = {};
-    for (const key of Object.keys(patch)) parked[key] = board.opts[key];
+    if (parked === null) parked = {};
+    for (const key of Object.keys(patch)) {
+      if (!(key in parked)) parked[key] = board.opts[key];
+    }
     board.setOptions(patch);
   }
 
@@ -70,6 +84,30 @@ export function createAmbient(board: any) {
     if (parked === null) return;
     board.setOptions(parked);
     parked = null;
+  }
+
+  /**
+   * Let a card take the short way round, for this paint and no longer.
+   *
+   * `shortestPath` cannot be parked for the length of a beat the way the wash
+   * is, because it is not read while a tile flies - it is read once, when a
+   * target is set, and written into that tile as a direction it then keeps
+   * for its whole journey. Leaving the option on for the rest of the beat
+   * therefore does nothing for the fidget and everything to whatever else
+   * paints in the meantime: a message arriving mid-beat had about half its
+   * tiles flip in backwards, and handing the option back afterwards could not
+   * undo it, because the direction was already on the tiles.
+   *
+   * So it is on for exactly the one `setPage` that wants it.
+   */
+  function withShortestPath(paint: () => void) {
+    const was = board.opts.shortestPath;
+    board.setOptions({ shortestPath: true });
+    try {
+      paint();
+    } finally {
+      board.setOptions({ shortestPath: was });
+    }
   }
 
   /**
@@ -135,14 +173,26 @@ export function createAmbient(board: any) {
 
   function beat() {
     if (!run || destroyed) return;
-    const next = spec.beats[run.beat];
-    if (!next) {
-      endRun(true);
+    /*
+     * The guard comes first, and covers the end of the list as well as the
+     * middle of it.
+     *
+     * It used to sit below the `!next` branch, so the final beat restored the
+     * page unconditionally - and for the whole of that last beat (up to
+     * 900ms) a message landing on the board was stamped over by the page the
+     * fidget had memorised before it started. Instantly, with no flip, and
+     * nothing re-sends it: the wall would show the *previous* message until
+     * the next queue event. Painting over an arriving message is the one way
+     * a fidget can actually hurt, and this was the only path to it.
+     */
+    if (run.beat > 0 && !untouched()) {
+      endRun(false);
       schedule();
       return;
     }
-    if (run.beat > 0 && !untouched()) {
-      endRun(false);
+    const next = spec.beats[run.beat];
+    if (!next) {
+      endRun(true);
       schedule();
       return;
     }
@@ -152,16 +202,14 @@ export function createAmbient(board: any) {
      * baked set for exactly these cells - `cardWashCells` keeps the colour on
      * while the card sits, which is the part you actually look at. House and
      * origin beats want the design's own cards back.
+     *
+     * Only what has to last the beat is parked. See `withShortestPath` for
+     * the one that must not.
      */
     if (next.kind === 'colour') {
-      park({
-        cardWash: [next.colour],
-        cardWashGlyphs: false,
-        cardWashCells: run.cells,
-        shortestPath: true,
-      });
+      park({ cardWash: [next.colour], cardWashGlyphs: false, cardWashCells: run.cells });
     } else {
-      park({ cardWash: null, cardWashCells: null, shortestPath: true });
+      park({ cardWash: null, cardWashCells: null });
     }
 
     const chars = [...run.shown];
@@ -169,7 +217,10 @@ export function createAmbient(board: any) {
       chars[index] = next.kind === 'origin' ? run.was[index] : stepOn(chars[index]);
     }
     run.shown = chars.join('');
-    board.setPage(rowsOf(run.shown, run.width, run.page.length));
+    // Read out before the closure: `run` is nulled by endRun on other paths,
+    // and the narrowing does not survive into a callback.
+    const lines = rowsOf(run.shown, run.width, run.page.length);
+    withShortestPath(() => board.setPage(lines));
     run.beat += 1;
     beatTimer = setTimeout(beat, spec.beatMs);
   }
@@ -181,10 +232,23 @@ export function createAmbient(board: any) {
    * @param id which fidget
    */
   function start(everyMs: number, id?: string | null) {
-    stop();
     if (destroyed) return;
-    spec = fidgetById(id ?? null);
-    enabled = Number.isFinite(everyMs) && everyMs > 0;
+    const wanted = fidgetById(id ?? null);
+    const on = Number.isFinite(everyMs) && everyMs > 0;
+    /*
+     * Idempotent, and it has to be.
+     *
+     * This is called from the display's `onConfig`, which fires on every
+     * resync - and a resync happens on every queue advance. Restarting
+     * unconditionally re-armed the gap timer from zero each time, so a board
+     * with a lively queue nudged itself more often than the fidget's own
+     * interval and the thing simply never fired. It also killed any run
+     * already in flight, mid-gesture.
+     */
+    if (on && enabled && wanted === spec) return;
+    stop();
+    spec = wanted;
+    enabled = on;
     if (!enabled) return;
     schedule();
   }
