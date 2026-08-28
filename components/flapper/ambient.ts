@@ -1,313 +1,206 @@
 'use client';
 
 /**
- * Ambient motion for a board holding still.
+ * Running a fidget against a real board.
  *
- * A board standing on one message is dead in a way a real installation never
- * is: idle.mjs already models the alternative - mostly stillness, the
- * occasional tile misfiring to a wrong character and correcting itself all
- * the way round, and now and then a whole sweep. This wires that pure model
- * to an actual Flipboard on an interval - shared between the live display
- * (BoardApp) and a settings-page preview (ThemePreview), so a board fidgets
- * exactly the same way wherever it's being watched.
+ * `lib/board/fidgets.mjs` says what a fidget *is* - four numbers and a list
+ * of beats. This puts one on the glass: it picks the cards, walks the list,
+ * and puts the board back exactly as it found it.
  *
- * It works on what is physically on the board (`board.page`) and puts it
- * back afterwards, and it only ever runs when nothing else is moving. The
- * restore is guarded: if anything else painted the board in the meantime the
- * flicker is abandoned rather than stamped over the top of whatever arrived,
- * which is the one way this could have hurt.
+ * Three things it will not do, all of them learned the hard way:
+ *
+ *  - It never runs on a blank board, and never paints over something that
+ *    arrived while it was mid-gesture. A message beats a fidget every time,
+ *    so the run is abandoned rather than stamped on top of it.
+ *  - It never leaves the board wearing something it borrowed. Every option a
+ *    beat sets is parked first and handed back when the run ends, however it
+ *    ends - finished, abandoned, or the board torn down underneath it.
+ *  - It decides nothing about *how* a card gets anywhere. One ring step per
+ *    beat, shortest way home, and the author never sees it. Direction and
+ *    step timing were fields in the first model, and between them they caused
+ *    the only real bug it had.
  */
 
-import { idleAction, withFlicker, fidgetStyle } from '@/lib/board/idle.mjs';
-import { traveller, travellerFrame, withTraveller, runLength } from '@/lib/board/travellers.mjs';
+import { fidgetById, nextGapMs, pickCells, runMs } from '@/lib/board/fidgets.mjs';
 
 export function createAmbient(board: any) {
-  /** Which fidget this board does. Set by `start`; classic until it is. */
-  let style: any = fidgetStyle(null);
-  let ambientTimer: ReturnType<typeof setInterval> | null = null;
-  let restoreTimer: ReturnType<typeof setTimeout> | null = null;
-  let ambientTick = 0;
-  /** Put the words back, if a flicker is still showing. */
-  let undoFlicker: (() => void) | null = null;
-  /** Set once `destroy()` runs - a `start` racing in after must not arm a
-   * timer against a board nobody owns any more. */
+  let spec: any = fidgetById(null);
+  let enabled = false;
+  let tick = 0;
+  let gapTimer: ReturnType<typeof setTimeout> | null = null;
+  let beatTimer: ReturnType<typeof setTimeout> | null = null;
   let destroyed = false;
-  /** Watches for the fast return to finish so the board's own speed comes
-   * back. See `hurryHome` for why this cannot just be restored inline. */
-  let settleTimer: ReturnType<typeof setInterval> | null = null;
-  /** The board's own options, parked for the length of a fidget's gesture. */
+
+  /** The board's own options, parked for the length of a run. */
   let parked: Record<string, unknown> | null = null;
-  /** Frame timer for a traveller, and the page it must put back after. */
-  let walkTimer: ReturnType<typeof setInterval> | null = null;
-  let walkBase: string[] | null = null;
+  /** The run in progress: what the board said before it, and where it is. */
+  let run: {
+    page: string[];
+    width: number;
+    was: string;
+    shown: string;
+    cells: number[];
+    beat: number;
+  } | null = null;
 
-  /**
-   * Stop a traveller mid-walk and put the board back where it found it.
-   *
-   * Guarded the same way a misfire's restore is: if something else has
-   * painted since the last frame, the creature is abandoned rather than
-   * stamped over whatever arrived.
-   */
-  function endWalk(restore = true) {
-    if (walkTimer !== null) clearInterval(walkTimer);
-    walkTimer = null;
-    const base = walkBase;
-    walkBase = null;
-    if (restore && base) board.setPage(base);
-  }
+  /** The ring, in order, so a beat can advance a card one position. */
+  const ring: string[] = [...(board.charset ?? [])];
 
-  /**
-   * Put the board back on its own Travel speed, now.
-   *
-   * Idempotent, and safe to call from anywhere: the way out, a new `start`,
-   * or the settle watcher noticing the return has landed.
-   */
-  function unhurry() {
-    if (settleTimer !== null) clearInterval(settleTimer);
-    settleTimer = null;
-    if (parked !== null) {
-      board.setOptions(parked);
-      parked = null;
-    }
-  }
-
-  /**
-   * Make the journey home fast, and give it back afterwards.
-   *
-   * A tile only travels forward, so coming back from a one-step misfire is a
-   * whole lap of the ring - at the board's own Travel speed that reads as a
-   * full flip, the very thing a small tick was trying not to be. So a style
-   * may ask for the return alone to hurry.
-   *
-   * It cannot simply be set and unset around `setPage`: `stepDuration` reads
-   * `this.opts` afresh on every step (`flipboard.js`), so restoring inline
-   * would put the board back on its own speed before the first frame and the
-   * hurry would do nothing at all. It has to stay until the return lands,
-   * which is what the watcher below is for.
-   */
-  function hurryHome(run: () => void, opts: { hurry?: boolean; cells?: number[] } = {}) {
-    const patch: Record<string, unknown> = {};
-    /*
-     * Two legs, two speeds. The way out takes the style's own pace if it has
-     * one; the way home may take a different one - a tick hurries back so a
-     * small gesture stays small, a drink comes back as slowly as it went.
-     */
-    const outward = style.stepMs;
-    const homeward = style.returnStepMs ?? style.stepMs;
-    const chosen = opts.hurry ? homeward : outward;
-    if (chosen !== null && chosen !== undefined) patch.fastStepMs = chosen;
-    // The way home may not be painted at all - see `vanishHome`.
-    if (style.cardWash && !(opts.hurry && style.vanishHome)) {
-      patch.cardWash = style.cardWash;
-      patch.cardWashGlyphs = style.washGlyphs;
-      // The cards this gesture is using, so they keep their colour through
-      // the pause at the far end instead of blinking back to the design's
-      // own paint - letter and all - in the middle of the gesture.
-      patch.cardWashCells = opts.cells ?? null;
-    } else if (style.cardWash) {
-      patch.cardWash = null;
-      patch.cardWashCells = null;
-    }
-    if (style.shortestPath) patch.shortestPath = true;
-    if (Object.keys(patch).length === 0) {
-      run();
-      return;
-    }
-    unhurry();
-    parked = {};
-    for (const key of Object.keys(patch)) parked[key] = board.opts[key];
-    board.setOptions(patch);
-    run();
-    /*
-     * Only the way home gives the board its options back.
-     *
-     * The obvious thing - hand them back as soon as the board stops moving -
-     * is wrong for anything with a pause in it, and wrong at exactly the
-     * moment you are looking at. The card lands, the board goes still, this
-     * fires, and the colour comes off *at the start of the hold* rather than
-     * at the end of the gesture: three coloured cards, then a plain letter
-     * sitting there for a quarter of a second. The outbound leg therefore
-     * keeps what it borrowed until the return leg takes over - which begins
-     * by calling `unhurry` itself - and `stop()` covers a gesture abandoned
-     * in between.
-     */
-    if (!opts.hurry) return;
-    settleTimer = setInterval(() => {
-      if (board.isAnimating()) return;
-      unhurry();
-    }, 50);
-  }
-
-  /*
-   * `restore` is false on the way out.
-   *
-   * Doing the restore matters when the board carries on living - a sync
-   * nudge lands inside the flicker window and would otherwise strand the
-   * deliberately-wrong character. It is wrong when the board is being
-   * discarded: setPage on a board nobody owns any more starts a fresh frame
-   * loop against an orphaned canvas.
-   */
-  function stop(restore = true) {
-    if (ambientTimer !== null) clearInterval(ambientTimer);
-    if (restoreTimer !== null) clearTimeout(restoreTimer);
-    endWalk(restore);
-    // Before the restore below, so a board handed back mid-hurry is handed
-    // back on its own Travel speed rather than a fidget's.
-    unhurry();
-    ambientTimer = null;
-    restoreTimer = null;
-    const undo = undoFlicker;
-    undoFlicker = null;
-    if (restore) undo?.();
-  }
-
-  /** Off unless a board asks for it - a wall in an office should not clack
-   * once a minute all night because a default said so. */
-  function start(everyMs: number, styleId?: string | null) {
-    stop();
-    style = fidgetStyle(styleId ?? null);
-    if (destroyed) return;
-    if (!Number.isFinite(everyMs) || everyMs < 5000) return;
-    ambientTimer = setInterval(() => {
-      // A creature already walking is the fidget; do not start a second one.
-      if (walkTimer !== null) return;
-      if (board.isAnimating() || restoreTimer !== null) return;
-      const page = board.page;
-      if (!page || page.every((line: string) => line.trim() === '')) return;
-      ambientTick += 1;
-      /*
-       * Flat, not newline-joined. A page is rows of exactly `cols`
-       * characters, so index/cols and index%cols put a character back where
-       * it came from - whereas joining on newlines puts separators into the
-       * pool idleAction picks from, and it only skips spaces. On a board
-       * holding a short message the separators outnumber the letters, so
-       * more than half of all flickers landed on one, `split` came back a
-       * row short, and the restore guard could not match a page with the
-       * wrong number of rows. The board simply shifted up and stayed there.
-       */
-      const width = page[0]?.length ?? 0;
-      if (width === 0 || page.some((line: string) => line.length !== width)) return;
-      const flat = page.join('');
-      const action = idleAction(flat, board.charset, ambientTick, style);
-      if (action.kind === 'travel') {
-        walk(page, width, flat, action.traveller);
-        return;
-      }
-      if (action.kind === 'sweep') {
-        // Restore whatever the board was set to, not a hard-coded false: a
-        // board configured to always flip would have quietly lost it.
-        const wasAlwaysFlip = board.opts.alwaysFlip;
-        board.setOptions({ alwaysFlip: true });
-        board.setPage(page);
-        board.setOptions({ alwaysFlip: wasAlwaysFlip });
-        return;
-      }
-      if (action.kind !== 'flicker') return;
-      const changed = withFlicker(flat, action);
-      const flickered = page.map((_: string, row: number) => changed.slice(row * width, (row + 1) * width));
-      hurryHome(() => board.setPage(flickered), {
-        cells: (action.picks ?? []).map((pick: { index: number }) => pick.index),
-      });
-      const restore = () => {
-        // Only if nothing else has painted since. A message that arrived
-        // mid-flicker must not be replaced by the words it interrupted.
-        const now = board.page;
-        if (!now || now.join('\u0000') !== flickered.join('\u0000')) {
-          /*
-           * Something else painted while the card was out. The gesture is
-           * abandoned - but the options it borrowed are still on the board,
-           * and only the return leg hands them back. Without this the wash,
-           * the slow step and shortest-path stayed on for good, so every
-           * later movement on that board wore the colour: "fidgeting through
-           * the whole cycle".
-           */
-          unhurry();
-          return;
-        }
-        /*
-         * A vanishing style does not fly home: it is put back with no
-         * animation at all. Anything else shows either the colours again in
-         * reverse or - worse - the letters on the cards it passes through.
-         */
-        hurryHome(() => board.setPage(page, { immediate: Boolean(style.vanishHome) }), {
-          hurry: true,
-        });
-      };
-      undoFlicker = restore;
-      restoreTimer = setTimeout(() => {
-        restoreTimer = null;
-        undoFlicker = null;
-        restore();
-      }, style.holdMs);
-    }, everyMs);
-  }
-
-  /**
-   * Walk a creature once round the board.
-   *
-   * Its own interval, because the ambient one is measured in seconds and a
-   * snake moves in frames. Each frame paints the standing page with only the
-   * creature's cells overwritten, so the board restores itself behind it
-   * with no bookkeeping - the cells it has left simply stop being in the
-   * frame. The colours it flies are borrowed for the whole walk and handed
-   * back at the end, the same loan a misfire takes.
-   */
-  function walk(page: string[], width: number, flat: string, name: string) {
-    const spec = traveller(name);
-    if (!spec) return;
-    const rows = page.length;
-    const total = runLength(spec, width, rows);
-    if (total === 0) return;
-
-    walkBase = page;
-    let frame = 0;
-    let last = flat;
-
-    const patch: Record<string, unknown> = { fastStepMs: Math.min(board.opts.fastStepMs, 30) };
-    if (style.shortestPath) patch.shortestPath = true;
-    if (style.cardWash) {
-      patch.cardWash = style.cardWash;
-      patch.cardWashGlyphs = style.washGlyphs;
-    }
-    unhurry();
-    parked = {};
-    for (const key of Object.keys(patch)) parked[key] = board.opts[key];
-    board.setOptions(patch);
-
-    walkTimer = setInterval(() => {
-      // Something else painted the board - the creature gives way rather
-      // than fighting a message that has arrived.
-      const now = board.page;
-      if (!now || now.join('\u0000') !== rowsOf(last, width, rows).join('\u0000')) {
-        walkBase = null;
-        endWalk(false);
-        unhurry();
-        return;
-      }
-      if (frame >= total) {
-        endWalk();
-        unhurry();
-        return;
-      }
-      const cells = travellerFrame(spec, width, rows, frame);
-      last = withTraveller(flat, cells);
-      board.setPage(rowsOf(last, width, rows));
-      frame += 1;
-    }, spec.stepMs);
-  }
-
-  /** A flat page back into its rows. */
-  function rowsOf(flat: string, width: number, rows: number) {
+  const rowsOf = (flat: string, width: number, rows: number) => {
     const out: string[] = [];
     for (let row = 0; row < rows; row += 1) out.push(flat.slice(row * width, (row + 1) * width));
     return out;
+  };
+
+  /** One position along the ring - the cheapest move a card can make. */
+  const stepOn = (char: string) => {
+    if (ring.length === 0) return char;
+    const at = ring.indexOf(char);
+    return at < 0 ? char : ring[(at + 1) % ring.length];
+  };
+
+  function park(patch: Record<string, unknown>) {
+    unpark();
+    parked = {};
+    for (const key of Object.keys(patch)) parked[key] = board.opts[key];
+    board.setOptions(patch);
   }
 
-  /** For the way out. Not the restore - see `stop`'s own note. */
+  function unpark() {
+    if (parked === null) return;
+    board.setOptions(parked);
+    parked = null;
+  }
+
+  /**
+   * End the run.
+   *
+   * `restore` is false only when the board is being discarded or something
+   * else has already painted: putting a page back on a board nobody owns any
+   * more starts a frame loop against an orphaned canvas, and putting one over
+   * a message that has arrived is the one way a fidget could actually hurt.
+   *
+   * The page goes back with no animation. A run that wants its journey home
+   * watched says so by ending on an `origin` beat.
+   */
+  function endRun(restore: boolean) {
+    if (beatTimer !== null) clearTimeout(beatTimer);
+    beatTimer = null;
+    if (restore && run) board.setPage(run.page, { immediate: true });
+    run = null;
+    unpark();
+  }
+
+  function schedule() {
+    if (!enabled || destroyed) return;
+    if (gapTimer !== null) clearTimeout(gapTimer);
+    tick += 1;
+    gapTimer = setTimeout(begin, nextGapMs(spec, tick));
+  }
+
+  /** Is the board still showing exactly what this run last put there? */
+  function untouched() {
+    if (!run) return false;
+    const now = board.page;
+    if (!now) return false;
+    const mine = rowsOf(run.shown, run.width, run.page.length);
+    return now.length === mine.length && now.every((line: string, i: number) => line === mine[i]);
+  }
+
+  function begin() {
+    if (!enabled || destroyed) return;
+    const page = board.page;
+    const width = page?.[0]?.length ?? 0;
+    // Nothing to fidget on, an uneven page, or something already moving: wait
+    // for the next gap rather than forcing it.
+    if (
+      !page ||
+      width === 0 ||
+      page.some((line: string) => line.length !== width) ||
+      page.every((line: string) => line.trim() === '') ||
+      board.isAnimating()
+    ) {
+      schedule();
+      return;
+    }
+    const flat = page.join('');
+    const cells: number[] = pickCells(spec, flat.length, tick);
+    if (cells.length === 0) {
+      schedule();
+      return;
+    }
+    run = { page, width, was: flat, shown: flat, cells, beat: 0 };
+    beat();
+  }
+
+  function beat() {
+    if (!run || destroyed) return;
+    const next = spec.beats[run.beat];
+    if (!next) {
+      endRun(true);
+      schedule();
+      return;
+    }
+    if (run.beat > 0 && !untouched()) {
+      endRun(false);
+      schedule();
+      return;
+    }
+
+    /*
+     * A colour beat wants the card itself painted, so the board borrows a
+     * baked set for exactly these cells - `cardWashCells` keeps the colour on
+     * while the card sits, which is the part you actually look at. House and
+     * origin beats want the design's own cards back.
+     */
+    if (next.kind === 'colour') {
+      park({
+        cardWash: [next.colour],
+        cardWashGlyphs: false,
+        cardWashCells: run.cells,
+        shortestPath: true,
+      });
+    } else {
+      park({ cardWash: null, cardWashCells: null, shortestPath: true });
+    }
+
+    const chars = [...run.shown];
+    for (const index of run.cells) {
+      chars[index] = next.kind === 'origin' ? run.was[index] : stepOn(chars[index]);
+    }
+    run.shown = chars.join('');
+    board.setPage(rowsOf(run.shown, run.width, run.page.length));
+    run.beat += 1;
+    beatTimer = setTimeout(beat, spec.beatMs);
+  }
+
+  /**
+   * @param everyMs the board's Fidget setting. How often is the fidget's own
+   *   business now, so this is only ever on or off - 0 is off, which is what
+   *   a wall in an office should be unless somebody asked otherwise.
+   * @param id which fidget
+   */
+  function start(everyMs: number, id?: string | null) {
+    stop();
+    if (destroyed) return;
+    spec = fidgetById(id ?? null);
+    enabled = Number.isFinite(everyMs) && everyMs > 0;
+    if (!enabled) return;
+    schedule();
+  }
+
+  function stop(restore = true) {
+    if (gapTimer !== null) clearTimeout(gapTimer);
+    gapTimer = null;
+    enabled = false;
+    endRun(restore && run !== null && untouched());
+    unpark();
+  }
+
   function destroy() {
     destroyed = true;
     stop(false);
   }
 
-  return { start, stop, destroy };
+  return { start, stop, destroy, runMs: () => runMs(spec) };
 }
