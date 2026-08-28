@@ -87,9 +87,15 @@ export function createAmbient(board: any) {
    */
   function hurryHome(run: () => void, opts: { hurry?: boolean } = {}) {
     const patch: Record<string, unknown> = {};
-    if (opts.hurry && style.returnStepMs !== null && style.returnStepMs !== undefined) {
-      patch.fastStepMs = style.returnStepMs;
-    }
+    /*
+     * Two legs, two speeds. The way out takes the style's own pace if it has
+     * one; the way home may take a different one - a tick hurries back so a
+     * small gesture stays small, a drink comes back as slowly as it went.
+     */
+    const outward = style.stepMs;
+    const homeward = style.returnStepMs ?? style.stepMs;
+    const chosen = opts.hurry ? homeward : outward;
+    if (chosen !== null && chosen !== undefined) patch.fastStepMs = chosen;
     /*
      * A fidget is a mini flight, so it gets to say what colours the card
      * passes through on the way. `flipboard.js` reads `opts.flight` ahead of
