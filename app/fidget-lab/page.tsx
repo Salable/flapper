@@ -24,7 +24,7 @@ const NOTES: Record<string, string> = {
   classic: 'What every board does today. A card misfires anywhere in the set, then travels the long way home.',
   tick: 'One card moves one position and comes back. Just one - which on a mostly-blank board mostly means an A, exactly as a real board would.',
   rainbow: 'Three steps out and back, slowly, flying a full spectrum. Not a tick - a tick is one step and has no colour.',
-  'pina-colada': 'Three colours back to back and no text at all - the card turns solid pineapple, coconut, lime, and comes back. Charmingly slow: 340ms a step on a board that otherwise moves in 55.',
+  'pina-colada': 'Real cards baked in pineapple, coconut and lime - hinge, sheen and all - flipping past blank, one colour per step. Charmingly slow: 340ms a step on a board that otherwise moves in 55.',
   scatter: 'A character surfaces somewhere and goes again - the whole set, not a step.',
   twitchy: 'Three cards at once, most ticks, and a sweep now and then. For a busy space.',
   sweeping: 'Never a flicker - only the whole board turning over. For something being watched.',
@@ -86,6 +86,7 @@ export default function FidgetLab() {
                 {style.flickerCount} · stepDistance {style.stepDistance} · holdMs {style.holdMs}
                 {style.returnStepMs !== null ? ` · returnStepMs ${style.returnStepMs}` : ''}
                 {style.flight ? ` · flight ${style.flight.length} colours @ ${style.flightStrength}` : ''}
+                {style.cardWash ? ` · cards baked in ${style.cardWash.length} colours` : ''}
                 {style.traveller ? ` · traveller "${style.traveller}" - walks the edge on its own clock` : ''}
               </p>
             </section>

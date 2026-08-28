@@ -105,8 +105,8 @@ export function createAmbient(board: any) {
     if (style.flight) {
       patch.flight = style.flight;
       patch.flightStrength = style.flightStrength;
-      if (style.flightMode) patch.flightMode = style.flightMode;
     }
+    if (style.cardWash) patch.cardWash = style.cardWash;
     if (style.shortestPath) patch.shortestPath = true;
     if (Object.keys(patch).length === 0) {
       run();
@@ -230,6 +230,7 @@ export function createAmbient(board: any) {
 
     const patch: Record<string, unknown> = { fastStepMs: Math.min(board.opts.fastStepMs, 30) };
     if (style.shortestPath) patch.shortestPath = true;
+    if (style.cardWash) patch.cardWash = style.cardWash;
     if (style.flight) {
       patch.flight = style.flight;
       patch.flightStrength = style.flightStrength;
