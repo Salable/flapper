@@ -189,7 +189,7 @@ this account bought than the free plan is.
 `.env.local` (gitignored), dry-run it, then run it:
 
 ```bash
-echo 'SALABLE_API_KEY=sk_test_...' >> .env.local
+echo 'SALABLE_API_KEY=<your test-mode SECRET key>' >> .env.local
 node tools/salable-setup.mjs --dry-run
 node tools/salable-setup.mjs
 ```

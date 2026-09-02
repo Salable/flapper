@@ -5,12 +5,14 @@
  * same way every time, and re-runnable.
  *
  *   # put the key somewhere the repo will not commit
- *   echo 'SALABLE_API_KEY=sk_test_...' >> .env.local
+ *   echo 'SALABLE_API_KEY=<test-mode SECRET key>' >> .env.local
  *   node tools/salable-setup.mjs --dry-run     # say what it would do
  *   node tools/salable-setup.mjs               # do it
  *
- * Use a **test-mode** key. Live Mode is RFC chunk 6 and a deliberate
- * decision, not something a setup script should slip you into.
+ * Use a **test-mode secret** key. Not publishable - every call below is a
+ * write, and publishable is documented as read-only-ish (entitlement checks).
+ * And test mode, because Live Mode is RFC chunk 6 and a deliberate decision,
+ * not something a setup script should slip you into.
  *
  * Idempotent: it lists before it creates, so anything already there is left
  * alone and re-running is safe. It prints the two env vars to set at the end,
@@ -46,7 +48,7 @@ function apiKey() {
   }
   console.error(
     'salable-setup: no SALABLE_API_KEY.\n' +
-      "  echo 'SALABLE_API_KEY=sk_test_...' >> .env.local\n" +
+      "  echo 'SALABLE_API_KEY=<test-mode SECRET key>' >> .env.local\n" +
       '  (.env*.local is gitignored, so the key stays out of the repo)',
   );
   process.exit(1);
@@ -55,8 +57,19 @@ function apiKey() {
 const KEY = apiKey();
 const BASE = (process.env.SALABLE_API_BASE || DEFAULT_API_BASE).replace(/\/+$/, '');
 
-if (!/^sk_/.test(KEY) && !process.env.SALABLE_API_BASE) {
-  console.error('salable-setup: that does not look like a secret key (sk_...). Refusing to guess.');
+/*
+ * A publishable key cannot do any of this. Salable has three kinds -
+ * publishable, secret and restricted (`type` on an api key in openapi.yaml) -
+ * and the publishable one is documented as "limited access to public
+ * endpoints like entitlement checks". Everything below is a write.
+ *
+ * Not enforced by prefix, because no prefix is documented anywhere and
+ * guessing `sk_` would reject a perfectly good key. A wrong kind of key
+ * fails on the first call with a 401 or a 403, which says it better than a
+ * regex would.
+ */
+if (/publishable|^pk_/i.test(KEY)) {
+  console.error('salable-setup: that looks like a publishable key. Every call below is a write - use the secret key.');
   process.exit(1);
 }
 
