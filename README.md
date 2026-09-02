@@ -113,6 +113,7 @@ npm run db:generate  # after editing lib/db/schema.mjs: new SQL migration
 | `SALABLE_API_BASE` | override the API host (a mock, a staging instance) | `https://salable.app/api` |
 | `SALABLE_ENTITLEMENT_TTL_MS` | how long an entitlement answer is reused per function instance | 60 000 |
 | `LICENCE_REQUEST_WEBHOOK_URL` | where a get-in-touch ask is announced (a Slack incoming webhook, or anything taking `{text}`) | asks are saved and read with `node tools/licence-requests.mjs` |
+| `SALABLE_PRODUCT_NAME` / `SALABLE_FREE_PLAN_NAME` | what `tools/salable-setup.mjs` calls the Product and the free plan it creates | `Flapper` and `Free` |
 
 ## Using a board
 

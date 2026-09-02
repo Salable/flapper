@@ -36,9 +36,12 @@ export default {
   recommended: false,         // true marks the default ("Start here")
   entitlement: undefined,     // leave unset and the type is free; name a
                               // Salable entitlement value
-                              // ('board.type.countdown') and the account has
-                              // to hold it. Enforced in createBoard (REST and
-                              // MCP alike) - see docs/MONETIZATION.md
+                              // ('board_type_countdown') and the account has
+                              // to hold it. Lowercase and underscores only -
+                              // Salable's rule, so a type id with a digit or
+                              // a hyphen in it needs translating. Enforced in
+                              // createBoard (REST and MCP alike) - see
+                              // docs/MONETIZATION.md
 
   configVersion: 1,
   migrateConfig(config, fromVersion) { return config; },

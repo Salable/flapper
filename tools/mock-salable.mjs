@@ -14,7 +14,7 @@
  * without a plan, hand the mock more entitlements and wait out the sixty
  * second cache (or restart dev):
  *
- *   curl -X POST 'http://localhost:4000/grant?values=board.create,boards:unlimited,board.type.scheduled,board.private'
+ *   curl -X POST 'http://localhost:4000/grant?values=board_create,boards_unlimited,board_type_scheduled,board_private'
  *
  * It is a walking aid, not a fake to test against - `tests/salable.test.mjs`
  * asserts the request shapes with a stub fetch, which is faster and does not
@@ -31,8 +31,13 @@ const PORT = Number(process.env.PORT) || 4000;
 
 /** Who has been issued a licence, by grantee. */
 const licensed = new Set();
+/** The catalogue, so tools/salable-setup.mjs can be driven end to end. */
+const catalogue = [];
+const products = [];
+const plans = [];
+let nextId = 1;
 /** What a licensed grantee holds. The `/grant` knob rewrites this. */
-let entitlements = ['board.create', 'boards:1'];
+let entitlements = ['board_create'];
 
 function send(res, status, body) {
   res.statusCode = status;
@@ -81,6 +86,65 @@ createServer(async (req, res) => {
     return send(res, 201, {
       data: { uuid: `sub_${licensed.size}`, isSalableOnly: true, ...body },
     });
+  }
+
+  /*
+   * The catalogue endpoints, enough to drive tools/salable-setup.mjs. Held to
+   * the spec's rules where the rules are the point: an entitlement name must
+   * match ^[a-z_]+$, and a plan must name a product. Getting those wrong is
+   * exactly the failure the script exists to avoid, so a mock that shrugged
+   * at them would be worse than none.
+   */
+  if (url.pathname === '/api/entitlements' && req.method === 'GET') {
+    return send(res, 200, { data: catalogue });
+  }
+  if (url.pathname === '/api/entitlements' && req.method === 'POST') {
+    const { name } = await readBody(req);
+    if (!/^[a-z_]+$/.test(name ?? '')) {
+      return send(res, 400, { error: `name must match ^[a-z_]+$ (got "${name}")` });
+    }
+    const row = { uuid: `ent_${nextId++}`, name };
+    catalogue.push(row);
+    console.log(`mock-salable: entitlement ${name}`);
+    return send(res, 201, { data: row });
+  }
+  if (url.pathname === '/api/products' && req.method === 'GET') {
+    return send(res, 200, { data: products });
+  }
+  if (url.pathname === '/api/products' && req.method === 'POST') {
+    const { name } = await readBody(req);
+    if (!name) return send(res, 400, { error: 'name is required' });
+    const row = { uuid: `prod_${nextId++}`, name };
+    products.push(row);
+    console.log(`mock-salable: product ${name}`);
+    return send(res, 201, { data: row });
+  }
+  if (url.pathname === '/api/plans' && req.method === 'GET') {
+    return send(res, 200, { data: plans });
+  }
+  if (url.pathname === '/api/plans/save' && req.method === 'POST') {
+    const body = await readBody(req);
+    if (!body.productId) return send(res, 400, { error: 'productId is required' });
+    if (!body.name) return send(res, 400, { error: 'name is required' });
+    // The mock accepts ids, which is what the script tries first. Flip this
+    // to reject ids if you want to exercise the name fallback.
+    const known = new Set(catalogue.map((e) => e.uuid));
+    for (const ref of body.entitlements ?? []) {
+      if (!known.has(ref)) return send(res, 400, { error: `unknown entitlement "${ref}"` });
+    }
+    const row = {
+      uuid: `plan_${nextId++}`,
+      name: body.name,
+      productUuid: body.productId,
+      isPerpetual: Boolean(body.isPerpetual),
+      entitlements: body.entitlements ?? [],
+      lineItems: body.lineItems ?? [],
+    };
+    plans.push(row);
+    console.log(
+      `mock-salable: plan ${row.name} (${row.uuid}) granting ${row.entitlements.length}, ${row.lineItems.length} line items`,
+    );
+    return send(res, 201, { data: row });
   }
 
   // Not Salable's API: the knob that makes the paid side walkable.

@@ -2,13 +2,17 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { salableClient, salableConfig, SalableError, DEFAULT_API_BASE } from '../lib/salable/client.mjs';
 import {
+  BOARD_TIERS,
   ENTITLEMENTS,
   FREE_ALLOWANCE,
+  NAME,
+  REQUESTABLE,
   allowanceFrom,
   boardTypeEntitlement,
   issueFreeLicence,
   licenceReader,
 } from '../lib/salable/licence.mjs';
+import { BOARD_TYPES } from '../lib/board-types/index.mjs';
 
 /**
  * The commercial model, driven without a network: the client gets a stub
@@ -42,14 +46,14 @@ const client = (answers, env = ENV) => {
 
 /* ---- the vocabulary ---- */
 
-test('an account with no board.create holds no licence, whatever else it has', () => {
-  const allowance = allowanceFrom(['boards:unlimited', 'board.private']);
+test('an account with no board_create holds no licence, whatever else it has', () => {
+  const allowance = allowanceFrom(['boards_unlimited', 'board_private']);
   assert.equal(allowance.licensed, false);
   assert.equal(allowance.maxBoards, 0);
 });
 
 test('the free licence reads as one live board, public', () => {
-  const allowance = allowanceFrom([ENTITLEMENTS.createBoard, 'boards:1']);
+  const allowance = allowanceFrom([ENTITLEMENTS.createBoard]);
   assert.equal(allowance.licensed, true);
   assert.equal(allowance.maxBoards, 1);
   assert.deepEqual([...allowance.types], ['live']);
@@ -60,7 +64,7 @@ test('the free licence reads as one live board, public', () => {
 test('a bespoke licence reads as its entitlements, and unlimited means unlimited', () => {
   const allowance = allowanceFrom([
     ENTITLEMENTS.createBoard,
-    'boards:unlimited',
+    'boards_unlimited',
     boardTypeEntitlement('scheduled'),
     boardTypeEntitlement('shared'),
     ENTITLEMENTS.privateBoard,
@@ -71,18 +75,18 @@ test('a bespoke licence reads as its entitlements, and unlimited means unlimited
 });
 
 test('two plans granting a cap resolve to the more generous one', () => {
-  const allowance = allowanceFrom([ENTITLEMENTS.createBoard, 'boards:3', 'boards:25']);
-  assert.equal(allowance.maxBoards, 25);
+  const allowance = allowanceFrom([ENTITLEMENTS.createBoard, 'boards_many', 'boards_unlimited']);
+  assert.equal(allowance.maxBoards, Infinity);
 });
 
-test('a licence that grants board.create and forgets a cap still gets one board', () => {
+test('a licence that grants the licence and no cap still gets one board', () => {
   // A plan misconfigured in the dashboard should under-serve, not entitle
   // nothing at all - the account paid for something.
   assert.equal(allowanceFrom([ENTITLEMENTS.createBoard]).maxBoards, 1);
 });
 
 test('a value that is not a cap or a type is ignored rather than guessed at', () => {
-  const allowance = allowanceFrom([ENTITLEMENTS.createBoard, 'boards:many', 'api_access']);
+  const allowance = allowanceFrom([ENTITLEMENTS.createBoard, 'boards_lots', 'api_access']);
   assert.equal(allowance.maxBoards, 1);
   assert.deepEqual([...allowance.types], ['live']);
 });
@@ -91,10 +95,10 @@ test('a value that is not a cap or a type is ignored rather than guessed at', ()
 
 test('the entitlement check is a GET with granteeId in the query and a bearer key', async () => {
   const { api, calls } = client([
-    { body: { data: { entitlements: [{ type: 'entitlement', value: 'board.create', expiryDate: null }] } } },
+    { body: { data: { entitlements: [{ type: 'entitlement', value: 'board_create', expiryDate: null }] } } },
   ]);
   const { values, expiryDate } = await api.checkEntitlements({ granteeId: 'user_1', owner: 'user_1' });
-  assert.deepEqual(values, ['board.create']);
+  assert.deepEqual(values, ['board_create']);
   assert.equal(expiryDate, null);
   assert.equal(calls.length, 1);
   assert.equal(calls[0].init.method, 'GET');
@@ -154,7 +158,7 @@ test('a build with no key gates nothing: a fork is a whole product', async () =>
 
 test('two asks inside the ttl are one call; forget() makes the next one fresh', async () => {
   const { api, calls } = client([
-    { body: { data: { entitlements: [{ value: 'board.create' }, { value: 'boards:1' }] } } },
+    { body: { data: { entitlements: [{ value: 'board_create' }] } } },
   ]);
   const reader = licenceReader({ client: api, ttlMs: 60_000 });
   await reader.allowanceFor('user_1');
@@ -167,7 +171,7 @@ test('two asks inside the ttl are one call; forget() makes the next one fresh', 
 
 test('a stale answer beats the free plan when Salable stops answering', async () => {
   const { impl, calls } = stubFetch([
-    { body: { data: { entitlements: [{ value: 'board.create' }, { value: 'boards:unlimited' }] } } },
+    { body: { data: { entitlements: [{ value: 'board_create' }, { value: 'boards_unlimited' }] } } },
     new Error('socket hang up'),
   ]);
   let clock = 0;
@@ -209,4 +213,29 @@ test('issuing the free licence never throws at a signup', async () => {
 
 test('an unconfigured build issues no licence and says nothing happened', async () => {
   assert.equal(await issueFreeLicence('user_1', { client: salableClient({ config: salableConfig({}) }) }), false);
+});
+
+test('every entitlement name is one Salable will actually accept', () => {
+  // `createEntitlement` in salable.app/openapi.yaml: `^[a-z_]+$`. No dots,
+  // no digits. The first cut of this vocabulary used `board.create` and
+  // `boards:1`, neither of which could have been created in the dashboard at
+  // all - and nothing would have said so until somebody tried.
+  const names = [
+    ...Object.values(ENTITLEMENTS),
+    ...BOARD_TIERS.map(([name]) => name),
+    ...[...BOARD_TYPES.values()].map((type) => type.entitlement).filter(Boolean),
+    // `boards` and `other` are things a person asks for, not entitlements.
+    ...Object.keys(REQUESTABLE).filter((need) => need !== 'boards' && need !== 'other'),
+    boardTypeEntitlement('scheduled'),
+  ];
+  assert.ok(names.length >= 6, 'the vocabulary went missing rather than getting checked');
+  for (const name of names) {
+    assert.match(name, NAME, `"${name}" is not a legal Salable entitlement name`);
+  }
+});
+
+test('a board type id that cannot become a legal name says so', () => {
+  // Type ids allow digits and hyphens; entitlement names allow neither.
+  assert.equal(boardTypeEntitlement('my-type'), 'board_type_my_type');
+  assert.throws(() => boardTypeEntitlement('4'), /no legal Salable entitlement name/);
 });

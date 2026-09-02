@@ -57,23 +57,37 @@ Entitlement *values*, configured on plans in the Salable dashboard:
 
 | Value | Means |
 | --- | --- |
-| `board.create` | may create a board at all. This is the licence. |
-| `boards:1`, `boards:25`, `boards:unlimited` | how many |
-| `board.type.scheduled`, `board.type.shared` | a board type that isn't free |
-| `board.private` | may make a board private |
+| `board_create` | may create a board at all. This is the licence. |
+| `boards_many`, `boards_unlimited` | a working number of boards, or no cap |
+| `board_type_scheduled`, `board_type_shared` | a board type that isn't free |
+| `board_private` | may make a board private |
 
-The cap rides *inside* the value because the check response carries only
-`{type, value, expiryDate}` — there is no quantity field to read. So
-`boards:1` is one entitlement value, not an entitlement with a number
-attached. Several plans granting a cap resolve to the most generous, which
-is how Salable itself resolves a repeated entitlement's expiry.
+**Entitlement names must match `^[a-z_]+$`** — lowercase letters and
+underscores, no dots, no digits (`createEntitlement` in
+[openapi.yaml](https://salable.app/openapi.yaml)). Every name above is held
+to that in `tests/salable.test.mjs`, because the alternative is finding out
+when somebody cannot create the plan.
+
+That rule costs something worth naming. This started as `boards:1` /
+`boards:25` / `boards:unlimited`, so the *number* lived on the plan and
+changing it was a dashboard edit. No digits means that is impossible: an
+entitlement is a boolean, and the check response has nothing to hang a
+quantity on. So the cap is a named tier, and `BOARD_TIERS` in
+`lib/salable/licence.mjs` is **Flapper** deciding that "many" is 25.
+
+Salable still decides *which* tier an account is on — the part that has to be
+commercial rather than a deploy. But "how many is many" is now a constant in
+the application, and that is a step back from *Salable holds the answer*.
+It is a gap in Salable worth filing (RFC chunk 13), not a design we chose.
+Several plans granting a cap resolve to the most generous, which is how
+Salable itself resolves a repeated entitlement's expiry.
 
 A board type declares the value it needs, and that is Flapper's entire half
 of the conversation:
 
 ```js
 // lib/board-types/scheduled/definition.mjs
-entitlement: 'board.type.scheduled',
+entitlement: 'board_type_scheduled',
 ```
 
 Leave it unset and the type is free. A fork adding a type gets to decide.
@@ -151,7 +165,8 @@ this account bought than the free plan is.
 ## Setting it up
 
 1. In the Salable dashboard, create a Product and a **free plan** with no
-   Stripe price. Give it the entitlements `board.create` and `boards:1`.
+   Stripe price. Give it the entitlement `board_create` — that alone is the
+   free licence, and one board.
 2. Set the env vars (see the table in [README](../README.md#deploy-it)):
    `SALABLE_API_KEY`, `SALABLE_FREE_PLAN_ID`.
 3. Backfill the accounts that predate the licence, **before** the gate goes
@@ -162,13 +177,33 @@ this account bought than the free plan is.
      node tools/backfill-licences.mjs --dry-run
    ```
 
-   Idempotent: an account already holding `board.create` is skipped, so
+   Idempotent: an account already holding `board_create` is skipped, so
    re-running never issues a second subscription. Existing accounts keep
    every board they have — an account over the free allowance is frozen where
    it is, still able to drive, rename and delete, just not to add another.
    Nothing is deleted and nothing is deactivated.
 4. A bespoke sale is a clone of the free plan with a more generous cap and
    whichever type entitlements were asked for. No deploy.
+
+`tools/salable-setup.mjs` does steps 1-3 for you. Put a **test-mode** key in
+`.env.local` (gitignored), dry-run it, then run it:
+
+```bash
+echo 'SALABLE_API_KEY=sk_test_...' >> .env.local
+node tools/salable-setup.mjs --dry-run
+node tools/salable-setup.mjs
+```
+
+It creates all six entitlements, the Product, and the free plan granting
+`board_create` alone, then prints the `SALABLE_FREE_PLAN_ID` to set. Listing
+before creating, so re-running is safe. The paid entitlements are created but
+put on no plan: a bespoke sale is a clone of the free plan with a cap and
+whichever board types were asked for, which is a person's decision.
+
+One thing it will tell you that the spec would not: `savePlan`'s
+`entitlements` is `array of string` with no word on whether that means ids or
+names. The script sends ids, falls back to names on a 400, and prints which
+worked. Whichever it turns out to be belongs in the handover log below.
 
 To walk all of it locally with no Salable account, `tools/mock-salable.mjs`
 serves the two endpoints and takes a `/grant` knob for opening the paid side:
@@ -179,7 +214,7 @@ SALABLE_API_KEY=sk_test_mock SALABLE_FREE_PLAN_ID=plan_free \
   SALABLE_API_BASE=http://localhost:4000/api npm run dev
 # then, to become a paying customer:
 curl -X POST -H 'authorization: Bearer x' \
-  'http://localhost:4000/grant?values=board.create,boards:unlimited,board.type.scheduled,board.private'
+  'http://localhost:4000/grant?values=board_create,boards_unlimited,board_type_scheduled,board_private'
 ```
 
 ## Decisions, and what they cost
@@ -261,6 +296,18 @@ was a 403 (`MAX_BOARDS_PER_USER = 25`, described in its own comment as "a
 flat abuse guard, not an entitlement"). The only 402 was the tier branch that
 never fired. Both are now deliberate: 402 for anything a plan would fix, 403
 for the abuse ceiling and for an account with no licence at all.
+
+**Entitlement names cannot express a number, and the first vocabulary was
+illegal.** `createEntitlement` takes `name` matching `^[a-z_]+$` — so
+`board.create`, `board.private`, `board.type.scheduled` and `boards:1` could
+none of them have been created, and nothing said so until a setup script was
+written against the spec. Two consequences worth filing (RFC chunk 13): a
+line item's `slug` allows digits (`^[a-z0-9_]+$`) while an entitlement's name
+does not, which reads like an oversight rather than a decision; and there is
+no way for an entitlement to carry a quantity, so a limit has to be a named
+tier and the number ends up back in the application. `tests/salable.test.mjs`
+now holds every name to the rule, and `tools/mock-salable.mjs` refuses an
+illegal one the way the real API would.
 
 **The walk found two things the tests could not.** Driven through the mock
 against a real dev server: the board-limit 402 read as two half-sentences

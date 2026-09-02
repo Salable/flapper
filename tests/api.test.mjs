@@ -830,7 +830,7 @@ test('an account with no licence cannot create a board at all', async () => {
   );
   assert.equal(denied.status, 403);
   assert.match(denied.body.error, /licence/);
-  assert.equal(denied.body.need, 'board.create');
+  assert.equal(denied.body.need, 'board_create');
 });
 
 test('the free allowance is one board, and the second is a 402 that says get in touch', async () => {
@@ -854,7 +854,7 @@ test('the free allowance is one board, and the second is a 402 that says get in 
 });
 
 test('a type that names an entitlement is refused with a 402 without it - on the shared create path', async () => {
-  // Not a synthetic type: `scheduled` names board.type.scheduled, so this is
+  // Not a synthetic type: `scheduled` names board_type_scheduled, so this is
   // the shipped paywall, on the path the MCP create_board tool shares.
   const free = stubLicence({ licensed: true, maxBoards: 5, types: ['live'], privateBoards: false, source: 'salable' });
   const denied = await jsonOf(
@@ -864,9 +864,9 @@ test('a type that names an entitlement is refused with a 402 without it - on the
     }),
   );
   assert.equal(denied.status, 402);
-  assert.equal(denied.body.need, 'board.type.scheduled');
+  assert.equal(denied.body.need, 'board_type_scheduled');
   assert.match(denied.body.error, /get in touch/);
-  assert.match(denied.body.getInTouch, /need=board\.type\.scheduled$/);
+  assert.match(denied.body.getInTouch, /need=board_type_scheduled$/);
 
   // Grant it and the identical request goes through.
   const paid = stubLicence({
@@ -899,7 +899,7 @@ test('at the limit and asking for a paid type, the type is what you are told abo
     }),
   );
   assert.equal(refused.status, 402);
-  assert.equal(refused.body.need, 'board.type.scheduled');
+  assert.equal(refused.body.need, 'board_type_scheduled');
 });
 
 test('going private needs the entitlement; coming back public never does', async () => {
@@ -912,7 +912,7 @@ test('going private needs the entitlement; coming back public never does', async
     }),
   );
   assert.equal(denied.status, 402);
-  assert.equal(denied.body.need, 'board.private');
+  assert.equal(denied.body.need, 'board_private');
 
   const paid = stubLicence({ licensed: true, maxBoards: 5, types: ['live'], privateBoards: true, source: 'salable' });
   const hidden = await jsonOf(
@@ -974,7 +974,7 @@ test('a get-in-touch ask is saved, and asking twice is the same ask rather than 
   const other = await jsonOf(
     call(requestLicence, ctx(undefined, 'owner'), '/api/licence-requests', {
       method: 'POST',
-      body: { need: 'board.private', message: 'Staff-only rota.' },
+      body: { need: 'board_private', message: 'Staff-only rota.' },
     }),
   );
   assert.equal(other.status, 201);
@@ -996,7 +996,7 @@ test('a need outside the list is refused by name, and a blank ask is refused too
     }),
   );
   assert.equal(unknown.status, 422);
-  assert.match(unknown.body.error, /board\.type\.scheduled/);
+  assert.match(unknown.body.error, /board_type_scheduled/);
 
   const blank = await jsonOf(
     call(requestLicence, ctx(undefined, 'owner'), '/api/licence-requests', {
