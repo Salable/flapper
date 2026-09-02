@@ -36,6 +36,8 @@ import {
   fireInterrupter,
   dismissInterrupter,
   reorderInterrupters,
+  requestLicence,
+  listLicenceRequests,
 } from '../lib/api/handlers.mjs';
 import { mintDisplayToken } from '../lib/api/display-token.mjs';
 import { BOARD_TYPES } from '../lib/board-types/index.mjs';
@@ -67,12 +69,26 @@ beforeEach(async () => {
 const asUser = (id) => async () => ({ user: { id } });
 const anonymous = async () => null;
 
-function ctx(slug, sessionUserId) {
+/**
+ * A licence reader that answers the same allowance for everyone, injected
+ * the way getSession is. Left off, ctx carries no `licence` and the handlers
+ * fall back to the real reader - which, with no SALABLE_API_KEY in the test
+ * environment, is the unlicensed build: every type, no cap, no gate. That is
+ * what keeps the rest of this suite about the API rather than about billing.
+ */
+const stubLicence = (allowance) => ({
+  configured: true,
+  allowanceFor: async () => allowance,
+  forget: () => {},
+});
+
+function ctx(slug, sessionUserId, licence) {
   return {
     broker,
     db,
     slug,
     getSession: sessionUserId ? asUser(sessionUserId) : anonymous,
+    ...(licence ? { licence } : {}),
   };
 }
 
@@ -803,33 +819,203 @@ test('bands cannot be configured back in yet: footerRows and per-band settings 4
   assert.equal(zero.status, 200);
 });
 
-test('a type that names a tier is refused with a 402 below it - on the shared create path', async () => {
-  // The registry is a Map; a locked entry for the test's duration exercises
-  // the mechanism without any shipped type being premium.
-  const locked = { ...BOARD_TYPES.get('live'), id: 'premium-live', name: 'Premium live', tier: 'pro' };
-  BOARD_TYPES.set(locked.id, locked);
-  try {
-    const denied = await jsonOf(
-      call(createBoard, ctx(undefined, 'owner'), '/api/boards', {
-        method: 'POST',
-        body: { slug: 'locked-board', type: 'premium-live' },
-      }),
-    );
-    assert.equal(denied.status, 402);
-    assert.match(denied.body.error, /pro tier/);
-    assert.match(denied.body.error, /standard/);
-    // Raise the account and the same request succeeds.
-    await db.update(schema.user).set({ tier: 'pro' }).where(eq(schema.user.id, 'owner'));
-    const allowed = await jsonOf(
-      call(createBoard, ctx(undefined, 'owner'), '/api/boards', {
-        method: 'POST',
-        body: { slug: 'locked-board', type: 'premium-live' },
-      }),
-    );
-    assert.equal(allowed.status, 201);
-  } finally {
-    BOARD_TYPES.delete(locked.id);
-  }
+test('an account with no licence cannot create a board at all', async () => {
+  const denied = await jsonOf(
+    call(
+      createBoard,
+      ctx(undefined, 'owner', stubLicence({ licensed: false, maxBoards: 0, types: [], privateBoards: false, source: 'salable' })),
+      '/api/boards',
+      { method: 'POST', body: { slug: 'no-licence' } },
+    ),
+  );
+  assert.equal(denied.status, 403);
+  assert.match(denied.body.error, /licence/);
+  assert.equal(denied.body.need, 'board_create');
+});
+
+test('the free allowance is one board, and the second is a 402 that says get in touch', async () => {
+  const free = stubLicence({ licensed: true, maxBoards: 1, types: ['live'], privateBoards: false, source: 'salable' });
+  const first = await jsonOf(
+    call(createBoard, ctx(undefined, 'owner', free), '/api/boards', {
+      method: 'POST',
+      body: { slug: 'first-board' },
+    }),
+  );
+  assert.equal(first.status, 201, JSON.stringify(first.body));
+  const second = await jsonOf(
+    call(createBoard, ctx(undefined, 'owner', free), '/api/boards', {
+      method: 'POST',
+      body: { slug: 'second-board' },
+    }),
+  );
+  assert.equal(second.status, 402);
+  assert.match(second.body.error, /covers 1 board/);
+  assert.match(second.body.error, /get in touch/);
+});
+
+test('a type that names an entitlement is refused with a 402 without it - on the shared create path', async () => {
+  // Not a synthetic type: `scheduled` names board_type_scheduled, so this is
+  // the shipped paywall, on the path the MCP create_board tool shares.
+  const free = stubLicence({ licensed: true, maxBoards: 5, types: ['live'], privateBoards: false, source: 'salable' });
+  const denied = await jsonOf(
+    call(createBoard, ctx(undefined, 'owner', free), '/api/boards', {
+      method: 'POST',
+      body: { slug: 'clock-board', type: 'scheduled' },
+    }),
+  );
+  assert.equal(denied.status, 402);
+  assert.equal(denied.body.need, 'board_type_scheduled');
+  assert.match(denied.body.error, /get in touch/);
+  assert.match(denied.body.getInTouch, /need=board_type_scheduled$/);
+
+  // Grant it and the identical request goes through.
+  const paid = stubLicence({
+    licensed: true,
+    maxBoards: 5,
+    types: ['live', 'scheduled'],
+    privateBoards: false,
+    source: 'salable',
+  });
+  const allowed = await jsonOf(
+    call(createBoard, ctx(undefined, 'owner', paid), '/api/boards', {
+      method: 'POST',
+      body: { slug: 'clock-board', type: 'scheduled' },
+    }),
+  );
+  assert.equal(allowed.status, 201, JSON.stringify(allowed.body));
+});
+
+test('at the limit and asking for a paid type, the type is what you are told about', async () => {
+  // Two things are wrong and only one refusal fits in a response. "Delete a
+  // board first" would send someone to delete a board and hit a second no.
+  const free = stubLicence({ licensed: true, maxBoards: 1, types: ['live'], privateBoards: false, source: 'salable' });
+  await jsonOf(
+    call(createBoard, ctx(undefined, 'owner', free), '/api/boards', { method: 'POST', body: { slug: 'the-one' } }),
+  );
+  const refused = await jsonOf(
+    call(createBoard, ctx(undefined, 'owner', free), '/api/boards', {
+      method: 'POST',
+      body: { slug: 'a-clock', type: 'scheduled' },
+    }),
+  );
+  assert.equal(refused.status, 402);
+  assert.equal(refused.body.need, 'board_type_scheduled');
+});
+
+test('going private needs the entitlement; coming back public never does', async () => {
+  const free = stubLicence({ licensed: true, maxBoards: 5, types: ['live'], privateBoards: false, source: 'salable' });
+  const board = await makeBoard({ slug: 'privacy-licence' });
+  const denied = await jsonOf(
+    call(boardPatch, ctx(board.slug, 'owner', free), '/api/boards', {
+      method: 'PATCH',
+      body: { private: true },
+    }),
+  );
+  assert.equal(denied.status, 402);
+  assert.equal(denied.body.need, 'board_private');
+
+  const paid = stubLicence({ licensed: true, maxBoards: 5, types: ['live'], privateBoards: true, source: 'salable' });
+  const hidden = await jsonOf(
+    call(boardPatch, ctx(board.slug, 'owner', paid), '/api/boards', {
+      method: 'PATCH',
+      body: { private: true },
+    }),
+  );
+  assert.equal(hidden.status, 200);
+  assert.equal(hidden.body.private, true);
+
+  // The licence lapses. What it did stays undoable.
+  const shown = await jsonOf(
+    call(boardPatch, ctx(board.slug, 'owner', free), '/api/boards', {
+      method: 'PATCH',
+      body: { private: false },
+    }),
+  );
+  assert.equal(shown.status, 200);
+  assert.equal(shown.body.private, false);
+});
+
+test('a 402 tells a machine what was refused and a person where to go about it', async () => {
+  const free = stubLicence({ licensed: true, maxBoards: 1, types: ['live'], privateBoards: false, source: 'salable' });
+  await jsonOf(
+    call(createBoard, ctx(undefined, 'owner', free), '/api/boards', { method: 'POST', body: { slug: 'only-one' } }),
+  );
+  const refused = await jsonOf(
+    call(createBoard, ctx(undefined, 'owner', free), '/api/boards', { method: 'POST', body: { slug: 'one-more' } }),
+  );
+  assert.equal(refused.status, 402);
+  // The words are for the person; these two are for whatever is calling.
+  assert.equal(refused.body.need, 'boards');
+  assert.equal(refused.body.getInTouch, `${BASE}/account/licence?need=boards`);
+});
+
+test('a get-in-touch ask is saved, and asking twice is the same ask rather than a second lead', async () => {
+  const first = await jsonOf(
+    call(requestLicence, ctx(undefined, 'owner'), '/api/licence-requests', {
+      method: 'POST',
+      body: { need: 'boards', message: 'Six departure boards, one per platform.' },
+    }),
+  );
+  assert.equal(first.status, 201);
+  assert.equal(first.body.request.need, 'boards');
+  assert.equal(first.body.request.handledAt, null);
+
+  const again = await jsonOf(
+    call(requestLicence, ctx(undefined, 'owner'), '/api/licence-requests', {
+      method: 'POST',
+      body: { need: 'boards', message: 'Still six.' },
+    }),
+  );
+  assert.equal(again.status, 200);
+  assert.equal(again.body.alreadyOpen, true);
+  assert.equal(again.body.request.id, first.body.request.id);
+
+  // A different need is a different ask.
+  const other = await jsonOf(
+    call(requestLicence, ctx(undefined, 'owner'), '/api/licence-requests', {
+      method: 'POST',
+      body: { need: 'board_private', message: 'Staff-only rota.' },
+    }),
+  );
+  assert.equal(other.status, 201);
+
+  const mine = await jsonOf(call(listLicenceRequests, ctx(undefined, 'owner'), '/api/licence-requests'));
+  assert.equal(mine.status, 200);
+  assert.equal(mine.body.requests.length, 2);
+  assert.equal(mine.body.requestable.boards, 'More boards');
+  // Somebody else's queue is not yours.
+  const theirs = await jsonOf(call(listLicenceRequests, ctx(undefined, 'stranger'), '/api/licence-requests'));
+  assert.equal(theirs.body.requests.length, 0);
+});
+
+test('a need outside the list is refused by name, and a blank ask is refused too', async () => {
+  const unknown = await jsonOf(
+    call(requestLicence, ctx(undefined, 'owner'), '/api/licence-requests', {
+      method: 'POST',
+      body: { need: 'board.everything', message: 'the lot' },
+    }),
+  );
+  assert.equal(unknown.status, 422);
+  assert.match(unknown.body.error, /board_type_scheduled/);
+
+  const blank = await jsonOf(
+    call(requestLicence, ctx(undefined, 'owner'), '/api/licence-requests', {
+      method: 'POST',
+      body: { need: 'boards', message: '   ' },
+    }),
+  );
+  assert.equal(blank.status, 422);
+  assert.match(blank.body.error, /what you need it for/);
+});
+
+test('nobody asks us anything anonymously', async () => {
+  const anon = await jsonOf(
+    call(requestLicence, ctx(undefined), '/api/licence-requests', {
+      method: 'POST',
+      body: { need: 'boards', message: 'hello' },
+    }),
+  );
+  assert.equal(anon.status, 401);
 });
 
 test('a patched type param is validated by its own schema and stored coerced', async () => {

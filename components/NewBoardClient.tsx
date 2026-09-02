@@ -25,6 +25,7 @@ import { UserMenu } from '@/components/UserMenu';
 import { Button, LinkButton } from '@/components/ui/Button';
 import { Field, TextInput, Select, Checkbox } from '@/components/ui/Field';
 import { Chip } from '@/components/ui/bits';
+import { LicenceRequestForm } from '@/components/LicenceRequestForm';
 import { ThemePreview } from '@/components/flapper/ThemePreview';
 import { resolveTheme } from '@/lib/board/themes.mjs';
 import { DEFAULTS } from '@/lib/board/flipboard.js';
@@ -40,7 +41,8 @@ export type TemplateMeta = {
   poster: string[];
   what: string[];
   recommended: boolean;
-  tier?: string;
+  /** Set when this account's licence does not cover the template's type. */
+  locked?: boolean;
   /** One of the three Start here cards, which name an intention rather than a template. */
   starter: boolean;
   params: Record<string, unknown>;
@@ -105,12 +107,17 @@ export function NewBoardClient({
   types,
   families,
   takenNames = [],
+  requestable,
+  accountEmail,
 }: {
   userName: string;
   types: TypeMeta[];
   families: FamilyMeta[];
   /** Board names the account already has; a template's prefill steps around them. */
   takenNames?: string[];
+  /** What can be asked for (lib/salable/licence.mjs REQUESTABLE), for the 402 form. */
+  requestable: Record<string, string>;
+  accountEmail: string;
 }) {
   const router = useRouter();
   const [selected, setSelected] = useState<{ familyId: string; template: TemplateMeta } | null>(null);
@@ -118,6 +125,13 @@ export function NewBoardClient({
   const [slug, setSlug] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  /*
+   * A 402 is not an error, it is the start of a conversation - so the form
+   * opens here rather than sending someone to another page to describe what
+   * they just tried to do. `need` comes off the refusal, so the ask arrives
+   * already sorted into the entitlement a plan would grant.
+   */
+  const [refused, setRefused] = useState<{ need: string; message: string } | null>(null);
 
   const rails = useRef(new Map<string, HTMLDivElement>());
   const detailRef = useRef<HTMLDivElement>(null);
@@ -135,6 +149,7 @@ export function NewBoardClient({
     setValues(seeded);
     setSlug('');
     setError('');
+    setRefused(null);
   }
 
   function close() {
@@ -176,6 +191,7 @@ export function NewBoardClient({
     }
     setBusy(true);
     setError('');
+    setRefused(null);
     try {
       const response = await fetch('/api/boards', {
         method: 'POST',
@@ -191,6 +207,11 @@ export function NewBoardClient({
         }),
       });
       const body = await response.json();
+      if (response.status === 402 && typeof body.need === 'string') {
+        setRefused({ need: body.need, message: body.error });
+        setBusy(false);
+        return;
+      }
       if (!response.ok) throw new Error(body.error || `HTTP ${response.status}`);
       router.push(`/b/${body.slug}/manage`);
     } catch (err: any) {
@@ -250,7 +271,7 @@ export function NewBoardClient({
             <h3>{template.name}</h3>
             {type && !template.starter && <Chip>{type.name}</Chip>}
             {template.recommended && <Chip tone="amber">Start here</Chip>}
-            {template.tier && <Chip>{template.tier}</Chip>}
+            {template.locked && <Chip>Get in touch</Chip>}
           </div>
           <p className="rail-detail-tagline">{template.tagline}</p>
           <ul className="rail-detail-what">
@@ -326,6 +347,16 @@ export function NewBoardClient({
             />
           </Field>
           {error !== '' && <p className="error">{error}</p>}
+          {refused !== null && (
+            <div className="licence-refusal">
+              <p className="error">{refused.message}</p>
+              <LicenceRequestForm
+                requestable={requestable}
+                need={refused.need}
+                accountEmail={accountEmail}
+              />
+            </div>
+          )}
           <div className="rail-detail-actions">
             <Button type="submit" variant="primary" disabled={busy || nameValue === ''}>
               {busy ? 'Creating…' : 'Create board'}
@@ -393,7 +424,7 @@ export function NewBoardClient({
                         <span className="rail-card-head">
                           <span className="rail-card-name">{template.name}</span>
                           {template.recommended && <Chip tone="amber">Start here</Chip>}
-                          {template.tier && <Chip>{template.tier}</Chip>}
+                          {template.locked && <Chip>Get in touch</Chip>}
                         </span>
                         <span className="rail-card-tagline">{template.tagline}</span>
                         {!template.starter && (

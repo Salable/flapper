@@ -138,7 +138,8 @@ which case every tool drives that one board and `slug` is omitted.
 
 | Table | Holds |
 | --- | --- |
-| `user`, `session`, `account`, `verification` | Better Auth identity; `user` also carries the consent record (`termsVersion`, `termsAcceptedAt`, `marketingConsent`, `marketingConsentAt`) and a dormant `tier` |
+| `licence_requests` | the get-in-touch queue: a refusal that turned into a conversation ([MONETIZATION.md](MONETIZATION.md)) |
+| `user`, `session`, `account`, `verification` | Better Auth identity; `user` also carries the consent record (`termsVersion`, `termsAcceptedAt`, `marketingConsent`, `marketingConsentAt`). `tier` is unread by anything and due to be dropped — entitlements live in Salable ([MONETIZATION.md](MONETIZATION.md)) |
 | `jwks`, `oauth_client`, `oauth_resource`, `oauth_client_resource`, `oauth_refresh_token`, `oauth_access_token`, `oauth_consent`, `oauth_client_assertion` | Flapper as an OAuth 2.1 server for MCP clients (the `oauth-provider`/`mcp` plugins' schema, hand-copied - see `CLAUDE.md` on upgrades) |
 | `oauth_client_revocation` | the disconnect watermark |
 | `boards` | slug, name, type, status, private, the hashed API key, and `config` (jsonb: grid, motion, `theme`, `themePack`, `layout`, type params) |
@@ -185,7 +186,7 @@ over `lib/`; the decisions are tested there.
 
 | Concern | How |
 | --- | --- |
-| **Hosting** | Vercel, stock GitHub import; `main` deploys to production, every PR gets a preview. No `vercel.json`; the two long functions (`commands/stream`, `events`) set `maxDuration = 300` |
+| **Hosting** | Vercel, stock GitHub import; `main` deploys to production, every PR gets a preview. No `vercel.json`; the three long functions (`commands/stream`, `events`, `mcp`) set `maxDuration = 300` |
 | **Build** | `npm run build` = `tools/migrate-if-db.mjs` (runs `drizzle-kit migrate` when `DATABASE_URL` is set) then `next build`. Schema changes are `npm run db:generate` → a SQL file in `drizzle/` → applied at the next build, and in every test run |
 | **Environment** | `DATABASE_URL` (Neon; absent = PGlite), `UPSTASH_REDIS_REST_URL` + `_TOKEN` (absent = memory broker), `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` (must be the public origin or MCP OAuth silently breaks) |
 | **CI** (`.github/workflows/ci.yml`) | on every push and PR: `npm test`, `npm run typecheck`, `npx knip`, `npm run build` with no Redis (the memory broker must suffice) |

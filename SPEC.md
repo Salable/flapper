@@ -34,7 +34,7 @@ Notes in `docs/attic/README.md` for anything removed, per the 4.0 convention.*
 | 9 | `create_board` returns no key | **Done** | REST and MCP; `get_board_key` is the explicit ask |
 | 10 | Background tab = `frozen`, loudly | **Done** | `hooks/useStatePublisher.ts` stamps visibility + frame age; `lib/api/liveness.mjs`; amber dot; Getting Started §3½ |
 | 11 | Stale board list; three empty states | **Done** | Sign-in/out are full navigations (router cache was the cause); bfcache refresh; load-error + removed states |
-| 12 | Catalogue | **Groundwork done; split is RFC 0003** | outcome copy, live previews, Start here, `tier` enforced in `createBoard` (402) |
+| 12 | Catalogue | **Groundwork done; split is RFC 0003** | outcome copy, live previews, Start here, a type's `entitlement` enforced in `createBoard` (402) |
 | 13 | Ask for less at creation | **Done** | `advanced` params → Settings › Type settings; name required; `PATCH /config` validates params |
 | 14 | `showing` null when settled | **Done** | `showing` always the glass (`held`), `phase` playing/holding/blank; `holding` retired (attic) |
 | 15 | `lines` is intended state | **Done (docs softened)** | MCP/REST docs: "what the display was last told to show"; `animating` flagged |
@@ -132,7 +132,7 @@ a vertical menu.
 
    - `Tabs` lives in `components/ui/Tabs.tsx` and is used by **only**
      `SettingsClient`, so the change is contained. But it is a `components/ui/`
-     primitive, so give it an `orientation` variant (or add a sibling `SideNav`)
+     primitive, so give it an `orientation` variant (or a new side-nav sibling)
      rather than hard-coding a vertical list inside settings — consistent with
      the standing "component-first" direction from the 4.0 spec.
    - Keep the `role="tablist"` / `aria-selected` semantics and add
@@ -367,8 +367,13 @@ Recorded because it should survive the next refactor.
    **Settled:** a per-client revocation watermark (`lib/api/revocations.mjs`,
    migration 0005) — immediate, no blacklist, because the provider never
    stored the JWTs in the first place.
-4. **Catalogue and entitlement:** does tier live in Flapper or entirely in
-   salable.app, and what does `create_board` check on the MCP path?
+4. **Catalogue and entitlement:** ~~does tier live in Flapper or entirely in
+   salable.app, and what does `create_board` check on the MCP path?~~
+   **Settled: entirely in Salable.** The `TIER_LADDER`/`entitled()` pair and
+   every read of `user.tier` are gone; a type names an `entitlement` and
+   `createBoard` asks Salable whether the account holds it. `create_board`
+   checks exactly what REST does, because it is the same function. See
+   [docs/MONETIZATION.md](docs/MONETIZATION.md).
 5. **Branch divergence:** ~~which tree is authoritative for the dashboard~~
    **Settled** (note at the top): the warning was stale; everything is on `main`.
 6. **Sidebar side, and how many columns:** left or right for the board sidebar,

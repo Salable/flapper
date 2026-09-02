@@ -108,7 +108,7 @@ stole focus on every keystroke) distilled to these rules:
 - **Never render-define a component.** A component created inside another's
   render has a new identity every pass and remounts its subtree — inputs
   lose focus and state. Helpers that *return* JSX and are *called*
-  (`{range(...)}` in `DisplayConfig`) are fine; `<Inline/>` is not.
+  (`{slider(...)}` in `ThemeSettings`) are fine; `<Inline/>` is not.
 - **Text stays raw while typing.** Coercing on every keystroke echoes `NaN`
   or `0` back into the field; number params hold the raw string and the
   server's `applyParams` validates on submit (a named 422 either way).

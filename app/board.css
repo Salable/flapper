@@ -2389,3 +2389,85 @@ main.landing .error {
 .queue-list .queue-actions button:hover {
   color: var(--danger);
 }
+
+/* ---- the account area: facts, and asking for more ---- */
+
+/* A short list of facts about the account - profile on /account, what the
+   licence covers on /account/licence. Label above value rather than beside
+   it: "Boards / 1 (1 in use)" reads as one fact, and the values are short
+   enough that a two-column dl would be mostly empty space.
+
+   This replaces `.board-side-facts`, which both pages used to name: it was
+   the board settings sidebar's list, its rule went with the board editor
+   rewrite, and the account page went on asking for a class that no longer
+   existed - rendering as a bare indented dl for a fortnight. */
+.account-facts {
+  margin: 0;
+  align-self: stretch;
+  display: grid;
+  gap: 10px 24px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.account-facts dt {
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+  letter-spacing: var(--track-heading);
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.account-facts dd {
+  margin: 4px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.licence-ask {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.licence-ask .ui-field {
+  align-self: stretch;
+}
+
+.licence-asks {
+  align-self: stretch;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.licence-asks li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  border-top: 1px solid var(--edge);
+  padding-top: 8px;
+}
+
+.licence-asks li:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+/* A refusal that opens a form, in place, under the create button. Boxed so
+   the ask reads as a next step rather than as more of the error. */
+.licence-refusal {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border: 1px solid rgba(224, 176, 96, 0.4);
+  padding: 12px 14px;
+}

@@ -22,10 +22,12 @@ questions and requests: [[PLACEHOLDER: privacy@example.com]]. ICO registration:
 | Sign-in sessions and OAuth grants to connected apps | security, and so connected apps can act for you | contract / legitimate interest | session lifetime; grants until you disconnect |
 | Marketing preference and when you set it | to know whether we may email you about Flapper | consent (PECR) | until withdrawn |
 | Acceptance of the Terms (when, which version) | to show we had an agreement | legitimate interest | account lifetime |
-| Server logs (IP address, request path, errors) | security and diagnosing faults | legitimate interest | [[PLACEHOLDER: 90 days]] |
+| Server logs (IP address, request path, errors) | security and diagnosing faults | legitimate interest | [[PLACEHOLDER: Vercel's retention for the plan we are on - a hosting fact to look up, not an application setting]] |
 
-We do not use analytics or advertising trackers. [[PLACEHOLDER: confirm; if
-one is added, this and the Cookie Policy change first.]]
+We do not use analytics or advertising trackers. Confirmed in the code
+rather than asserted: no analytics package is installed, and the served
+pages request nothing from any other domain. If one is ever added, this
+notice and the Cookie Policy change before it ships.
 
 ## Public boards
 
@@ -58,10 +60,21 @@ consent is one switch in Account → Privacy & data.
 
 ## Security
 
-Passwords are hashed; API keys and display tokens are held as hashes and
-compared in constant time; sessions are signed cookies. [[PLACEHOLDER: breach
-notification commitment - the ICO within 72 hours where required, and you
-without undue delay where the risk is high.]]
+- **Passwords** are hashed with scrypt (Better Auth's default) and never
+  stored in a form we could read.
+- **Board API keys are stored in the clear.** A board's Settings screen has
+  to be able to show you the key, so it cannot be a hash. Each key is scoped
+  to one board — it can drive that board and reach nothing else on your
+  account — and regenerating it is one click, which is the recovery story if
+  a key gets out. Say this plainly rather than claim a hash we do not have.
+- **Display tokens** — what a wall screen uses to report back — are derived
+  by HMAC from the board's key and are not stored at all, so there is nothing
+  to leak. Rotating the board's key invalidates every one of them.
+- **Comparisons** of keys and tokens are constant-time.
+- **Sessions** are signed, `HttpOnly` cookies.
+
+[[PLACEHOLDER: breach notification commitment - the ICO within 72 hours
+where required, and you without undue delay where the risk is high.]]
 
 ## Changes to this notice
 

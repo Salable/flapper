@@ -47,7 +47,7 @@ export function AccountClient({
 
         <section className="settings-block">
           <h2>Profile</h2>
-          <dl className="board-side-facts">
+          <dl className="account-facts">
             <dt>Name</dt>
             <dd>{user.name || <span className="muted">—</span>}</dd>
             <dt>Email</dt>
