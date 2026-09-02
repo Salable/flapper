@@ -87,7 +87,7 @@ There is no asset build: the tiles are drawn live from a theme pack, so a
 new look is a JSON edit — see [Making it your own](AGENTS.md#making-it-your-own).
 
 ```bash
-npm test             # ~320 tests, a few seconds, no browser needed
+npm test             # the whole suite, a few seconds, no browser needed
 npm run db:generate  # after editing lib/db/schema.mjs: new SQL migration
 ```
 

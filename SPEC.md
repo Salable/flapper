@@ -132,7 +132,7 @@ a vertical menu.
 
    - `Tabs` lives in `components/ui/Tabs.tsx` and is used by **only**
      `SettingsClient`, so the change is contained. But it is a `components/ui/`
-     primitive, so give it an `orientation` variant (or add a sibling `SideNav`)
+     primitive, so give it an `orientation` variant (or a new side-nav sibling)
      rather than hard-coding a vertical list inside settings — consistent with
      the standing "component-first" direction from the 4.0 spec.
    - Keep the `role="tablist"` / `aria-selected` semantics and add

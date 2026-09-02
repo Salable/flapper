@@ -186,7 +186,7 @@ over `lib/`; the decisions are tested there.
 
 | Concern | How |
 | --- | --- |
-| **Hosting** | Vercel, stock GitHub import; `main` deploys to production, every PR gets a preview. No `vercel.json`; the two long functions (`commands/stream`, `events`) set `maxDuration = 300` |
+| **Hosting** | Vercel, stock GitHub import; `main` deploys to production, every PR gets a preview. No `vercel.json`; the three long functions (`commands/stream`, `events`, `mcp`) set `maxDuration = 300` |
 | **Build** | `npm run build` = `tools/migrate-if-db.mjs` (runs `drizzle-kit migrate` when `DATABASE_URL` is set) then `next build`. Schema changes are `npm run db:generate` → a SQL file in `drizzle/` → applied at the next build, and in every test run |
 | **Environment** | `DATABASE_URL` (Neon; absent = PGlite), `UPSTASH_REDIS_REST_URL` + `_TOKEN` (absent = memory broker), `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` (must be the public origin or MCP OAuth silently breaks) |
 | **CI** (`.github/workflows/ci.yml`) | on every push and PR: `npm test`, `npm run typecheck`, `npx knip`, `npm run build` with no Redis (the memory broker must suffice) |

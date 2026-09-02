@@ -35,7 +35,7 @@ curl -X POST http://localhost:3000/api/b/YOUR-SLUG/message \
   -H 'content-type: application/json' -d '{"text":"HELLO"}'
 ```
 
-`npm test` runs ~320 tests in a few seconds with no browser in the loop.
+`npm test` runs the whole suite in a few seconds with no browser in the loop.
 
 ---
 
@@ -318,8 +318,9 @@ When Redis is down or over quota the app degrades rather than breaks:
 `RedisBroker` turns every failure into a 503 that reads as a sentence (the
 provider's text goes to the log), writes still succeed and log a skipped
 nudge, `/health` answers `realtime: "unavailable"`, the dashboard says so,
-and the streams hold their connection with 20 s heartbeats instead of
-letting displays reconnect in a loop - which is what turns an over-quota
+and the streams hold their connection - a 15 s heartbeat, and a 20 s wait
+between retries while the provider is down - instead of letting displays
+reconnect in a loop - which is what turns an over-quota
 service into a more over-quota service.
 
 ### Change the commercial model
