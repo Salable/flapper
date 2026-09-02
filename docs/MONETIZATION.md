@@ -370,6 +370,69 @@ entitlement check, not two. That is the sixty-second cache doing its job, and
 it means a plan change in the Salable dashboard takes up to a minute to reach
 a warm function.
 
+## What needs the owner
+
+Handing this back at a pause-point, which is what the RFC asked for. Nine
+things, none of which a Contributor can decide.
+
+**1. Chunk 6 needs somewhere to live that isn't a personal account.**
+`flapper-tan.vercel.app` is not in the Salable Vercel team. That is fine for
+a demo and impossible for chunk 6: Live Mode settles to a company Stripe
+account, and the Company Details document needs a registered name and number
+that are not an individual's. Moving the project is a prerequisite for taking
+money, not a tidy-up afterwards.
+
+**2. "Has to be true" 3 has nobody's name against it.** *"Someone keeps
+Flapper running after launch."* Everything else in the RFC has an owner or a
+contributor; that one does not, and it is the one that decides whether any of
+this survives the quarter.
+
+**3. Salable is configured and the env vars are ready to set.** A test-mode
+Product, a Free plan and all six entitlements exist, and a licence has been
+issued against the plan and read back. Whoever holds the Vercel project sets
+`SALABLE_API_KEY` and `SALABLE_FREE_PLAN_ID`; `tools/salable-setup.mjs`
+prints the plan id, and the key belongs in Vercel, never in this repo.
+
+**4. Five findings to file (chunk 13).** All in the handover log below. The
+one worth reading first: **a free plan cannot have no line items** — it saves
+without complaint and then cannot be subscribed to, and nothing in the guides
+or the spec says so. Then: `retrievePlan` omits entitlements unless asked;
+`savePlan` wants ids not names; `tiersMode` and `minQuantity` are required
+though marked optional; and a plan cannot be re-saved carrying a line-item
+slug it already owns.
+
+**5. Four things the RFC asserts that the API does not.** Also in the log.
+None of them change the proposal; all of them change a sentence in it.
+
+**6. The RFC's strategy links point at a file that no longer exists.** It
+cites `handbook/company/strategy.md` for choices 2, 4 and 6, and
+`handbook/engineering/development-process.md`. The choices now live in
+`handbook/company/app-builder.md` under *"The choices that define this
+approach"* — **and the numbering still matches exactly**, so it is a rename,
+not a rethink. The engineering page does not exist at all.
+
+**7. One design concession to sign off.** Entitlement names cannot contain
+digits, so the board cap is a named tier and `BOARD_TIERS` in
+`lib/salable/licence.mjs` is Flapper deciding that "many" is 25. The RFC's
+"Boards: a few / more / unlimited" assumed a number that could live on the
+plan. Salable still decides which tier an account is on; "how many is many"
+is now in the application, which is a step back from *Salable holds the
+answer* and should be a decision rather than a discovery.
+
+**8. Free is one board, not "a few".** Taken from Neal's steer on 2026-09-02
+rather than from the RFC. Worth confirming in the RFC so the two agree.
+
+**9. One line in the handbook cuts against the Brew Digital route.**
+`app-builder.md`: *"If every product continues to require the same level of
+bespoke work, we are building a services business rather than proving this
+approach works."* The RFC sells Flapper installations as agency work through
+Brew, which is that risk by name, and the RFC does not address it. Not an
+objection — a question the owner should answer on the record.
+
+**Still open and not blocking anything:** Discussion 5, whether Flapper stays
+open-source or closes with a template extracted. Everything built works
+either way.
+
 ## Not built yet
 
 In RFC breakdown order, so it's clear what this is and isn't:

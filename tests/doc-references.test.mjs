@@ -89,16 +89,23 @@ const FILE_RE = /^[A-Za-z0-9_.\-/]+\.(mjs|js|ts|tsx|css|json|md|py|sql|yml|yaml|
 const NOT_OURS = new Set([
   'vercel.json', // ARCHITECTURE: "No `vercel.json`" - the point is that it does not exist
   'openapi.yaml', // MONETIZATION: Salable's spec, at salable.app
-  'rfcs/2026-08-25-flapper-monetization-example.md', // in Salable/company, not here
   'docs/SPRUCE-UP.md', // SPEC: "is cleared and deleted; its history is in git"
 ]);
+
+/**
+ * Another repo's tree. `handbook/` and `rfcs/` are Salable/company, which
+ * MONETIZATION.md cites because that is where the RFC and the strategy live -
+ * including, deliberately, two paths that are *wrong there* and want fixing.
+ * Nothing in this repo can check them, so nothing here pretends to.
+ */
+const ANOTHER_REPO = /^(handbook\/|rfcs\/|app-builder\.md$)/;
 
 test('every file the docs name exists in the tree', () => {
   const broken = [];
   for (const doc of DOCS) {
     if (HISTORICAL.test(doc)) continue;
     for (const tick of ticks(read(doc))) {
-      if (!FILE_RE.test(tick) || NOT_OURS.has(tick)) continue;
+      if (!FILE_RE.test(tick) || NOT_OURS.has(tick) || ANOTHER_REPO.test(tick)) continue;
       // A URL path, not a file path - /api/b/YOUR-SLUG/AGENTS.md is a route.
       if (tick.startsWith('/')) continue;
       // Somebody else's tree, excluded from the corpus but really there.
