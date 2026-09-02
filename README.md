@@ -74,6 +74,15 @@ product, not a crippled one. The hosted app at flapper-tan.vercel.app sets
 the key and gates on it; how, and why those particular things, is
 [docs/MONETIZATION.md](docs/MONETIZATION.md).
 
+To run the *gated* build locally without a Salable account, point it at the
+mock — the two endpoints Flapper calls, and a knob for granting more:
+
+```bash
+node tools/mock-salable.mjs &
+SALABLE_API_KEY=sk_test_mock SALABLE_FREE_PLAN_ID=plan_free \
+  SALABLE_API_BASE=http://localhost:4000/api npm run dev
+```
+
 There is no asset build: the tiles are drawn live from a theme pack, so a
 new look is a JSON edit — see [Making it your own](AGENTS.md#making-it-your-own).
 
@@ -103,6 +112,7 @@ npm run db:generate  # after editing lib/db/schema.mjs: new SQL migration
 | `SALABLE_FREE_PLAN_ID` | the plan a new account is licensed onto at sign-up | sign-up issues no licence; with a key set, nobody can create a board |
 | `SALABLE_API_BASE` | override the API host (a mock, a staging instance) | `https://salable.app/api` |
 | `SALABLE_ENTITLEMENT_TTL_MS` | how long an entitlement answer is reused per function instance | 60 000 |
+| `LICENCE_REQUEST_WEBHOOK_URL` | where a get-in-touch ask is announced (a Slack incoming webhook, or anything taking `{text}`) | asks are saved and read with `node tools/licence-requests.mjs` |
 
 ## Using a board
 

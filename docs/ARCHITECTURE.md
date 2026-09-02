@@ -138,6 +138,7 @@ which case every tool drives that one board and `slug` is omitted.
 
 | Table | Holds |
 | --- | --- |
+| `licence_requests` | the get-in-touch queue: a refusal that turned into a conversation ([MONETIZATION.md](MONETIZATION.md)) |
 | `user`, `session`, `account`, `verification` | Better Auth identity; `user` also carries the consent record (`termsVersion`, `termsAcceptedAt`, `marketingConsent`, `marketingConsentAt`). `tier` is unread by anything and due to be dropped — entitlements live in Salable ([MONETIZATION.md](MONETIZATION.md)) |
 | `jwks`, `oauth_client`, `oauth_resource`, `oauth_client_resource`, `oauth_refresh_token`, `oauth_access_token`, `oauth_consent`, `oauth_client_assertion` | Flapper as an OAuth 2.1 server for MCP clients (the `oauth-provider`/`mcp` plugins' schema, hand-copied - see `CLAUDE.md` on upgrades) |
 | `oauth_client_revocation` | the disconnect watermark |

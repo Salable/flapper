@@ -78,6 +78,56 @@ entitlement: 'board.type.scheduled',
 
 Leave it unset and the type is free. A fork adding a type gets to decide.
 
+### The other end of a 402
+
+There is no checkout, so a limit ends in a conversation, and the code has to
+carry that as far as it can.
+
+Every refusal answers a machine as well as a person. Beside the sentence, a
+402 carries `need` — the entitlement value — and `getInTouch`, the URL to go
+about it:
+
+```json
+{
+  "error": "this licence covers 1 board and 1 is in use. Delete one, or get in touch and we will cut you a plan.",
+  "need": "boards",
+  "getInTouch": "https://flapper-tan.vercel.app/account/licence?need=boards"
+}
+```
+
+That matters most where there is no UI at all: an agent on the MCP path, or a
+`curl`, gets the same two fields and can say something useful about them.
+
+**Refusals are checked most-specific-first** — licence, then board type, then
+board count. Somebody at their one-board limit asking for a scheduled board
+is told about the type, because "delete one first" would send them to delete
+a board and hit a second no.
+
+In the app, a 402 opens the ask in place, under the create button, with the
+need already chosen. `/account/licence` is the same form on its own page,
+with what the licence covers above it and what you have already asked below.
+Three questions, which is all a bespoke plan needs: what you hit, what you
+need it for, where to reply.
+
+`need` is a closed list (`REQUESTABLE` in `lib/salable/licence.mjs`), so an
+ask arrives already sorted into the entitlement a plan would grant rather
+than as prose someone has to read and classify. Asking twice for the same
+thing is the same ask — told plainly, because a silent dedupe reads as the
+form having done nothing.
+
+**Answering them.** A row in Postgres nobody reads does not meet "within a
+day or two", so an ask also goes wherever the people answering it already
+are: `LICENCE_REQUEST_WEBHOOK_URL`, a Slack incoming webhook in our case.
+Unset, it is a no-op. Either way the queue is read with:
+
+```bash
+DATABASE_URL=… node tools/licence-requests.mjs              # oldest first, overdue marked
+DATABASE_URL=… node tools/licence-requests.mjs --handled ID # replied to, not merely read
+```
+
+Committed before announced, and the notification is best-effort: a webhook
+that is down must never lose somebody's ask.
+
 ## Three states, and the difference matters
 
 **Unlicensed** — no `SALABLE_API_KEY`. Every type, no cap, private boards on.
@@ -119,6 +169,18 @@ this account bought than the free plan is.
    Nothing is deleted and nothing is deactivated.
 4. A bespoke sale is a clone of the free plan with a more generous cap and
    whichever type entitlements were asked for. No deploy.
+
+To walk all of it locally with no Salable account, `tools/mock-salable.mjs`
+serves the two endpoints and takes a `/grant` knob for opening the paid side:
+
+```bash
+node tools/mock-salable.mjs &
+SALABLE_API_KEY=sk_test_mock SALABLE_FREE_PLAN_ID=plan_free \
+  SALABLE_API_BASE=http://localhost:4000/api npm run dev
+# then, to become a paying customer:
+curl -X POST -H 'authorization: Bearer x' \
+  'http://localhost:4000/grant?values=board.create,boards:unlimited,board.type.scheduled,board.private'
+```
 
 ## Decisions, and what they cost
 
@@ -200,12 +262,29 @@ flat abuse guard, not an entitlement"). The only 402 was the tier branch that
 never fired. Both are now deliberate: 402 for anything a plan would fix, 403
 for the abuse ceiling and for an account with no licence at all.
 
+**The walk found two things the tests could not.** Driven through the mock
+against a real dev server: the board-limit 402 read as two half-sentences
+spliced together (`…delete one, or this needs a plan we don't sell off the
+shelf; get in touch`), because a shared constant was written to start a
+sentence and then used mid-one. And a one-board account asking for a
+scheduled board was told to delete a board — the count was checked before the
+type, so the refusal named the less specific of two true problems. Both are
+fixed; the ordering has a test now. Neither was visible from the unit tests,
+which asserted status codes and `need` values rather than reading the
+sentence.
+
+**A first-run detail worth knowing:** two board creates in a row produce one
+entitlement check, not two. That is the sixty-second cache doing its job, and
+it means a plan change in the Salable dashboard takes up to a minute to reach
+a warm function.
+
 ## Not built yet
 
 In RFC breakdown order, so it's clear what this is and isn't:
 
-- **Chunk 4** — the in-app get-in-touch form, and the routine for cutting a
-  bespoke plan. The 402 copy is in; the form is not.
+- **Chunk 4, remainder** — the form and the queue are in (above); the routine
+  for actually cutting a bespoke plan is a person's, and is not written down
+  yet.
 - **Chunk 3, remainder** — webhook paths, and dropping `user.tier`. Also
   entitlement-signature verification: the check response carries a
   `signature`, and `GET /api/signing-keys` exists, which is what makes a

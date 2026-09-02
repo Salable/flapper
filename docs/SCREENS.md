@@ -155,8 +155,22 @@ revocation watermark in `lib/api/revocations.mjs`) — and **Privacy & data**:
 the marketing preference as one switch (withdrawal is one click, the
 timestamp moves server-side), and data export / account deletion as
 explicit placeholders until the real paths exist. Reached from your name in
-the AppBar (`UserMenu`). Licence, plan and the Stripe portal land here when
-they exist (RFC chunk 6).
+the AppBar (`UserMenu`). The Stripe portal lands here when there is one (RFC
+chunk 6).
+
+### 6¾. Licence — `/account/licence` (signed in)
+
+What the account may do, and how to ask for more. Three facts from Salable —
+boards (and how many are in use), which board types are included, whether
+private boards are — then the ask: a closed list of what can be wanted, what
+for, and where to reply. Where every 402 sends people
+(`getInTouch` in the refusal body), so `?need=` arrives prefilled and nobody
+describes the same wall twice. Asking twice for one thing is the same ask,
+said so rather than silently deduped. Under it, what you have already asked
+and whether it has been answered.
+
+On a build with no `SALABLE_API_KEY` it says so plainly: nothing is gated.
+See [MONETIZATION.md](MONETIZATION.md).
 
 ### 7. Legal — `/legal`, `/legal/{slug}`
 

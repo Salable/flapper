@@ -6,7 +6,7 @@ import { listByOwner } from '@/lib/db/boards.mjs';
 import { BOARD_TYPES } from '@/lib/board-types/index.mjs';
 import { TEMPLATE_FAMILIES } from '@/lib/board-types/templates.mjs';
 import { NewBoardClient, type FamilyMeta } from '@/components/NewBoardClient';
-import { accountAllowance, lockedTypeIds } from '@/lib/salable/licence.mjs';
+import { accountAllowance, lockedTypeIds, REQUESTABLE } from '@/lib/salable/licence.mjs';
 
 export const dynamic = 'force-dynamic';
 
@@ -68,6 +68,8 @@ export default async function NewBoardPage() {
       types={types}
       families={families}
       takenNames={takenNames}
+      requestable={REQUESTABLE}
+      accountEmail={session.user.email}
     />
   );
 }

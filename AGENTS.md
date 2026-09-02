@@ -347,6 +347,23 @@ failed check reuses the last answer for that account if there is one, and
 falls back to the *free* allowance if there is not — never blocked, never
 unlimited. Same rule as the broker: degrade, never break.
 
+**A refusal is machine-readable.** Every 402 carries `need` (the entitlement
+value) and `getInTouch` (where a person goes about it) beside the sentence,
+because the REST and MCP callers have no UI to read the sentence out of.
+`reject(message, status, extra)` is how those ride along. The other end is
+`/account/licence`, the `licence_requests` table, and
+`tools/licence-requests.mjs` - there is no self-serve checkout to build
+towards, so a limit ends in a conversation on purpose.
+
+**Refusals are checked most-specific-first.** Somebody at their board limit
+asking for a scheduled board is told about the type, not the limit: two
+things are wrong and only one refusal fits in a response, and "delete a board
+first" would send them to delete a board and hit a second no.
+
+To run the gated build locally with no Salable account, `tools/mock-salable.mjs`
+is the two endpoints Flapper calls plus a `/grant` knob. It is a walking aid -
+the request shapes are asserted in `tests/salable.test.mjs` with a stub fetch.
+
 The whole model, and why those three things and not others, is
 [docs/MONETIZATION.md](docs/MONETIZATION.md).
 
