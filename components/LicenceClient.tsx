@@ -58,7 +58,7 @@ export function LicenceClient({
               usually fixes it; if not, tell us below and we will sort it.
             </p>
           ) : null}
-          <dl className="licence-facts">
+          <dl className="account-facts">
             <dt>Boards</dt>
             <dd>
               {boards}

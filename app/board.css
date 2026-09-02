@@ -2390,12 +2390,18 @@ main.landing .error {
   color: var(--danger);
 }
 
-/* ---- /account/licence: what the licence covers, and asking for more ---- */
+/* ---- the account area: facts, and asking for more ---- */
 
-/* Label above value rather than beside it: "Boards / 1 (1 in use)" reads as
-   one fact, and the values are short enough that a two-column dl would be
-   mostly empty space. */
-.licence-facts {
+/* A short list of facts about the account - profile on /account, what the
+   licence covers on /account/licence. Label above value rather than beside
+   it: "Boards / 1 (1 in use)" reads as one fact, and the values are short
+   enough that a two-column dl would be mostly empty space.
+
+   This replaces `.board-side-facts`, which both pages used to name: it was
+   the board settings sidebar's list, its rule went with the board editor
+   rewrite, and the account page went on asking for a class that no longer
+   existed - rendering as a bare indented dl for a fortnight. */
+.account-facts {
   margin: 0;
   align-self: stretch;
   display: grid;
@@ -2403,7 +2409,7 @@ main.landing .error {
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
 }
 
-.licence-facts dt {
+.account-facts dt {
   font-family: var(--font-mono);
   font-size: var(--text-meta);
   letter-spacing: var(--track-heading);
@@ -2411,7 +2417,7 @@ main.landing .error {
   color: var(--muted);
 }
 
-.licence-facts dd {
+.account-facts dd {
   margin: 4px 0 0;
   display: flex;
   flex-wrap: wrap;
