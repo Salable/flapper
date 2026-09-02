@@ -155,7 +155,8 @@ revocation watermark in `lib/api/revocations.mjs`) — and **Privacy & data**:
 the marketing preference as one switch (withdrawal is one click, the
 timestamp moves server-side), and data export / account deletion as
 explicit placeholders until the real paths exist. Reached from your name in
-the AppBar (`UserMenu`). Billing and tier land here when they exist.
+the AppBar (`UserMenu`). Licence, plan and the Stripe portal land here when
+they exist (RFC chunk 6).
 
 ### 7. Legal — `/legal`, `/legal/{slug}`
 
@@ -200,4 +201,5 @@ priority table).
 
 - Bands/regions and multi-section layouts: deferred (the layout picker is
   built to grow into N regions).
-- `user.tier` column is dormant, documented in the schema.
+- `user.tier` is read by nothing and due to be dropped: what an account may
+  do comes from Salable at request time ([MONETIZATION.md](MONETIZATION.md)).

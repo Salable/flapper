@@ -322,6 +322,34 @@ and the streams hold their connection with 20 s heartbeats instead of
 letting displays reconnect in a loop - which is what turns an over-quota
 service into a more over-quota service.
 
+### Change the commercial model
+
+`lib/salable/` is the whole of it: `client.mjs` is the only module that knows
+Salable's HTTP surface, `licence.mjs` is the vocabulary and the allowance, and
+nothing else in the repo asks who paid for what. Three questions are enforced,
+all in `lib/api/handlers.mjs` — how many boards (`createBoard`), which types
+(`createBoard`, from the type's own `entitlement`), and private boards
+(`boardPatch`).
+
+**No `SALABLE_API_KEY` means no paywall.** Every type, no cap, private boards
+on. That is a supported state, not a broken one: a fork is a whole product.
+Adding the key turns the gate on, and the free plan in the Salable dashboard —
+not a constant in here — decides what free means.
+
+**Flapper holds the question; Salable holds the answer.** There is no tier
+column, no ladder, no cached plan name. If you find yourself writing a limit
+as a number in this repo, that is the signal: it belongs on a plan. The one
+number left is `MAX_BOARDS_UNLICENSED`, which exists only for the build with
+no Salable account behind it.
+
+**An outage is not a discount, and not an outage for the user either.** A
+failed check reuses the last answer for that account if there is one, and
+falls back to the *free* allowance if there is not — never blocked, never
+unlimited. Same rule as the broker: degrade, never break.
+
+The whole model, and why those three things and not others, is
+[docs/MONETIZATION.md](docs/MONETIZATION.md).
+
 ### Drive it from something else
 
 A feed, a build status, a now-playing hook — all `POST .../message` with the
@@ -363,6 +391,10 @@ accident.
 - **Errors cross boundaries as values, not exceptions.** The dispatch envelope
   is `{ok, value}` or `{ok: false, error: {message, status}}`, so a 422 from
   the controller stays a 422 by the time it reaches a caller.
+- **A limit is never a number in this repo.** What an account may do comes
+  from Salable at request time (`lib/salable/licence.mjs`), enforced in
+  `createBoard` and `boardPatch` — the paths REST and MCP share. A greyed-out
+  card is decoration. `docs/MONETIZATION.md`.
 - **Comments say *why*.** The code already says what.
 
 - **A control's value is never uppercased by the page.** `input`, `textarea`

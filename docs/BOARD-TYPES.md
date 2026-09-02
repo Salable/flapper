@@ -34,8 +34,11 @@ export default {
                               // ("Plays as it arrives"), never the machinery
   sample: 'T-MINUS 10',       // a ≤12-tile line the card flips live
   recommended: false,         // true marks the default ("Start here")
-  tier: undefined,            // name an account tier to lock the listing;
-                              // enforced in createBoard (REST and MCP alike)
+  entitlement: undefined,     // leave unset and the type is free; name a
+                              // Salable entitlement value
+                              // ('board.type.countdown') and the account has
+                              // to hold it. Enforced in createBoard (REST and
+                              // MCP alike) - see docs/MONETIZATION.md
 
   configVersion: 1,
   migrateConfig(config, fromVersion) { return config; },

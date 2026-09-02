@@ -68,6 +68,14 @@ the whole contract; the contract harness can run a template through
 
 ## Q4 — Catalogue and entitlement: where does tier live?
 
+> **Outcome (2026-09-02): neither. There is no tier.** The recommendation
+> below was implemented and then replaced. A ladder in the application, and a
+> `user.tier` column syncing behind it, is two sources of truth for one
+> answer; Salable is asked directly instead, on the same create path, and a
+> type names the entitlement it needs. See
+> [docs/MONETIZATION.md](../MONETIZATION.md). The rest of this section is
+> kept as the reasoning that got there.
+
 **Recommendation: the tier *check* lives in Flapper (it already does); the
 tier *source of truth* lives in Salable, cached on `user.tier`.**
 

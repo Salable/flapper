@@ -40,7 +40,8 @@ export type TemplateMeta = {
   poster: string[];
   what: string[];
   recommended: boolean;
-  tier?: string;
+  /** Set when this account's licence does not cover the template's type. */
+  locked?: boolean;
   /** One of the three Start here cards, which name an intention rather than a template. */
   starter: boolean;
   params: Record<string, unknown>;
@@ -250,7 +251,7 @@ export function NewBoardClient({
             <h3>{template.name}</h3>
             {type && !template.starter && <Chip>{type.name}</Chip>}
             {template.recommended && <Chip tone="amber">Start here</Chip>}
-            {template.tier && <Chip>{template.tier}</Chip>}
+            {template.locked && <Chip>Get in touch</Chip>}
           </div>
           <p className="rail-detail-tagline">{template.tagline}</p>
           <ul className="rail-detail-what">
@@ -393,7 +394,7 @@ export function NewBoardClient({
                         <span className="rail-card-head">
                           <span className="rail-card-name">{template.name}</span>
                           {template.recommended && <Chip tone="amber">Start here</Chip>}
-                          {template.tier && <Chip>{template.tier}</Chip>}
+                          {template.locked && <Chip>Get in touch</Chip>}
                         </span>
                         <span className="rail-card-tagline">{template.tagline}</span>
                         {!template.starter && (
