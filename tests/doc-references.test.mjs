@@ -221,6 +221,11 @@ const THIRD_PARTY = new Set([
   'deleteUser', // Better Auth's, named in SPEC's account-deletion plan
   'createSalableOnlySubscription', // Salable's OpenAPI operation
   'checkEntitlements', // ditto (we also have a method of this name)
+  'retrievePlan', // Salable's GET /api/plans/{id}
+  'savePlan', // Salable's POST /api/plans/save
+  'createEntitlement', // Salable's POST /api/entitlements
+  'createPlan', // Salable's POST /api/plans - the red herring, named to say so
+  'createProduct', // Salable's POST /api/products
 ]);
 
 test('every code identifier the docs name exists somewhere in the code', () => {

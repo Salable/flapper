@@ -156,28 +156,58 @@ if (product) {
 /* ---- 3. the free plan ---- */
 
 /*
- * No line items at all. That is what makes it a Salable Only plan: a plan is
- * free because nothing is attached to charge for, not because a price is
- * zero. Perpetual, because a free licence that expires is a support ticket.
+ * A free plan still needs a line item.
  *
- * `entitlements` is an array of strings and the spec does not say whether it
- * means ids or names, so this tries ids and falls back to names, and says
- * which worked - that answer belongs in the handover log.
+ * The first version of this sent `lineItems: []`, on the reasoning that a
+ * plan is free because there is nothing attached to charge for. The plan
+ * saved happily and then `POST /api/subscriptions` refused it: *"Some plans
+ * were invalid: Plan is missing line items"*. A plan with nothing on it
+ * cannot be subscribed to at all, Salable Only or otherwise.
+ *
+ * What makes it free is the line item having **no prices**, not the plan
+ * having no line items. One flat-rate, one-off item, `prices: []`, quantity
+ * pinned to 1. Salable still mints a Stripe product for it and no price, so
+ * nothing can ever be charged.
+ *
+ * `tiersMode: null` and `minQuantity` are both required, though the spec
+ * gives them defaults and marks them optional. The API says so plainly when
+ * they are missing, which is more than the spec does.
+ *
+ * Perpetual, because a free licence that expires is a support ticket.
+ */
+const FREE_LINE_ITEM = Object.freeze({
+  name: 'Boards',
+  slug: 'boards',
+  priceType: 'flat_rate',
+  intervalType: 'one_off',
+  billingScheme: 'fixed',
+  tiersMode: null,
+  minQuantity: 1,
+  maxQuantity: 1,
+  prices: [],
+});
+
+/**
+ * `entitlements` is an `array of string` and the spec does not say whether it
+ * means ids or names. Ids are what works - confirmed against the real API on
+ * 2026-09-02 - and the name fallback stays for the day that changes.
  */
 async function saveFreePlan(productId, entitlements) {
-  const body = {
+  return call('POST', '/plans/save', {
     productId,
     name: FREE_PLAN_NAME,
     entitlements,
     isActive: true,
     isPerpetual: true,
-    lineItems: [],
-  };
-  return call('POST', '/plans/save', body);
+    lineItems: [FREE_LINE_ITEM],
+  });
 }
 
 if (dryRun) {
-  console.log(`  plan        ${FREE_PLAN_NAME.padEnd(24)} would create, granting ${ENTITLEMENTS.createBoard}`);
+  console.log(
+    `  plan        ${FREE_PLAN_NAME.padEnd(24)} would create, granting ${ENTITLEMENTS.createBoard},` +
+      ' with one line item and no prices',
+  );
   console.log('\nsalable-setup: dry run only. Re-run without --dry-run to create it.');
   process.exit(0);
 }
@@ -185,26 +215,78 @@ if (dryRun) {
 const plans = rows(await call('GET', '/plans'));
 let plan = plans.find((row) => row.name === FREE_PLAN_NAME && (row.productUuid ?? row.productId) === idOf(product));
 
+/*
+ * Created if absent, left alone if not.
+ *
+ * Re-saving an existing plan to bring it in line was the obvious idea and it
+ * does not work: savePlan refuses a line item whose slug is already in use
+ * unless the item's own id comes with it, so a "repair" needs to read the
+ * plan's line items back and thread their ids through. Not worth the
+ * machinery. The probe below is the safety net instead - it tells you a plan
+ * is broken, and a person fixes it, which is the right division of labour for
+ * something that happens once.
+ */
 if (plan) {
-  console.log(`  plan        ${FREE_PLAN_NAME.padEnd(24)} already there`);
+  console.log(`  plan        ${FREE_PLAN_NAME.padEnd(24)} already there (left alone; the probe below checks it)`);
 } else {
   const freeGrant = [ENTITLEMENTS.createBoard];
   const asIds = freeGrant.map((name) => entitlementIds.get(name)).filter(Boolean);
   try {
     plan = await saveFreePlan(idOf(product), asIds);
-    console.log(`  plan        ${FREE_PLAN_NAME.padEnd(24)} created (entitlements sent as ids)`);
+    console.log(`  plan        ${FREE_PLAN_NAME.padEnd(24)} created`);
   } catch (error) {
     if (error.status !== 400) throw error;
     plan = await saveFreePlan(idOf(product), freeGrant);
-    console.log(`  plan        ${FREE_PLAN_NAME.padEnd(24)} created (entitlements sent as NAMES - ids were refused)`);
-    console.log('  ^ note that for the handover log: the spec does not say which savePlan wants.');
+    console.log(`  plan        ${FREE_PLAN_NAME.padEnd(24)} created (entitlements as NAMES - ids were refused)`);
+    console.log('  ^ worth the handover log: ids worked on 2026-09-02, so something changed.');
   }
   plan = plan?.data ?? plan;
 }
 
-/* ---- what is left for a person ---- */
+/* ---- 4. prove a licence can actually be issued on it ---- */
 
+/*
+ * The whole point of the plan is that sign-up can subscribe somebody to it,
+ * and "the plan saved" does not prove that - the missing-line-items refusal
+ * came from here, not from saving. So the script issues one against a
+ * throwaway grantee and reads the entitlement back. Better to fail in a
+ * setup script than at somebody's first sign-up.
+ */
 const planId = idOf(plan);
+if (planId) {
+  const probe = `setup_probe_${Date.now()}`;
+  try {
+    const sub = await call('POST', '/subscriptions', {
+      plans: [{ planId, grantee: probe }],
+      owner: probe,
+      isPerpetual: true,
+    });
+    const row = sub?.data ?? sub;
+    const check = await call('GET', `/entitlements/check?granteeId=${probe}&owner=${probe}`);
+    const granted = (check?.data?.entitlements ?? []).map((e) => e.value);
+    console.log(
+      `  probe       ${'licence issued'.padEnd(24)} isSalableOnly=${row?.isSalableOnly}, grants ${granted.join(', ') || 'NOTHING'}`,
+    );
+    if (!granted.includes(ENTITLEMENTS.createBoard)) {
+      console.error(
+        `\nsalable-setup: the plan issued a licence that does not grant ${ENTITLEMENTS.createBoard}.` +
+          '\n  Nobody will be able to create a board. Check the plan in the dashboard.',
+      );
+      process.exit(1);
+    }
+  } catch (error) {
+    console.error(`\nsalable-setup: the plan exists but cannot be subscribed to - ${error.message}`);
+    console.error(
+      '  Sign-up would fail the same way, so fix this before setting the env vars.\n' +
+        '  "Plan is missing line items" is the one to expect: a free plan still needs one\n' +
+        `  line item, with no prices on it. Add one to "${FREE_PLAN_NAME}" in the dashboard,\n` +
+        '  or delete the plan and re-run this.',
+    );
+    process.exit(1);
+  }
+}
+
+/* ---- what is left for a person ---- */
 console.log(`
 salable-setup: done.
 

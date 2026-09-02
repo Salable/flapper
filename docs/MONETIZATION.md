@@ -200,10 +200,11 @@ before creating, so re-running is safe. The paid entitlements are created but
 put on no plan: a bespoke sale is a clone of the free plan with a cap and
 whichever board types were asked for, which is a person's decision.
 
-One thing it will tell you that the spec would not: `savePlan`'s
-`entitlements` is `array of string` with no word on whether that means ids or
-names. The script sends ids, falls back to names on a 400, and prints which
-worked. Whichever it turns out to be belongs in the handover log below.
+It finishes by **issuing a throwaway licence against the plan and reading the
+entitlement back**, because "the plan saved" does not prove a licence can be
+issued on it — see the handover log below for how that was learnt. If the
+probe fails, the script says so and exits non-zero rather than handing you
+env vars that will break at somebody's first sign-up.
 
 To walk all of it locally with no Salable account, `tools/mock-salable.mjs`
 serves the two endpoints and takes a `/grant` knob for opening the paid side:
@@ -269,6 +270,50 @@ REST and MCP paths, where there is no UI to explain anything.
 The RFC's second outcome is *the agent gets better at monetizing a repo* —
 which needs an honest record of where the tooling carried the work and where
 a person had to step in. First entries:
+
+**"Has to be true" 0 is true, and now proved against the running API, not
+just read off the spec.** `POST /api/subscriptions` with
+`{plans: [{planId, grantee}], owner, isPerpetual: true}` came back `201` with
+`isSalableOnly: true`, `stripeSubscriptionId: null`, `status: "active"`, and
+`GET /api/entitlements/check` then returned `board_create` with a null expiry
+and a signature. A free licence can be issued from application code. **This
+is the bet, and it is won.**
+
+Everything below is what it cost to find that out, and all of it is a docs or
+spec issue to file.
+
+**A free plan cannot have no line items.** This is the one that would have
+cost a day. Reasoning that a plan is free because there is nothing attached
+to charge for, the setup script sent `lineItems: []`. The plan *saved*
+happily — `201`, no complaint — and then subscribing to it failed with *"Some
+plans were invalid: Plan is missing line items"*. What makes a plan free is
+its line item having **no prices**, not the plan having no line items. One
+flat-rate, one-off item with `prices: []` and quantity pinned to 1. Salable
+mints a Stripe product for it and no price, so nothing can ever be charged.
+Nothing in the guides or the spec says a plan needs one.
+
+**`retrievePlan` reports a plan as having no entitlements unless you ask.**
+`GET /api/plans/{id}` returns no `entitlements` field at all; you need
+`?expand=entitlements`. Reading a plan back to check the setup worked, it
+looked like the entitlements had silently not attached — they had. A field
+that is absent rather than empty is the difference between "no entitlements"
+and "not asked for", and it took a second call to tell them apart.
+
+**`savePlan` wants entitlement ids, not names.** The spec says
+`entitlements: array of string` and nothing more. Ids work; a name comes back
+as *"Provided entitlements (board_create) does not exist"*, which at least
+says so clearly.
+
+**Two line-item fields the spec marks optional are required.** `tiersMode`
+must be present as `null`, and `minQuantity` is required — the spec gives
+both defaults. The API's own error message is clear about it, which is more
+than the spec is.
+
+**A plan cannot be re-saved with the same line-item slug.** *"The provided
+line item slugs are in use: boards"* — a re-save has to carry the existing
+line item's own id. So `tools/salable-setup.mjs` creates a plan if it is
+absent and leaves it alone if it is not, and proves it works by issuing a
+throwaway licence against it rather than by trying to repair it.
 
 **The docs and the OpenAPI spec disagreed, and the spec was right.**
 [`subscriptions-and-billing`](https://salable.app/docs/subscriptions-and-billing)
