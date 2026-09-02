@@ -1071,6 +1071,79 @@ sheets come and go underneath it.)
 - [ ] The API and MCP surface for it, in step - `get_capabilities`, the
       validator's own message, and `docs/BOARD-API.md`.
 
+## The fidget model, as Dan defined it
+
+*27-28 Aug 2026, after building eleven styles the wrong way round and
+finding out what they actually are.*
+
+The first pass grew a style out of whatever dial the last complaint needed:
+sweepEvery, restOdds, flickerCount, stepDistance, holdMs, stepMs,
+returnStepMs, cardWash, washGlyphs, vanishHome, shortestPath, traveller.
+Eleven fields, several of which only mean anything in combination, and at
+least one bug (colour gesture showing random letters) caused by two of them
+interacting in a way neither describes. That is sediment, not a model.
+
+Dan's version is four numbers and a palette:
+
+| | |
+| --- | --- |
+| **How often** | the rate, and how much it varies |
+| **How many cards at once** | 1 for a tick, 3 for something busy |
+| **How many flickers** | the length of the sequence each card runs |
+| **How fast** | per flicker |
+| **What the flickers are** | random characters, *or* a list of colours |
+
+Two rules that are definitions rather than settings, and so are not fields:
+
+- **Position is always random.** A fidget lands on any card on the grid,
+  blank ones included. Nothing picks where.
+- **A colour list's length is the flicker count.** Pina colada is three
+  flickers because it is three colours; there is no way to disagree with
+  itself.
+
+### What this deletes
+
+- `stepDistance`, `shortestPath`, `vanishHome`, `returnStepMs` - all of
+  them consequences of "how many flickers" and "then it is over", not
+  choices. How the card gets home is the engine's problem, not the
+  author's.
+- `traveller` - see below.
+- `sweepEvery` - a whole-board sweep is not a fidget landing on a random
+  card; it is its own thing and should be named as one.
+
+### Snake and pac-man are not fidgets
+
+This falls straight out of "position is always random": a creature that
+walks the border has the least random position on the board. They are the
+**animation overlays** Dan named as a stretch goal - a different feature
+that happens to share the tile engine, and the reason the fidget designer
+never has to answer the question that prompted all this ("not sure how the
+fidget designer would handle the animated fidgets like pac man and snake").
+It does not handle them. They are not fidgets.
+
+The travellers built on `claude/fidget-styles` (`lib/board/travellers.mjs`,
+tested, working) are kept as the seed of that feature, not deleted.
+
+- [x] Rewrite the style shape as the rows above - `lib/board/fidgets.mjs`,
+      four numbers and a list of beats, eleven fields down to four.
+- [x] Move the sweep out of the fidget model - it is gone from it entirely.
+      A whole-board revolution is not a fidget landing on a random card, and
+      the wordmark's own idle animation (`idle.mjs`, which is where all this
+      started) still has one because that is a different thing.
+- [x] Re-express the built styles in it. Eight ship; the lab is the proof,
+      since every caption on it is the fidget's own numbers and list.
+- [x] Wire it to a real board: one control in the sidebar (fidget and pace
+      are one choice), `fidget` in the config validator, in the MCP
+      `update_config` schema, and in `docs/BOARD-API.md`.
+- [x] The designer - `/fidget-designer`. Four controls and the beat list,
+      with the real engine running the real fidget beside them, because a
+      fidget is nothing but motion. It produces a whole spec rather than a
+      name, which is why `fidget` in a board's config now takes either: a
+      fidget somebody makes works on any board without shipping in the app.
+      `validateFidget` finally has a production caller.
+- [ ] Animation overlays (snake, pac-man) as their own feature, later -
+      `lib/board/travellers.mjs` is the seed, tested and working.
+
 ## Refused by design, not missing
 
 - **New states on the ring.** `theme-pack.mjs:96` — `ring cannot be changed by

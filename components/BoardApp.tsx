@@ -233,7 +233,14 @@ export function BoardApp({
           try {
             applyTheme(meta?.themeRev);
             controller.configure(sanitizeConfig(config));
-            ambient?.start(Number((config as any)?.ambientMs) || 0);
+            // Which fidget, not just whether. Without the id the wall fell
+            // back to the quiet one whatever the board had been set to -
+            // every preview in the app showed the chosen fidget and the
+            // actual display did not.
+            ambient?.start(
+              Number((config as any)?.ambientMs) || 0,
+              ((config as any)?.fidget as string | null) ?? null,
+            );
           } catch (error: any) {
             console.warn(`flapper: stored config refused - ${error.message}`);
           }

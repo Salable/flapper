@@ -259,6 +259,7 @@ export function SettingsClient({ board: initial, userName }: { board: Board; use
         rows={grid.rows}
         screenAspect={screen.w / screen.h}
         ambientMs={Number(board.config?.ambientMs) || 0}
+        fidget={(board.config?.fidget as string | null) ?? null}
       />
     </Suspense>
   ) : (
@@ -272,6 +273,7 @@ export function SettingsClient({ board: initial, userName }: { board: Board; use
       rows={grid.rows}
       screenAspect={screen.w / screen.h}
       ambientMs={Number(board.config?.ambientMs) || 0}
+      fidget={(board.config?.fidget as string | null) ?? null}
       onSaved={flashSaved}
     />
   );
@@ -288,6 +290,7 @@ export function SettingsClient({ board: initial, userName }: { board: Board; use
       rows={grid.rows}
       screenAspect={screen.w / screen.h}
       ambientMs={Number(board.config?.ambientMs) || 0}
+      fidget={(board.config?.fidget as string | null) ?? null}
       onSaved={flashSaved}
     />
   );

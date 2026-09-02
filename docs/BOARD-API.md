@@ -150,14 +150,22 @@ You can change it (with the key), and so can the person at the display:
 ```bash
 curl -X PATCH {apiBase}/config \
   -H 'authorization: Bearer KEY' -H 'content-type: application/json' \
-  -d '{"cols":20,"rows":8,"align":"center","valign":"middle"}'
+  -d '{"screen":{"w":16,"h":9},"cardSize":"medium","align":"center","valign":"middle"}'
 ```
 
-Supported ranges are 1–80 columns and 1–40 rows. Changing the grid re-lays out
-whatever is showing and everything still queued, so it is safe to do
-mid-message. Be considerate: if a user asked you to display something, do not
-silently reshape their board to make your text fit. Fit the text to the board,
-or ask.
+**A grid is not something you set.** `cols` and `rows` are refused with a
+`422`, and have been since the grid became a consequence rather than a
+setting: a board fills whatever window it is in, so what you choose is the
+*shape of the screen* it is designed for and *how big the cards are*, and the
+grid follows. `screen` is any two positive numbers in any units - `16` and
+`9`, or a ticker's `300` and `20` - because only the ratio matters.
+`cardSize` is one of `huge`, `large`, `medium`, `small`, `tiny`, biggest
+first. Either resets to its default with `null`.
+
+Changing them re-lays out whatever is showing and everything still queued, so
+it is safe to do mid-message. Be considerate: if a user asked you to display
+something, do not silently reshape their board to make your text fit. Fit the
+text to the board, or ask.
 
 The same call sets the theme: `{"theme":"canary"}` repaints every display of
 the board in Norwich green; `"classic"` is the charcoal original. Always take
@@ -192,6 +200,33 @@ curl -X PATCH {apiBase}/config \
 
 Changing a board's look is a visible act on someone's wall. Do it only when
 asked, and prefer the smallest change that does what was asked.
+
+### What it does while it holds still
+
+A board showing one message sits perfectly still, which a real one never
+does. `fidget` picks what it does about that; `ambientMs` decides whether it
+happens at all.
+
+```bash
+curl -X PATCH {apiBase}/config \
+  -H "authorization: Bearer $KEY" -H 'content-type: application/json' \
+  -d '{"ambientMs":30000,"fidget":"pina-colada"}'
+```
+
+- **`fidget`** — one of `tick`, `twitchy`, `calm`, `riffle`, `pina-colada`,
+  `rainbow`, `sherbet`, `ping-pong`, or `null` for the quiet one. Naming one
+  that does not ship is a `422` listing the ones that do.
+- **`ambientMs`** — `0` is off, which is the default; anything else is on.
+  **How often a fidget happens is part of the fidget**, so the number itself
+  no longer means anything: "pina colada, but every three seconds" is not
+  pina colada. The field survives because a board being *able* to fidget is a
+  different question from which one it does.
+
+A fidget lands on any card of the grid, blank ones included, and puts the
+board back exactly as it found it. It never runs while a message is arriving
+and never paints over one that does - if something lands mid-gesture, the
+fidget is abandoned rather than stamped on top of it. Turning one on is a
+visible change to someone's wall; leave it off unless asked.
 
 ### Bands are paused
 

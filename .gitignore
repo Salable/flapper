@@ -14,6 +14,14 @@ A-Z 0-9 /
 .claude/settings.local.json
 
 # Next.js / Vercel
+# next-env.d.ts is generated, says so in its own header, and Next rewrites it
+# depending on whether you last ran dev or build - the import flips between
+# .next/dev/types and .next/types. Tracked, that meant the working tree went
+# dirty every time you switched between the two. tsconfig lists it but does
+# not need it: typecheck passes on a clean checkout with neither this file nor
+# .next present, which is exactly what CI does (npm ci, then typecheck, with
+# no build in that job).
+next-env.d.ts
 .next/
 .vercel
 .env*.local

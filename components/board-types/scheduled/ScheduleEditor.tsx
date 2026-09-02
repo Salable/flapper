@@ -70,6 +70,7 @@ export default function ScheduleEditor({
   rows,
   screenAspect,
   ambientMs = 0,
+  fidget,
 }: BoardTypeEditorProps) {
   const apiBase = `/api/b/${slug}`;
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
@@ -403,6 +404,7 @@ export default function ScheduleEditor({
             rows={rows}
             tilePx={56}
             ambientMs={ambientMs}
+            fidget={fidget}
             screenAspect={screenAspect}
           />
           <div className="design-preview-bar">

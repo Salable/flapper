@@ -12,8 +12,7 @@ import {
   tintGrid,
   tintMode,
   tintStrength,
-  TINT_MODES,
-} from '../lib/board/tint.mjs';
+  TINT_MODES, rampFlight } from '../lib/board/tint.mjs';
 
 test('hex parses in both lengths, and nothing else does', () => {
   assert.deepEqual(parseHex('#fff'), [255, 255, 255]);
@@ -145,4 +144,25 @@ test('rotating hue changes the colour and keeps the brightness', () => {
   const luma = (c) => 0.213 * c.r + 0.715 * c.g + 0.072 * c.b;
   assert.ok(Math.abs(luma(turned) - luma(red)) < 3, `${luma(turned)} vs ${luma(red)}`);
   assert.deepEqual(rotateHue(red, 0), red, 'no turn is no change');
+});
+
+test('rampFlight spreads its stops over the whole ring, in order', () => {
+  const stops = ['#000000', '#808080', '#ffffff'];
+  const ramp = rampFlight(stops, 42);
+  assert.equal(ramp.length, 42);
+  // Monotonic: a ramp that doubles back is not a gradient.
+  const lum = ramp.map((c) => parseInt(c.slice(1, 3), 16));
+  for (let n = 1; n < lum.length; n += 1) {
+    assert.ok(lum[n] >= lum[n - 1], `step ${n} went backwards: ${lum[n - 1]} -> ${lum[n]}`);
+  }
+  assert.equal(ramp[0], '#000000');
+  assert.ok(lum[lum.length - 1] > 230, 'never reached the last stop');
+});
+
+test('rampFlight survives being given nonsense', () => {
+  assert.deepEqual(rampFlight([], 42), []);
+  assert.deepEqual(rampFlight(['not a colour'], 42), []);
+  assert.deepEqual(rampFlight(['#123456'], 0), []);
+  // One stop is a flat colour, not an error.
+  assert.deepEqual(new Set(rampFlight(['#123456'], 5)), new Set(['#123456']));
 });
