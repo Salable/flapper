@@ -315,6 +315,15 @@ line item's own id. So `tools/salable-setup.mjs` creates a plan if it is
 absent and leaves it alone if it is not, and proves it works by issuing a
 throwaway licence against it rather than by trying to repair it.
 
+**There is no way to revoke a secret key through the API.** `listApiKeys`,
+`createApiKey`, `retrieveApiKey` — and no delete. All three also refuse a
+secret key (`401`), so they are dashboard-session endpoints; a secret key can
+create and read everything in an organisation but cannot manage the
+credentials that reach it. Verified against the spec and against the running
+API. Whether the dashboard offers a revoke is unconfirmed, which is the part
+somebody should check: creating a new key does not stop an old one working,
+so without a revoke there is no way to respond to an exposed key at all.
+
 **The docs and the OpenAPI spec disagreed, and the spec was right.**
 [`subscriptions-and-billing`](https://salable.app/docs/subscriptions-and-billing)
 says a Salable Only Subscription is created "from the Subscriptions page in
@@ -393,7 +402,21 @@ issued against the plan and read back. Whoever holds the Vercel project sets
 `SALABLE_API_KEY` and `SALABLE_FREE_PLAN_ID`; `tools/salable-setup.mjs`
 prints the plan id, and the key belongs in Vercel, never in this repo.
 
-**4. Five findings to file (chunk 13).** All in the handover log below. The
+**4. Six findings to file (chunk 13), one of them not like the others.**
+
+**A Salable secret key appears to have no revocation path.** The API has
+`listApiKeys`, `createApiKey` and `retrieveApiKey` and **no delete or
+revoke** — and those three reject a secret key with a `401`, so key
+management is dashboard-session-only. We could not find a revoke in the
+dashboard either, though that is "could not find" rather than "is not
+there". If it really is absent, then a credential documented as granting
+*"full access to the Salable API"*, whose own docs say *"any exposure of this
+key is a potential security risk for you and your users"*, cannot be turned
+off by the person holding it. Creating a new key does not help: the old one
+keeps working. That is a security property rather than a rough edge, and it
+is worth someone checking before anything else on this list.
+
+The other five are API-shape findings, all in the handover log below. All in the handover log below. The
 one worth reading first: **a free plan cannot have no line items** — it saves
 without complaint and then cannot be subscribed to, and nothing in the guides
 or the spec says so. Then: `retrievePlan` omits entitlements unless asked;

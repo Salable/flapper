@@ -233,6 +233,9 @@ const THIRD_PARTY = new Set([
   'createEntitlement', // Salable's POST /api/entitlements
   'createPlan', // Salable's POST /api/plans - the red herring, named to say so
   'createProduct', // Salable's POST /api/products
+  'listApiKeys', // Salable's GET /api/api-keys
+  'createApiKey', // Salable's POST /api/api-keys
+  'retrieveApiKey', // Salable's GET /api/api-keys/{id}
 ]);
 
 test('every code identifier the docs name exists somewhere in the code', () => {
