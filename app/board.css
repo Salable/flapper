@@ -1526,6 +1526,23 @@ main.landing .error {
   transform: none;
 }
 
+/* Locked: the "Get in touch" chip already says what this is - clicking it
+   doesn't open the create form, so it shouldn't look like the others invite
+   a click either. */
+.rail-card.is-locked {
+  cursor: default;
+}
+
+.rail-card.is-locked:hover,
+.rail-card.is-locked:focus-visible {
+  border-color: var(--edge);
+  transform: none;
+}
+
+.rail-card.is-locked .rail-card-poster {
+  opacity: 0.55;
+}
+
 /* The poster is the glass: a dark screen with the board's own tiles on it. */
 .rail-card-poster {
   display: flex;

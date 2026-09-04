@@ -347,16 +347,7 @@ export function NewBoardClient({
             />
           </Field>
           {error !== '' && <p className="error">{error}</p>}
-          {refused !== null && (
-            <div className="licence-refusal">
-              <p className="error">{refused.message}</p>
-              <LicenceRequestForm
-                requestable={requestable}
-                need={refused.need}
-                accountEmail={accountEmail}
-              />
-            </div>
-          )}
+          {refused !== null && <p className="error">{refused.message}</p>}
           <div className="rail-detail-actions">
             <Button type="submit" variant="primary" disabled={busy || nameValue === ''}>
               {busy ? 'Creating…' : 'Create board'}
@@ -366,6 +357,14 @@ export function NewBoardClient({
             </Button>
           </div>
         </form>
+        {/* Outside the form above, deliberately: this is its own <form>
+            (LicenceRequestForm), and HTML forbids nesting one form inside
+            another - a real hydration error in Next 16, not a lint nit. */}
+        {refused !== null && (
+          <div className="licence-refusal">
+            <LicenceRequestForm requestable={requestable} need={refused.need} accountEmail={accountEmail} />
+          </div>
+        )}
       </div>
     );
   };
@@ -413,11 +412,18 @@ export function NewBoardClient({
                     <button
                       type="button"
                       key={template.id}
-                      className={`rail-card flap-in${active ? ' is-selected' : ''}${template.recommended ? ' is-recommended' : ''}`}
+                      className={`rail-card flap-in${active ? ' is-selected' : ''}${template.recommended ? ' is-recommended' : ''}${template.locked ? ' is-locked' : ''}`}
                       style={{ '--flap-i': index } as React.CSSProperties}
                       aria-pressed={active}
-                      aria-label={`${template.name}${template.recommended ? ', recommended' : ''}. ${template.tagline}`}
-                      onClick={() => (active ? close() : choose(family.id, template))}
+                      aria-label={`${template.name}${template.recommended ? ', recommended' : ''}${template.locked ? ', get in touch' : ''}. ${template.tagline}`}
+                      // A locked template's whole point is "ask, don't build" - opening the
+                      // create form just to fail at submit (with a get-in-touch form nested
+                      // inside it, which is its own bug - see below) taught the wrong thing.
+                      // The "Get in touch" chip already says what it is; clicking it stays inert.
+                      onClick={() => {
+                        if (template.locked) return;
+                        active ? close() : choose(family.id, template);
+                      }}
                     >
                       <span className="rail-card-poster">{poster(template, 226, 112, 28)}</span>
                       <span className="rail-card-body">
