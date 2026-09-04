@@ -20,6 +20,14 @@ export type LicenceView = {
   ungated: boolean;
 };
 
+/** The two plans themselves, not this viewer's own allowance - see
+ * app/account/licence/page.tsx. No prices; there is no price list. */
+export type PlanCompare = {
+  boards: string;
+  slidesPerBoard: string;
+  extraType: string;
+};
+
 export function LicenceClient({
   userName,
   accountEmail,
@@ -27,6 +35,7 @@ export function LicenceClient({
   requestable,
   need,
   requests,
+  compare,
 }: {
   userName: string;
   accountEmail: string;
@@ -34,6 +43,7 @@ export function LicenceClient({
   requestable: Record<string, string>;
   need?: string;
   requests: { id: string; need: string; message: string; handledAt: number | null; createdAt: number }[];
+  compare: PlanCompare;
 }) {
   const boards = licence.maxBoards === null ? 'Unlimited' : String(licence.maxBoards);
 
@@ -81,6 +91,50 @@ export function LicenceClient({
             the above — and what you would use to do this to your own product. How Flapper is wired
             to it is written down in the repo.
           </p>
+        </section>
+
+        <section className="settings-block">
+          <h2>Free vs Bespoke</h2>
+          <p className="ui-hint">
+            There is no price list — a Bespoke plan is cut for whoever asks, from the Free plan's
+            shape plus whatever they need. This is what changes between the two.
+          </p>
+          <table className="plan-compare">
+            <thead>
+              <tr>
+                <th scope="col"></th>
+                <th scope="col">Free</th>
+                <th scope="col">Bespoke</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row">Boards</th>
+                <td>{compare.boards}</td>
+                <td>More, or unlimited</td>
+              </tr>
+              <tr>
+                <th scope="row">Slides per board</th>
+                <td>{compare.slidesPerBoard}</td>
+                <td>More</td>
+              </tr>
+              <tr>
+                <th scope="row">Board types</th>
+                <td>Live queue</td>
+                <td>+ {compare.extraType}</td>
+              </tr>
+              <tr>
+                <th scope="row">Private boards</th>
+                <td>Not included</td>
+                <td>Included</td>
+              </tr>
+              <tr>
+                <th scope="row">Watermark</th>
+                <td>On</td>
+                <td>Off</td>
+              </tr>
+            </tbody>
+          </table>
         </section>
 
         <section className="settings-block">

@@ -2620,6 +2620,44 @@ main.landing .error {
   align-items: center;
 }
 
+/* Free vs Bespoke, on /account/licence - no prices (there is no price
+   list), just what each plan covers. */
+.plan-compare {
+  border-collapse: collapse;
+  width: 100%;
+  max-width: 480px;
+  margin: 4px 0 0;
+}
+
+.plan-compare th,
+.plan-compare td {
+  border: 1px solid var(--edge);
+  padding: 8px 12px;
+  text-align: left;
+  font-size: var(--text-sm);
+}
+
+.plan-compare th {
+  color: var(--muted);
+  letter-spacing: var(--track-wide);
+  text-transform: uppercase;
+  font-size: var(--text-meta);
+  font-weight: 500;
+}
+
+.plan-compare td:first-child {
+  color: var(--muted);
+}
+
+.plan-compare tbody th {
+  text-align: left;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--ink);
+  font-size: var(--text-sm);
+}
+
 .licence-ask {
   align-self: stretch;
   display: flex;

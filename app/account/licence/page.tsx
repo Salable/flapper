@@ -5,8 +5,8 @@ import { getDb } from '@/lib/db/client.mjs';
 import { listByOwner } from '@/lib/db/boards.mjs';
 import { listRequestsFor } from '@/lib/db/licence-requests.mjs';
 import { BOARD_TYPES } from '@/lib/board-types/index.mjs';
-import { accountAllowance, REQUESTABLE } from '@/lib/salable/licence.mjs';
-import { LicenceClient, type LicenceView } from '@/components/LicenceClient';
+import { accountAllowance, REQUESTABLE, FREE_ALLOWANCE } from '@/lib/salable/licence.mjs';
+import { LicenceClient, type LicenceView, type PlanCompare } from '@/components/LicenceClient';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,6 +48,21 @@ export default async function LicencePage({
 
   const { need } = await searchParams;
 
+  // Free vs Bespoke, as the plan actually is - read from FREE_ALLOWANCE
+  // (lib/salable/licence.mjs) rather than this viewer's own allowance, so
+  // it describes the two plans themselves, not whichever one they happen
+  // to be on. No numbers beyond what's already true in the code: there is
+  // no public price list, so this names what each plan covers, never what
+  // it costs.
+  const compare: PlanCompare = {
+    boards: String(FREE_ALLOWANCE.maxBoards),
+    slidesPerBoard: String(FREE_ALLOWANCE.maxQueueItems),
+    // 'shared' stays a registered type for boards that already use it, but
+    // is no longer offered anywhere a board is created (templates.mjs) - so
+    // it's not named here as something asking for a plan would get you.
+    extraType: BOARD_TYPES.get('scheduled')?.name ?? 'Scheduled',
+  };
+
   return (
     <LicenceClient
       userName={session.user.name || session.user.email}
@@ -56,6 +71,7 @@ export default async function LicencePage({
       requestable={REQUESTABLE}
       need={need}
       requests={requests}
+      compare={compare}
     />
   );
 }
