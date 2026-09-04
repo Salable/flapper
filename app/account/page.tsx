@@ -6,9 +6,10 @@ import { AccountClient } from '@/components/AccountClient';
 export const dynamic = 'force-dynamic';
 
 /**
- * The account area: who you are, what is connected to you. Profile,
- * connected apps; billing and tier land here when they exist, rather than
- * anywhere bolted to the dashboard.
+ * The account area: who you are, what is connected to you, what your plan
+ * covers. Profile, a link out to the licence (its own page - /account/licence
+ * has a real Stripe portal link and a request form, more than a link
+ * belongs beside), connected apps, privacy.
  */
 export default async function AccountPage() {
   const session = await sessionFromHeaders(await headers());

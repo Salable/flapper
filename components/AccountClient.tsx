@@ -6,7 +6,7 @@ import { UserMenu } from '@/components/UserMenu';
 import { ConnectedApps, useConnections } from '@/components/ConnectedApps';
 import { EmptyState, CopyButton } from '@/components/ui/bits';
 import { Checkbox } from '@/components/ui/Field';
-import { Button } from '@/components/ui/Button';
+import { Button, LinkButton } from '@/components/ui/Button';
 import { authClient } from '@/lib/auth-client';
 import { PRIVACY_CONTACT } from '@/lib/legal/documents.mjs';
 import { SiteFooter } from '@/components/SiteFooter';
@@ -55,6 +55,15 @@ export function AccountClient({
             <dt>Member since</dt>
             <dd>{formatDay(user.createdAt)}</dd>
           </dl>
+        </section>
+
+        <section className="settings-block">
+          <h2>Licence</h2>
+          <p className="ui-hint">
+            What your plan covers, and how to ask for more - boards, slides per board, board types,
+            private boards, the watermark.
+          </p>
+          <LinkButton href="/account/licence">View your licence</LinkButton>
         </section>
 
         <section className="settings-block">
