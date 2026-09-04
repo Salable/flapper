@@ -24,6 +24,7 @@ import { Field, Select, TextInput } from '@/components/ui/Field';
 import { ThemePreview } from '@/components/flapper/ThemePreview';
 import { SheetEditor, EditTextPopup, type Align, type Valign } from '@/components/SheetEditor';
 import { type QueueItem, payloadToBody } from '@/components/queue-item';
+import { previewClip } from '@/lib/board/text-preview.mjs';
 import type { ThemePack } from '@/lib/board/theme-pack.mjs';
 
 /** A saved interrupter - named once, fired by that name later, never sent
@@ -818,7 +819,7 @@ export function QueueManager({
                     <div className="sheet-source-setup">
                       <div className="sheet-text-preview">
                         <span className={`sheet-text-preview-sample${presetPreviewText.trim() === '' ? ' is-empty' : ''}`}>
-                          {presetPreviewText.trim() === '' ? 'Nothing typed yet' : presetPreviewText}
+                          {presetPreviewText.trim() === '' ? 'Nothing typed yet' : previewClip(presetPreviewText)}
                         </span>
                         <Button size="sm" onClick={() => setPresetTextOpen(true)}>
                           Edit text →

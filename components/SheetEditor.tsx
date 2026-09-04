@@ -27,6 +27,7 @@ import { Button } from '@/components/ui/Button';
 import { Field, Select, TextInput } from '@/components/ui/Field';
 import { type QueueItem, payloadToBody } from '@/components/queue-item';
 import { layout as layoutText } from '@/lib/board/layout.mjs';
+import { previewClip } from '@/lib/board/text-preview.mjs';
 
 /** Just enough of the real board's charset to wrap and preview typed text -
  * see the module doc at the top of layout.mjs: every board currently
@@ -154,7 +155,7 @@ export function SheetEditor({
         <div className="sheet-source-setup">
           <div className="sheet-text-preview">
             <span className={`sheet-text-preview-sample${samplePreview(item) === '' ? ' is-empty' : ''}`}>
-              {samplePreview(item) === '' ? 'Nothing typed yet' : samplePreview(item)}
+              {samplePreview(item) === '' ? 'Nothing typed yet' : previewClip(samplePreview(item))}
             </span>
             <Button size="sm" onClick={() => setTextOpen(true)}>
               Edit text →
