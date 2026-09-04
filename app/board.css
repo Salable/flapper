@@ -420,6 +420,57 @@ main.landing {
   overflow-y: auto;
 }
 
+/* landing-long: a hero plus real sections below it (the gallery), so the
+   page scrolls rather than centering everything in the viewport - centering
+   a gallery of a dozen boards vertically would just push most of it offscreen. */
+main.landing-long {
+  justify-content: flex-start;
+  padding-top: 48px;
+  padding-bottom: 48px;
+  gap: 20px;
+}
+
+.gallery {
+  margin-top: 32px;
+  width: 100%;
+  max-width: 880px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.gallery h2 {
+  font-size: 15px;
+  letter-spacing: var(--track-wide);
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.gallery-grid {
+  list-style: none;
+  margin: 18px 0 0;
+  padding: 0;
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.gallery-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--edge);
+  border-radius: 6px;
+  padding: 14px 10px;
+  text-decoration: none;
+}
+
+.gallery-card:hover {
+  background: rgba(236, 231, 221, 0.05);
+}
+
 main.landing h1 {
   font-size: 28px;
   letter-spacing: var(--track-display);
