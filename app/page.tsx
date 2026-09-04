@@ -3,10 +3,12 @@ import { redirect } from 'next/navigation';
 import { sessionFromHeaders } from '@/lib/auth';
 import { getDb } from '@/lib/db/client.mjs';
 import { listPublic } from '@/lib/db/boards.mjs';
+import { resolveBoardTheme } from '@/lib/board/board-theme.mjs';
+import { screenOf, cardSizeOf } from '@/lib/board/geometry.mjs';
 import { Flapper } from '@/components/flapper/Flapper';
 import { SiteFooter } from '@/components/SiteFooter';
 import { LinkButton } from '@/components/ui/Button';
-import { PublicGallery } from '@/components/PublicGallery';
+import { PublicGallery, type PublicGalleryBoard } from '@/components/PublicGallery';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,11 +17,28 @@ export default async function LandingPage() {
   if (session) redirect('/dashboard');
 
   // A gallery that fails to load is not a reason to fail the homepage - it
-  // just doesn't show, same as having nothing public yet.
-  let publicBoards: Array<{ id: string; slug: string; name: string }> = [];
+  // just doesn't show, same as having nothing public yet. Each board is
+  // resolved to its real pack/screen/card size here, the same way the
+  // dashboard resolves its own boards - so a gallery card is that board's
+  // actual shape and skin, not a generic stand-in for it.
+  let publicBoards: PublicGalleryBoard[] = [];
   try {
     const db = await getDb();
-    publicBoards = await listPublic(db, { limit: 12 });
+    const rows = await listPublic(db, { limit: 12 });
+    publicBoards = rows.map((board: any) => {
+      const live = board.currentPayload?.text || board.currentPayload?.rows?.join(' ') || '';
+      const { pack } = resolveBoardTheme(board.config ?? {});
+      return {
+        id: board.id,
+        slug: board.slug,
+        ownerName: board.ownerName,
+        ownerId: board.ownerId,
+        text: live.trim() || board.name?.trim() || board.slug,
+        pack,
+        screen: screenOf(board.config ?? {}),
+        cardSize: cardSizeOf(board.config ?? {}),
+      };
+    });
   } catch (error) {
     console.error('landing: loading public boards failed', error);
   }

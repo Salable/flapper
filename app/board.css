@@ -428,12 +428,19 @@ main.landing-long {
   padding-top: 48px;
   padding-bottom: 48px;
   gap: 20px;
+  /* main.landing's own overflow-y: auto gives it a scroll region clipped to
+     whatever height flexbox computes for it, so content past that height
+     was reachable only by an inner scrollbar the fullPage screenshot never
+     saw - the outer document stayed exactly one viewport tall. Content this
+     long wants the page itself to grow and the browser to scroll it, same
+     as every other app-shell page. */
+  overflow-y: visible;
 }
 
 .gallery {
   margin-top: 32px;
   width: 100%;
-  max-width: 880px;
+  max-width: 1040px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -453,22 +460,52 @@ main.landing-long {
   padding: 0;
   width: 100%;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 10px;
+  /* Same minimum as the dashboard's own .board-grid: each card is drawn at
+     its board's real (fixed) pixel size and centered within this, so the
+     column just needs to be wide enough for a typical board, not exact. */
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
 }
 
 .gallery-card {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
+  gap: 6px;
   border: 1px solid var(--edge);
   border-radius: 6px;
-  padding: 14px 10px;
-  text-decoration: none;
+  overflow: hidden;
+  padding-bottom: 12px;
 }
 
 .gallery-card:hover {
   background: rgba(236, 231, 221, 0.05);
+}
+
+.gallery-card-board {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  overflow-x: auto;
+  padding: 16px 12px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--edge);
+}
+
+.gallery-card-by {
+  margin: 4px 0 0;
+  font-size: var(--text-meta);
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+  padding: 0 10px;
+}
+
+.gallery-card-preview {
+  font-size: var(--text-meta);
+  letter-spacing: var(--track-label);
 }
 
 main.landing h1 {
