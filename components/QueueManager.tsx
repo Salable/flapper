@@ -693,23 +693,30 @@ export function QueueManager({
                           >
                             ↓ Move later
                           </button>
-                          <button
-                            className="danger"
-                            onClick={async () => {
-                              if (
-                                await confirm({
-                                  title: 'Remove this slide?',
-                                  body: 'Its text and settings are gone for good.',
-                                  confirmLabel: 'Remove',
-                                  danger: true,
-                                })
-                              ) {
-                                act(() => post(`/queue/items/${selected.id}`, 'DELETE'));
-                              }
-                            }}
-                          >
-                            ✕ Remove this slide
-                          </button>
+                          {/* Dan's call: hide Remove rather than let someone empty a
+                              board down to nothing from here. The API still allows it
+                              (the board just goes idle, per removeItem in queue.mjs) -
+                              this is a UI choice, not a backend restriction, so a slide
+                              can still be cleared via other paths (e.g. Clear queue). */}
+                          {items.length > 1 && (
+                            <button
+                              className="danger"
+                              onClick={async () => {
+                                if (
+                                  await confirm({
+                                    title: 'Remove this slide?',
+                                    body: 'Its text and settings are gone for good.',
+                                    confirmLabel: 'Remove',
+                                    danger: true,
+                                  })
+                                ) {
+                                  act(() => post(`/queue/items/${selected.id}`, 'DELETE'));
+                                }
+                              }}
+                            >
+                              ✕ Remove this slide
+                            </button>
+                          )}
                         </div>
                       </div>
                     );
