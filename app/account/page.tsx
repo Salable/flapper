@@ -6,10 +6,11 @@ import { AccountClient } from '@/components/AccountClient';
 export const dynamic = 'force-dynamic';
 
 /**
- * The account area: who you are, what is connected to you, what your plan
- * covers. Profile, a link out to the licence (its own page - /account/licence
- * has a real Stripe portal link and a request form, more than a link
- * belongs beside), connected apps, privacy.
+ * The account area: who you are, what is connected to you. Profile,
+ * connected apps, privacy - Licence lives at its own URL (a real Stripe
+ * portal link and a request form, more than a section here should hold),
+ * reached through AccountNav's own sidebar rather than a section on this
+ * page linking out to it.
  */
 export default async function AccountPage() {
   const session = await sessionFromHeaders(await headers());

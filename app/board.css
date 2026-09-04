@@ -603,6 +603,63 @@ main.landing .error {
 
 /* ---- settings page ---- */
 
+/* The account area's own sidebar (components/AccountNav.tsx) - Profile and
+   Licence today. A narrow rail beside a wide panel, the same shape the
+   board's own Settings/Board/Interruptions tabs and the queue rail already
+   use, so account pages read as one more instance of a pattern the app
+   already has rather than a new kind of navigation. */
+.account-shell {
+  display: flex;
+  align-items: flex-start;
+  gap: 24px;
+}
+
+.account-nav {
+  flex: none;
+  width: 160px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.account-nav a {
+  display: block;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  text-decoration: none;
+  font-size: var(--text-sm);
+}
+
+.account-nav a:hover {
+  color: var(--ink);
+  background: rgba(236, 231, 221, 0.05);
+}
+
+.account-nav a.is-selected {
+  color: var(--amber);
+  background: rgba(216, 178, 90, 0.08);
+}
+
+.account-panel {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+@media (max-width: 640px) {
+  .account-shell {
+    flex-direction: column;
+  }
+
+  .account-nav {
+    width: 100%;
+    flex-direction: row;
+  }
+}
+
 .settings-block {
   border: 1px solid var(--edge);
   padding: 14px 16px 16px;
