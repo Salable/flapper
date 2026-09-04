@@ -463,10 +463,13 @@ export function QueueManager({
     return valign === 'top' || valign === 'middle' || valign === 'bottom' ? valign : '';
   }
 
-  function label(item: QueueItem) {
+  /** What an item is actually saying - null when there's nothing to read,
+   * rather than a placeholder string a caller might show as if it were
+   * content. */
+  function label(item: QueueItem): string | null {
     if (item.payload.text) return item.payload.text;
     if (Array.isArray(item.payload.options?.rows)) return item.payload.options.rows.join(' / ');
-    return '(blank)';
+    return null;
   }
 
   /** A short "Ns"/"Nms" reading of a duration - just enough to say what
@@ -484,12 +487,17 @@ export function QueueManager({
     return typeof name === 'string' ? name : '';
   }
 
-  /** What the rail shows: the name you gave it, or the text itself when you
-   * have not - never both, and never the placeholder '(blank)' text stands
-   * in for once there is a real name to show instead. */
+  /** What the rail shows: the name you gave it, the text itself when you
+   * have not, or "Slide N" (its own position in the rail) when there is
+   * neither - Dan's call: a real placeholder that says something true about
+   * the tab, not the sentinel string "(blank)" a fresh + Slide used to show
+   * as if it were the item's own name. */
   function tabLabel(item: QueueItem) {
     const name = nameOf(item);
-    return name !== '' ? name : label(item);
+    if (name !== '') return name;
+    const content = label(item);
+    if (content !== null) return content;
+    return `Slide ${railItems.indexOf(item) + 1}`;
   }
 
   function startRename(item: QueueItem) {
@@ -618,7 +626,7 @@ export function QueueManager({
   // here any more; SheetEditor's own preview, inside the popup, is what
   // shows live-as-you-type now). Not necessarily what is playing either -
   // the caption below says "not what is playing" when they differ.
-  const previewText = selected ? (selectedIsRows ? label(selected) : (selected.payload.text ?? '')) : '';
+  const previewText = selected ? (selectedIsRows ? (label(selected) ?? '') : (selected.payload.text ?? '')) : '';
   // '' (board default) becomes undefined so ThemePreview falls back to the
   // layout engine's real default rather than an empty string it would refuse.
   const previewAlign = selected && !selectedIsRows ? alignOf(selected) || undefined : undefined;
