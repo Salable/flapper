@@ -1047,6 +1047,92 @@ main.landing .error {
   white-space: nowrap;
 }
 
+/*
+ * A slide's tab: the same look as .queue-rail's plain buttons above (this
+ * carries its own copy of that styling rather than relying on the
+ * descendant selector, since it now wraps two buttons - select and rename -
+ * that .queue-rail button would otherwise both catch and badly mis-style)
+ * plus a rename button that only shows once you're pointed at the tab.
+ * Naming a slide used to be a "Name" field in the wide panel; it's only
+ * ever this tab's own label, so editing it lives on the tab instead.
+ */
+.queue-rail-tab {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px;
+  font: 500 var(--text-sm) / 1.3 var(--font-mono);
+  letter-spacing: var(--track-wide);
+  text-transform: uppercase;
+  color: var(--muted);
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-md);
+}
+
+.queue-rail-tab:hover {
+  color: var(--ink);
+  border-color: var(--edge-strong);
+}
+
+.queue-rail-tab.is-selected {
+  color: var(--amber);
+  border-color: var(--amber);
+}
+
+.queue-rail-tab.is-renaming {
+  padding: 0;
+}
+
+.queue-rail-select {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  padding: 12px 0 12px 14px;
+  background: transparent;
+  border: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.queue-rail-select:hover {
+  background: rgba(236, 231, 221, 0.05);
+}
+
+.queue-rail-rename-btn {
+  flex: none;
+  padding: 12px 12px;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  opacity: 0;
+}
+
+.queue-rail-tab:hover .queue-rail-rename-btn,
+.queue-rail-rename-btn:focus-visible {
+  opacity: 1;
+}
+
+.queue-rail-rename-btn:hover {
+  color: var(--ink);
+}
+
+.queue-rail-rename {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 13px 15px;
+  background: transparent;
+  border: none;
+  border-radius: inherit;
+  color: var(--ink);
+  font: inherit;
+}
+
 .queue-rail-add {
   margin-top: 4px;
   justify-content: center;

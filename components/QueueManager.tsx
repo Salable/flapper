@@ -139,6 +139,12 @@ export function QueueManager({
   const [error, setError] = useState('');
   const busyRef = useRef(false);
   const { confirm, dialog } = useConfirm();
+  // Renaming a slide from its own tab, not a "Name" field in the wide panel
+  // beside it - the name is only ever the rail's own label (SheetEditor's
+  // hint used to say so directly), never part of what the board shows, so
+  // editing it lives where it's read: on the tab.
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
 
   const refresh = useCallback(async () => {
     try {
@@ -486,6 +492,24 @@ export function QueueManager({
     return name !== '' ? name : label(item);
   }
 
+  function startRename(item: QueueItem) {
+    setRenamingId(item.id);
+    setRenameValue(tabLabel(item));
+  }
+
+  /** Same shape as SheetEditor's old commitName: blank reverts rather than
+   * clearing a name (a slide's name has no meaningful blank to fall back to),
+   * and an unchanged value is not a network call. Compared against the real
+   * name, not the rail's displayed fallback - retyping the content itself as
+   * an explicit name is a real change, from implicit to a name that sticks
+   * even if the content later does. */
+  function commitRename(item: QueueItem) {
+    const trimmed = renameValue.trim();
+    setRenamingId(null);
+    if (trimmed === '' || trimmed === nameOf(item)) return;
+    act(() => post(`/queue/items/${item.id}`, 'PATCH', { ...payloadToBody(item.payload), label: trimmed }));
+  }
+
   /** An interruption, not a standing member of the rotation - always fired
    * with priority: now, and kept out of the tab rail because of it: it is
    * an event you triggered, not a slide you're cycling through. */
@@ -610,18 +634,47 @@ export function QueueManager({
               it, removing it - lives in the wide column beside it. Always
               here, even with nothing queued yet, so + Slide never moves. */}
           <div className="queue-rail" role="tablist" aria-label="Slides">
-            {railItems.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                role="tab"
-                aria-selected={item.id === selectedId}
-                className={item.id === selectedId ? 'is-selected' : ''}
-                onClick={() => selectItem(item)}
-              >
-                <span className="queue-rail-label">{tabLabel(item)}</span>
-              </button>
-            ))}
+            {railItems.map((item) =>
+              renamingId === item.id ? (
+                <div key={item.id} className="queue-rail-tab is-renaming">
+                  <input
+                    className="queue-rail-rename"
+                    autoFocus
+                    value={renameValue}
+                    onChange={(event) => setRenameValue(event.target.value)}
+                    onBlur={() => commitRename(item)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') commitRename(item);
+                      if (event.key === 'Escape') setRenamingId(null);
+                    }}
+                    aria-label={`Rename ${tabLabel(item)}`}
+                  />
+                </div>
+              ) : (
+                <div
+                  key={item.id}
+                  role="tab"
+                  aria-selected={item.id === selectedId}
+                  className={`queue-rail-tab${item.id === selectedId ? ' is-selected' : ''}`}
+                >
+                  <button type="button" className="queue-rail-select" onClick={() => selectItem(item)}>
+                    <span className="queue-rail-label">{tabLabel(item)}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="queue-rail-rename-btn"
+                    title="Rename"
+                    aria-label={`Rename ${tabLabel(item)}`}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      startRename(item);
+                    }}
+                  >
+                    ✎
+                  </button>
+                </div>
+              ),
+            )}
             <button type="button" className="queue-rail-add" title="Add a slide" aria-label="Add a slide" onClick={addSlide}>
               + Slide
             </button>

@@ -24,7 +24,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/Button';
-import { Field, Select, TextInput } from '@/components/ui/Field';
+import { Field, Select } from '@/components/ui/Field';
 import { type QueueItem, payloadToBody } from '@/components/queue-item';
 import { layout as layoutText } from '@/lib/board/layout.mjs';
 
@@ -97,50 +97,23 @@ export function SheetEditor({
    * failure; a rejected commit here just leaves the field as it was. */
   onSave: (body: Record<string, unknown>) => Promise<boolean>;
 }) {
-  const [name, setName] = useState(nameOf(item));
   const [source, setSource] = useState<Source>('text');
   const [textOpen, setTextOpen] = useState(false);
 
-  // Re-seed when the selection itself changes - not on every poll, or a
-  // name mid-edit would be clobbered the moment the next one landed.
+  // Re-seed when the selection itself changes - not on every poll.
   useEffect(() => {
-    setName(nameOf(item));
     setSource('text');
   }, [item.id]);
 
-  /** Required - a blank commit is refused, reverting to the last real name,
-   * the same shape Escape already has elsewhere in this panel (Hold's own
-   * "" is a real, meaningful choice - "board default" - so this is not
-   * that pattern; a slide's Name has no meaningful blank to fall back to
-   * any more). */
-  function commitName() {
-    const trimmed = name.trim();
-    if (trimmed === '') {
-      setName(nameOf(item));
-      return;
-    }
-    if (trimmed === nameOf(item)) return;
-    onSave({ ...payloadToBody(item.payload), label: trimmed });
-  }
-
-  const endpointSlot = name.trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-') || '…';
+  // Naming moved to the rail tab itself (QueueManager's own rename) - it's
+  // only ever the tab's label, never part of what the board shows, so
+  // editing it lives where it's read. Read-only here, for the one thing
+  // still keyed on it below.
+  const endpointSlot = nameOf(item).trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-') || '…';
 
   return (
     <div className="sheet-editor">
       <div className="sheet-editor-row">
-        <Field label="Name" htmlFor="sheet-name" hint="Required - the rail's own tab label.">
-          <TextInput
-            id="sheet-name"
-            required
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') commitName();
-              if (event.key === 'Escape') setName(nameOf(item));
-            }}
-            onBlur={commitName}
-          />
-        </Field>
         <Field label="Source" htmlFor="sheet-source">
           <Select id="sheet-source" value={source} onChange={(event) => setSource(event.target.value as Source)}>
             <option value="text">Text</option>
