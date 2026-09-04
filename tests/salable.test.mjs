@@ -52,10 +52,10 @@ test('an account with no board_create holds no licence, whatever else it has', (
   assert.equal(allowance.maxBoards, 0);
 });
 
-test('the free licence reads as one live board, public', () => {
+test('the free licence reads as three live boards, public', () => {
   const allowance = allowanceFrom([ENTITLEMENTS.createBoard]);
   assert.equal(allowance.licensed, true);
-  assert.equal(allowance.maxBoards, 1);
+  assert.equal(allowance.maxBoards, 3);
   assert.deepEqual([...allowance.types], ['live']);
   assert.equal(allowance.privateBoards, false);
   assert.equal(allowance.maxBoards, FREE_ALLOWANCE.maxBoards);
@@ -79,15 +79,15 @@ test('two plans granting a cap resolve to the more generous one', () => {
   assert.equal(allowance.maxBoards, Infinity);
 });
 
-test('a licence that grants the licence and no cap still gets one board', () => {
+test('a licence that grants the licence and no cap still gets the free board count', () => {
   // A plan misconfigured in the dashboard should under-serve, not entitle
   // nothing at all - the account paid for something.
-  assert.equal(allowanceFrom([ENTITLEMENTS.createBoard]).maxBoards, 1);
+  assert.equal(allowanceFrom([ENTITLEMENTS.createBoard]).maxBoards, FREE_ALLOWANCE.maxBoards);
 });
 
 test('a value that is not a cap or a type is ignored rather than guessed at', () => {
   const allowance = allowanceFrom([ENTITLEMENTS.createBoard, 'boards_lots', 'api_access']);
-  assert.equal(allowance.maxBoards, 1);
+  assert.equal(allowance.maxBoards, FREE_ALLOWANCE.maxBoards);
   assert.deepEqual([...allowance.types], ['live']);
 });
 
