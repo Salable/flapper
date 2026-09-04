@@ -1188,33 +1188,6 @@ main.landing .error {
   border-top: 1px dashed var(--edge);
 }
 
-.sheet-text-preview {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  background: var(--shade);
-  border: 1px solid var(--edge);
-  border-radius: var(--radius-sm);
-  padding: 10px 12px;
-}
-
-.sheet-text-preview-sample {
-  font: 400 13px / 1.4 var(--font-mono);
-  letter-spacing: var(--track-wide);
-  text-transform: uppercase;
-  color: var(--ink);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.sheet-text-preview-sample.is-empty {
-  color: var(--faint);
-  text-transform: none;
-  letter-spacing: normal;
-}
-
 .sheet-controls-row {
   display: flex;
   gap: var(--space-3);
