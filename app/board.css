@@ -134,6 +134,37 @@ body:has(#stage) {
 }
 
 /*
+ * The free-tier watermark: a thin bar the free plan carries, gone on a
+ * bespoke one (lib/salable/licence.mjs `watermark`). An overlay along the
+ * bottom edge, the same way #hint and #audio-toast already sit over the
+ * glass rather than reserving their own space - the canvas still sizes to
+ * the full window (never let a footer shrink the grid, see
+ * sanitizeConfig's footerRows strip), so this sits on top of, and can
+ * cover, whatever the bottom row is showing. Kept to one thin strip and a
+ * translucent ground rather than a deeper band, to keep that cost small.
+ */
+#watermark {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  font-size: 11px;
+  letter-spacing: var(--track-wide);
+  color: var(--muted);
+  background: rgba(0, 0, 0, 0.35);
+  text-decoration: none;
+}
+
+#watermark:hover {
+  color: var(--ink);
+}
+
+/*
  * The settings page's own toast: one shared "Saved", fixed to a real
  * corner of the viewport rather than living beside whichever field
  * happened to trigger it - the sidebar's own fields and the queue's

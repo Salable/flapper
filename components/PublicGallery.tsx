@@ -67,7 +67,7 @@ export function PublicGallery({ boards }: { boards: PublicGalleryBoard[] }) {
               <p className="gallery-card-by">
                 <span aria-hidden="true">{avatarFor(board.ownerId)}</span> {board.ownerName}
               </p>
-              <a href={`/b/${board.slug}`} className="gallery-card-preview">
+              <a href={`/b/${board.slug}`} target="_blank" rel="noopener" className="gallery-card-preview">
                 Preview live →
               </a>
             </li>

@@ -8,6 +8,7 @@ import { mintDisplayToken } from '@/lib/api/display-token.mjs';
 import { BoardPageClient } from '@/components/BoardPageClient';
 import { LinkButton } from '@/components/ui/Button';
 import { resolveBoardTheme, themeRevOf } from '@/lib/board/board-theme.mjs';
+import { accountAllowance } from '@/lib/salable/licence.mjs';
 
 export const dynamic = 'force-dynamic';
 
@@ -57,6 +58,10 @@ export default async function BoardPage({ params, searchParams }: Props) {
     console.warn(`flapper: board ${slug} theme overrides ignored - ${theme.warnings.join('; ')}`);
   }
   const initialTheme = { rev: await themeRevOf(board.config), pack: theme.pack };
+  // The watermark is the owner's licence, not the viewer's - a stranger
+  // watching someone's public board sees whether *that account* paid to
+  // drop it, same as they'd see any other fact about the board.
+  const { watermark } = await accountAllowance(board.ownerId);
 
   return (
     <BoardPageClient
@@ -65,6 +70,7 @@ export default async function BoardPage({ params, searchParams }: Props) {
       boardKey={keyValid ? key! : null}
       displayToken={displayToken}
       initialTheme={initialTheme}
+      watermark={watermark}
     />
   );
 }
