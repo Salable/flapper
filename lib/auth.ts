@@ -109,7 +109,7 @@ async function fetchClientMetadataResource(input: Request | string | URL, init?:
  * Unset in production, OAuth is broken (tokens would name a localhost
  * issuer); sessions and board keys still work, hence loud-not-fatal.
  */
-function publicBaseUrl() {
+export function publicBaseUrl() {
   const url = process.env.BETTER_AUTH_URL;
   if (!url && process.env.NODE_ENV === 'production') {
     console.error('flapper: BETTER_AUTH_URL is not set - MCP OAuth will not work');

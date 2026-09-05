@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { sessionFromHeaders } from '@/lib/auth';
@@ -16,6 +17,38 @@ type Props = {
   params: Promise<{ slug: string }>;
   searchParams: Promise<{ key?: string }>;
 };
+
+/**
+ * What Slack, LinkedIn and anything else reading Open Graph tags shows for
+ * this board's own link. The image is always the board's real, live glass
+ * (`/api/b/[slug]/og-image`, `lib/board/og-card.mjs`) - never a generic
+ * mock - except a private board, which gets exactly the same generic card a
+ * board with nothing on it does, same rule the route itself enforces: a
+ * crawler fetches server-to-server with no session and no board key, so
+ * there is no viewer here to check "is this one allowed to see it" against.
+ */
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { slug } = await params;
+  const board = await getBySlug(await getDb(), slug);
+  const image = { url: `/api/b/${slug}/og-image`, width: 1200, height: 630 };
+
+  if (!board || board.private) {
+    const title = 'Flapper';
+    const description = board?.private
+      ? 'A private split-flap board, made with Flapper.'
+      : 'A split-flap board for the web, made with Flapper.';
+    return { title, description, openGraph: { title, description, images: [image] }, twitter: { card: 'summary_large_image', title, description, images: [image] } };
+  }
+
+  const title = `${board.name} — Flapper`;
+  const description = 'A live split-flap board, made with Flapper.';
+  return {
+    title,
+    description,
+    openGraph: { title, description, url: `/b/${slug}`, images: [image] },
+    twitter: { card: 'summary_large_image', title, description, images: [image] },
+  };
+}
 
 export default async function BoardPage({ params, searchParams }: Props) {
   const { slug } = await params;
