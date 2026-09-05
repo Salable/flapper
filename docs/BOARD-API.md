@@ -486,6 +486,8 @@ Use `POST {apiBase}/clear` to stop everything, or edit the item.
 | `GET` | `/api/b/{slug}/export` | key | every queued item in a re-postable shape |
 | `PATCH` | `/api/b/{slug}/config` | key | grid, `theme`, `themePack`, motion, dwell (`footerRows` must stay 0; `regions.main.dwellMs` only) |
 | `GET` / `POST` | `/api/b/{slug}/key` | owner | read / rotate the API key — the owner's session only, never the key itself |
+| `PATCH` | `/api/b/{slug}` | owner | the board's own settings: `name`, `slug`, `private`, `status`. **Renaming the slug moves this whole API base** and every open display 404s on its next reconnect |
+| `DELETE` | `/api/b/{slug}` | owner | delete the board, its queue and its key |
 
 "read" is open on a public board and needs the key on a private one;
 "owner" is the signed-in owner (the manage page, or a connector signed in
@@ -501,11 +503,15 @@ API clients:
 | `202` | validated and queued; body carries `id`, `position` (1-based place in the queue) and `ahead` (how many play first) | check `/status` if delivery matters |
 | `400` | malformed JSON | fix the body |
 | `401` | missing or wrong API key | ask the user for the board's key (in its manage page) |
+| `402` | the board's licence does not cover this — making a board private, for instance. The body carries `need` (the entitlement) and `getInTouch` (where to ask) | tell the user what was refused and pass on the `getInTouch` link; do not retry |
 | `403` | private board, no valid credential | ask the user for the key |
 | `404` | unknown board — wrong, renamed, or deleted slug | ask the user for the board URL |
 | `413` | body or text too large | send less; limits are in `/capabilities` |
 | `422` | invalid value | the message says which field and why |
+| `409` | this build does not have the board's type — a board made by a newer or a forked Flapper. Its queue is kept, untouched | nothing to retry; tell the user the board needs the build that made it |
+| `410` | the route existed in an older Flapper and is gone; the body says what replaced it. `queue/attach`, `queue/detach` and `queue/mode` all answer this | read the message and use the named replacement; never retry |
 | `429` | queue full — the 500-item backstop, or this board's own (lower) cap with nothing left to roll off | flush, clear, remove an item, or wait |
+| `500` | a bug or an outage on our side, never a message about your request | retry once; if it persists, the board URL and the time are what we need to find it |
 | `503` | the realtime service is unavailable — the write you made is saved, displays catch up when it returns | retry reads later; do not retry writes, they succeeded |
 
 ## 8. Recommended workflow

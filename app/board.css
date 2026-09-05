@@ -134,6 +134,37 @@ body:has(#stage) {
 }
 
 /*
+ * The free-tier watermark: a thin bar the free plan carries, gone on a
+ * bespoke one (lib/salable/licence.mjs `watermark`). An overlay along the
+ * bottom edge, the same way #hint and #audio-toast already sit over the
+ * glass rather than reserving their own space - the canvas still sizes to
+ * the full window (never let a footer shrink the grid, see
+ * sanitizeConfig's footerRows strip), so this sits on top of, and can
+ * cover, whatever the bottom row is showing. Kept to one thin strip and a
+ * translucent ground rather than a deeper band, to keep that cost small.
+ */
+#watermark {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  font-size: 11px;
+  letter-spacing: var(--track-wide);
+  color: var(--muted);
+  background: rgba(0, 0, 0, 0.35);
+  text-decoration: none;
+}
+
+#watermark:hover {
+  color: var(--ink);
+}
+
+/*
  * The settings page's own toast: one shared "Saved", fixed to a real
  * corner of the viewport rather than living beside whichever field
  * happened to trigger it - the sidebar's own fields and the queue's
@@ -420,6 +451,104 @@ main.landing {
   overflow-y: auto;
 }
 
+/* landing-long: a hero plus real sections below it (the gallery), so the
+   page scrolls rather than centering everything in the viewport - centering
+   a gallery of a dozen boards vertically would just push most of it offscreen. */
+main.landing-long {
+  justify-content: flex-start;
+  padding-top: 48px;
+  padding-bottom: 48px;
+  gap: 20px;
+  /* main.landing's own overflow-y: auto gives it a scroll region clipped to
+     whatever height flexbox computes for it, so content past that height
+     was reachable only by an inner scrollbar the fullPage screenshot never
+     saw - the outer document stayed exactly one viewport tall. Content this
+     long wants the page itself to grow and the browser to scroll it, same
+     as every other app-shell page. */
+  overflow-y: visible;
+}
+
+.gallery,
+.pricing {
+  margin-top: 32px;
+  width: 100%;
+  max-width: 1040px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.gallery h2,
+.pricing h2 {
+  font-size: 15px;
+  letter-spacing: var(--track-wide);
+  text-transform: uppercase;
+  margin: 0;
+}
+
+/* main.landing centers everything by default, and .plan-compare's own
+   th/td rules already set text-align: left for the table's own cells - so
+   only the table's own outer margin needs centering here, same as
+   .gallery's content beside it. */
+.pricing .plan-compare {
+  margin: 4px auto 0;
+}
+
+.gallery-grid {
+  list-style: none;
+  margin: 18px 0 0;
+  padding: 0;
+  width: 100%;
+  display: grid;
+  /* Same minimum as the dashboard's own .board-grid: each card is drawn at
+     its board's real (fixed) pixel size and centered within this, so the
+     column just needs to be wide enough for a typical board, not exact. */
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.gallery-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--edge);
+  border-radius: 6px;
+  overflow: hidden;
+  padding-bottom: 12px;
+}
+
+.gallery-card:hover {
+  background: rgba(236, 231, 221, 0.05);
+}
+
+.gallery-card-board {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  overflow-x: auto;
+  padding: 16px 12px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--edge);
+}
+
+.gallery-card-by {
+  margin: 4px 0 0;
+  font-size: var(--text-meta);
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+  padding: 0 10px;
+}
+
+.gallery-card-preview {
+  font-size: var(--text-meta);
+  letter-spacing: var(--track-label);
+}
+
 main.landing h1 {
   font-size: 28px;
   letter-spacing: var(--track-display);
@@ -483,6 +612,63 @@ main.landing .error {
 }
 
 /* ---- settings page ---- */
+
+/* The account area's own sidebar (components/AccountNav.tsx) - Profile and
+   Licence today. A narrow rail beside a wide panel, the same shape the
+   board's own Settings/Board/Interruptions tabs and the queue rail already
+   use, so account pages read as one more instance of a pattern the app
+   already has rather than a new kind of navigation. */
+.account-shell {
+  display: flex;
+  align-items: flex-start;
+  gap: 24px;
+}
+
+.account-nav {
+  flex: none;
+  width: 160px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.account-nav a {
+  display: block;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  text-decoration: none;
+  font-size: var(--text-sm);
+}
+
+.account-nav a:hover {
+  color: var(--ink);
+  background: rgba(236, 231, 221, 0.05);
+}
+
+.account-nav a.is-selected {
+  color: var(--amber);
+  background: rgba(216, 178, 90, 0.08);
+}
+
+.account-panel {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+@media (max-width: 640px) {
+  .account-shell {
+    flex-direction: column;
+  }
+
+  .account-nav {
+    width: 100%;
+    flex-direction: row;
+  }
+}
 
 .settings-block {
   border: 1px solid var(--edge);
@@ -928,6 +1114,92 @@ main.landing .error {
   white-space: nowrap;
 }
 
+/*
+ * A slide's tab: the same look as .queue-rail's plain buttons above (this
+ * carries its own copy of that styling rather than relying on the
+ * descendant selector, since it now wraps two buttons - select and rename -
+ * that .queue-rail button would otherwise both catch and badly mis-style)
+ * plus a rename button that only shows once you're pointed at the tab.
+ * Naming a slide used to be a "Name" field in the wide panel; it's only
+ * ever this tab's own label, so editing it lives on the tab instead.
+ */
+.queue-rail-tab {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px;
+  font: 500 var(--text-sm) / 1.3 var(--font-mono);
+  letter-spacing: var(--track-wide);
+  text-transform: uppercase;
+  color: var(--muted);
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-md);
+}
+
+.queue-rail-tab:hover {
+  color: var(--ink);
+  border-color: var(--edge-strong);
+}
+
+.queue-rail-tab.is-selected {
+  color: var(--amber);
+  border-color: var(--amber);
+}
+
+.queue-rail-tab.is-renaming {
+  padding: 0;
+}
+
+.queue-rail-select {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  padding: 12px 0 12px 14px;
+  background: transparent;
+  border: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.queue-rail-select:hover {
+  background: rgba(236, 231, 221, 0.05);
+}
+
+.queue-rail-rename-btn {
+  flex: none;
+  padding: 12px 12px;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  opacity: 0;
+}
+
+.queue-rail-tab:hover .queue-rail-rename-btn,
+.queue-rail-rename-btn:focus-visible {
+  opacity: 1;
+}
+
+.queue-rail-rename-btn:hover {
+  color: var(--ink);
+}
+
+.queue-rail-rename {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 13px 15px;
+  background: transparent;
+  border: none;
+  border-radius: inherit;
+  color: var(--ink);
+  font: inherit;
+}
+
 .queue-rail-add {
   margin-top: 4px;
   justify-content: center;
@@ -1067,33 +1339,6 @@ main.landing .error {
   gap: var(--space-3);
   padding-top: var(--space-3);
   border-top: 1px dashed var(--edge);
-}
-
-.sheet-text-preview {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  background: var(--shade);
-  border: 1px solid var(--edge);
-  border-radius: var(--radius-sm);
-  padding: 10px 12px;
-}
-
-.sheet-text-preview-sample {
-  font: 400 13px / 1.4 var(--font-mono);
-  letter-spacing: var(--track-wide);
-  text-transform: uppercase;
-  color: var(--ink);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.sheet-text-preview-sample.is-empty {
-  color: var(--faint);
-  text-transform: none;
-  letter-spacing: normal;
 }
 
 .sheet-controls-row {
@@ -1405,6 +1650,23 @@ main.landing .error {
 .rail-card.is-selected:hover {
   border-color: var(--amber);
   transform: none;
+}
+
+/* Locked: the "Get in touch" chip already says what this is - clicking it
+   doesn't open the create form, so it shouldn't look like the others invite
+   a click either. */
+.rail-card.is-locked {
+  cursor: default;
+}
+
+.rail-card.is-locked:hover,
+.rail-card.is-locked:focus-visible {
+  border-color: var(--edge);
+  transform: none;
+}
+
+.rail-card.is-locked .rail-card-poster {
+  opacity: 0.55;
 }
 
 /* The poster is the glass: a dark screen with the board's own tiles on it. */
@@ -2388,4 +2650,124 @@ main.landing .error {
 
 .queue-list .queue-actions button:hover {
   color: var(--danger);
+}
+
+/* ---- the account area: facts, and asking for more ---- */
+
+/* A short list of facts about the account - profile on /account, what the
+   licence covers on /account/licence. Label above value rather than beside
+   it: "Boards / 1 (1 in use)" reads as one fact, and the values are short
+   enough that a two-column dl would be mostly empty space.
+
+   This replaces `.board-side-facts`, which both pages used to name: it was
+   the board settings sidebar's list, its rule went with the board editor
+   rewrite, and the account page went on asking for a class that no longer
+   existed - rendering as a bare indented dl for a fortnight. */
+.account-facts {
+  margin: 0;
+  align-self: stretch;
+  display: grid;
+  gap: 10px 24px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.account-facts dt {
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+  letter-spacing: var(--track-heading);
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.account-facts dd {
+  margin: 4px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+/* Free vs Bespoke, on /account/licence - no prices (there is no price
+   list), just what each plan covers. */
+.plan-compare {
+  border-collapse: collapse;
+  width: 100%;
+  max-width: 480px;
+  margin: 4px 0 0;
+}
+
+.plan-compare th,
+.plan-compare td {
+  border: 1px solid var(--edge);
+  padding: 8px 12px;
+  text-align: left;
+  font-size: var(--text-sm);
+}
+
+.plan-compare th {
+  color: var(--muted);
+  letter-spacing: var(--track-wide);
+  text-transform: uppercase;
+  font-size: var(--text-meta);
+  font-weight: 500;
+}
+
+.plan-compare td:first-child {
+  color: var(--muted);
+}
+
+.plan-compare tbody th {
+  text-align: left;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--ink);
+  font-size: var(--text-sm);
+}
+
+.licence-ask {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.licence-ask .ui-field {
+  align-self: stretch;
+}
+
+.licence-asks {
+  align-self: stretch;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.licence-asks li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  border-top: 1px solid var(--edge);
+  padding-top: 8px;
+}
+
+.licence-asks li:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+/* A refusal that opens a form, in place, under the create button. Boxed so
+   the ask reads as a next step rather than as more of the error. */
+.licence-refusal {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border: 1px solid rgba(224, 176, 96, 0.4);
+  padding: 12px 14px;
 }

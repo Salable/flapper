@@ -28,6 +28,7 @@ import { isIP } from 'node:net';
 import { Readable } from 'node:stream';
 import { getDb } from './db/client.mjs';
 import * as schema from './db/schema.mjs';
+import { issueFreeLicence } from './salable/licence.mjs';
 
 /**
  * CIMD metadata fetch with resolve-once DNS validation and connection
@@ -159,6 +160,22 @@ function makeAuth(db: unknown) {
               marketingConsentAt: user.marketingConsent ? new Date() : null,
             },
           }),
+          /*
+           * Free is a licence. Signing up issues a perpetual Salable Only
+           * Subscription on the free plan - no Stripe, no card, no "get your
+           * licence" step - so every account is a Grantee from its first
+           * second, and going paid is a change of plan and nothing else.
+           *
+           * Best-effort by design: signup must not fail because Salable is
+           * down. An account with no licence still signs in and still sees
+           * its dashboard; it cannot create a board until
+           * tools/backfill-licences.mjs catches it up. A build with no
+           * SALABLE_API_KEY skips this entirely and gates nothing.
+           */
+          after: async (user: any) => {
+            const granted = await issueFreeLicence(user.id);
+            if (granted) console.log(`flapper: free licence issued to ${user.id}`);
+          },
         },
         update: {
           before: async (data: any) => {

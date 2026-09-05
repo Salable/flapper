@@ -51,6 +51,7 @@ or ChatGPT, or over a REST API from anywhere.
 | I want to… | Read |
 | --- | --- |
 | run it and put text on it | this file |
+| know what's free and what isn't, and how it's wired | [docs/MONETIZATION.md](docs/MONETIZATION.md) |
 | build my own version | [AGENTS.md](AGENTS.md) |
 | drive a board over HTTP | [docs/BOARD-API.md](docs/BOARD-API.md) |
 | add a new board type | [docs/BOARD-TYPES.md](docs/BOARD-TYPES.md) |
@@ -67,11 +68,26 @@ Open http://localhost:3000, create an account, and provision a board — with
 database (`./.pglite`, gitignored) and an in-memory realtime broker: perfect
 for development, single-process only.
 
+Without `SALABLE_API_KEY` there is **no paywall**: every board type, no board
+limit, private boards included. That is the honest state of a fork — a whole
+product, not a crippled one. The hosted app at flapper-tan.vercel.app sets
+the key and gates on it; how, and why those particular things, is
+[docs/MONETIZATION.md](docs/MONETIZATION.md).
+
+To run the *gated* build locally without a Salable account, point it at the
+mock — the two endpoints Flapper calls, and a knob for granting more:
+
+```bash
+node tools/mock-salable.mjs &
+SALABLE_API_KEY=sk_test_mock SALABLE_FREE_PLAN_ID=plan_free \
+  SALABLE_API_BASE=http://localhost:4000/api npm run dev
+```
+
 There is no asset build: the tiles are drawn live from a theme pack, so a
 new look is a JSON edit — see [Making it your own](AGENTS.md#making-it-your-own).
 
 ```bash
-npm test             # ~320 tests, a few seconds, no browser needed
+npm test             # the whole suite, a few seconds, no browser needed
 npm run db:generate  # after editing lib/db/schema.mjs: new SQL migration
 ```
 
@@ -92,6 +108,12 @@ npm run db:generate  # after editing lib/db/schema.mjs: new SQL migration
 | `UPSTASH_REDIS_REST_URL/TOKEN` | realtime command/state channel | in-memory broker |
 | `BETTER_AUTH_SECRET` | session signing | dev-only fallback, warns |
 | `BETTER_AUTH_URL` | auth callbacks base URL **and the OAuth issuer / MCP resource identifier** | inferred per-request for sessions; MCP OAuth silently breaks |
+| `SALABLE_API_KEY` | Salable secret key — what an account may do | no paywall: every type, no limit, private boards on |
+| `SALABLE_FREE_PLAN_ID` | the plan a new account is licensed onto at sign-up | sign-up issues no licence; with a key set, nobody can create a board |
+| `SALABLE_API_BASE` | override the API host (a mock, a staging instance) | `https://salable.app/api` |
+| `SALABLE_ENTITLEMENT_TTL_MS` | how long an entitlement answer is reused per function instance | 60 000 |
+| `LICENCE_REQUEST_WEBHOOK_URL` | where a get-in-touch ask is announced (a Slack incoming webhook, or anything taking `{text}`) | asks are saved and read with `node tools/licence-requests.mjs` |
+| `SALABLE_PRODUCT_NAME` / `SALABLE_FREE_PLAN_NAME` | what `tools/salable-setup.mjs` calls the Product and the free plan it creates | `Flapper` and `Free` |
 
 ## Using a board
 

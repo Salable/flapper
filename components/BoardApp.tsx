@@ -74,6 +74,7 @@ export function BoardApp({
   boardKey,
   displayToken,
   initialTheme,
+  watermark,
 }: {
   slug: string;
   apiBase: string;
@@ -81,6 +82,8 @@ export function BoardApp({
   displayToken: string;
   /** The board's theme as the server resolved it at page load - the first paint is already the right colour. */
   initialTheme: { rev: string; pack: ThemePack };
+  /** The owner's licence, not the viewer's - see app/b/[slug]/page.tsx. */
+  watermark: boolean;
 }) {
   // Read through a ref and keyed on the rev: an object prop must not re-run the boot effect on every parent render.
   const initialThemeRef = useRef(initialTheme);
@@ -429,6 +432,11 @@ export function BoardApp({
       <div id="audio-toast" className={toast !== '' ? 'visible' : ''} role="status" aria-live="polite">
         {toast}
       </div>
+      {watermark && (
+        <a id="watermark" href="/" target="_blank" rel="noopener">
+          Made with Flapper
+        </a>
+      )}
     </>
   );
 }
