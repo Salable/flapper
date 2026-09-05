@@ -2111,6 +2111,14 @@ main.landing .error {
   }
   .queue-tabs {
     flex-direction: column;
+    /* Without this, .queue-tabs's own align-items: flex-start (fine in the
+       row layout above, where it's the cross-axis/height) becomes the
+       cross-axis/width once flex-direction flips to column - "flex-start"
+       there means shrink-to-content, not "stretch to fill the row", so
+       .board-preview's flex: 1 1 0 (a row-axis basis) had nothing to act
+       on and the preview sat at its own minimum content width instead of
+       filling the stacked row. Same fix .board-surface already has above. */
+    align-items: stretch;
   }
   .queue-panel,
   .interrupt-form {
