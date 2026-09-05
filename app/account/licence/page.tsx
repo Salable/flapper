@@ -6,7 +6,8 @@ import { listByOwner } from '@/lib/db/boards.mjs';
 import { listRequestsFor } from '@/lib/db/licence-requests.mjs';
 import { BOARD_TYPES } from '@/lib/board-types/index.mjs';
 import { accountAllowance, REQUESTABLE, FREE_ALLOWANCE } from '@/lib/salable/licence.mjs';
-import { LicenceClient, type LicenceView, type PlanCompare } from '@/components/LicenceClient';
+import { LicenceClient, type LicenceView } from '@/components/LicenceClient';
+import type { PlanCompare } from '@/components/PlanCompareTable';
 
 export const dynamic = 'force-dynamic';
 

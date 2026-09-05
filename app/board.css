@@ -468,7 +468,8 @@ main.landing-long {
   overflow-y: visible;
 }
 
-.gallery {
+.gallery,
+.pricing {
   margin-top: 32px;
   width: 100%;
   max-width: 1040px;
@@ -478,11 +479,20 @@ main.landing-long {
   gap: 6px;
 }
 
-.gallery h2 {
+.gallery h2,
+.pricing h2 {
   font-size: 15px;
   letter-spacing: var(--track-wide);
   text-transform: uppercase;
   margin: 0;
+}
+
+/* main.landing centers everything by default, and .plan-compare's own
+   th/td rules already set text-align: left for the table's own cells - so
+   only the table's own outer margin needs centering here, same as
+   .gallery's content beside it. */
+.pricing .plan-compare {
+  margin: 4px auto 0;
 }
 
 .gallery-grid {

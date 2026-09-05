@@ -5,10 +5,13 @@ import { getDb } from '@/lib/db/client.mjs';
 import { listPublic } from '@/lib/db/boards.mjs';
 import { resolveBoardTheme } from '@/lib/board/board-theme.mjs';
 import { screenOf, cardSizeOf } from '@/lib/board/geometry.mjs';
+import { BOARD_TYPES } from '@/lib/board-types/index.mjs';
+import { FREE_ALLOWANCE } from '@/lib/salable/licence.mjs';
 import { Flapper } from '@/components/flapper/Flapper';
 import { SiteFooter } from '@/components/SiteFooter';
 import { LinkButton } from '@/components/ui/Button';
 import { PublicGallery, type PublicGalleryBoard } from '@/components/PublicGallery';
+import { PlanCompareTable, type PlanCompare } from '@/components/PlanCompareTable';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,6 +46,17 @@ export default async function LandingPage() {
     console.error('landing: loading public boards failed', error);
   }
 
+  // Same two plans /account/licence names, read from FREE_ALLOWANCE rather
+  // than any viewer's own allowance - there is no visitor session on this
+  // page at all. No numbers beyond what's already true in the code: there
+  // is no public price list, so this names what each plan covers, never
+  // what it costs.
+  const compare: PlanCompare = {
+    boards: String(FREE_ALLOWANCE.maxBoards),
+    slidesPerBoard: String(FREE_ALLOWANCE.maxQueueItems),
+    extraType: BOARD_TYPES.get('scheduled')?.name ?? 'Scheduled',
+  };
+
   return (
     <div className="app-shell">
       <main className="landing landing-long">
@@ -68,6 +82,10 @@ export default async function LandingPage() {
         multi-screen sign — each with its own URL, API key, and agent guide at{' '}
         <code>/AGENTS.md</code>. Connect an AI once and it can drive all of them.
       </p>
+      <section className="pricing">
+        <h2>Free vs Bespoke</h2>
+        <PlanCompareTable compare={compare} />
+      </section>
       <PublicGallery boards={publicBoards} />
       </main>
       <SiteFooter />
