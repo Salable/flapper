@@ -15,4 +15,4 @@
 | Privacy requests | [[PLACEHOLDER: privacy@example.com]] |
 
 Flapper is the product; the source is published under the MIT licence at
-[[PLACEHOLDER: repository URL]].
+<https://github.com/Salable/flapper>.

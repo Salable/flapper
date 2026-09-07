@@ -7,6 +7,7 @@ import { listByOwner } from '@/lib/db/boards.mjs';
 import { listQueue } from '@/lib/db/queue.mjs';
 import { resolveBoardTheme } from '@/lib/board/board-theme.mjs';
 import { BOARD_TYPES } from '@/lib/board-types/index.mjs';
+import { accountAllowance, lockedTypeIds } from '@/lib/salable/licence.mjs';
 import { DashboardClient } from '@/components/DashboardClient';
 
 export const dynamic = 'force-dynamic';
@@ -76,6 +77,7 @@ export default async function DashboardPage() {
     }),
   );
 
+  const locked = lockedTypeIds(await accountAllowance(session.user.id), BOARD_TYPES.values());
   const types = [...BOARD_TYPES.values()].map((type: any) => ({
     id: type.id,
     name: type.name,
@@ -84,7 +86,7 @@ export default async function DashboardPage() {
     capabilities: type.capabilities,
     sample: type.sample,
     recommended: type.recommended,
-    tier: type.tier,
+    locked: locked.has(type.id),
     createParams: type.createParams,
   }));
 

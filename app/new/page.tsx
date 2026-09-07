@@ -6,6 +6,7 @@ import { listByOwner } from '@/lib/db/boards.mjs';
 import { BOARD_TYPES } from '@/lib/board-types/index.mjs';
 import { TEMPLATE_FAMILIES } from '@/lib/board-types/templates.mjs';
 import { NewBoardClient, type FamilyMeta } from '@/components/NewBoardClient';
+import { accountAllowance, lockedTypeIds, REQUESTABLE } from '@/lib/salable/licence.mjs';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,6 +24,11 @@ export default async function NewBoardPage() {
   const db = await getDb();
   const takenNames = (await listByOwner(db, session.user.id)).map((board: any) => String(board.name ?? ''));
 
+  // Which cards say "get in touch" before you click them. Only the label:
+  // createBoard is the gate, and it is the same answer on the REST and MCP
+  // paths where there is no card to grey out.
+  const locked = lockedTypeIds(await accountAllowance(session.user.id), BOARD_TYPES.values());
+
   const types = [...BOARD_TYPES.values()].map((type: any) => ({
     id: type.id,
     name: type.name,
@@ -31,7 +37,7 @@ export default async function NewBoardPage() {
     capabilities: type.capabilities,
     sample: type.sample,
     recommended: type.recommended,
-    tier: type.tier,
+    locked: locked.has(type.id),
     createParams: type.createParams,
   }));
 
@@ -48,7 +54,7 @@ export default async function NewBoardPage() {
       poster: template.poster,
       what: template.what,
       recommended: template.recommended,
-      tier: template.tier,
+      locked: locked.has(template.type),
       starter: template.starter,
       params: template.params,
       config: template.config,
@@ -62,6 +68,8 @@ export default async function NewBoardPage() {
       types={types}
       families={families}
       takenNames={takenNames}
+      requestable={REQUESTABLE}
+      accountEmail={session.user.email}
     />
   );
 }

@@ -12,7 +12,7 @@ import {
   validateConfigPatch,
   validateInterrupterPreset,
 } from '../lib/api/validators.mjs';
-import { THEME_IDS } from '../lib/board/themes.mjs';
+import { THEME_IDS, THEMES } from '../lib/board/themes.mjs';
 
 function refused(fn, pattern) {
   try {
@@ -157,8 +157,8 @@ test('themePack: validated against the board\'s theme, stored sparse, sized as 4
   );
   // Validated against the theme named in the same patch when there is one.
   assert.deepEqual(
-    validateConfigPatch({ theme: 'canary', themePack: { card: { fill: '#139a04' } } }, { theme: 'classic' }),
-    { theme: 'canary', themePack: null },
+    validateConfigPatch({ theme: 'sorbet', themePack: { card: { fill: THEMES.sorbet.card.fill } } }, { theme: 'classic' }),
+    { theme: 'sorbet', themePack: null },
   );
   refused(() => validateConfigPatch({ themePack: [] }), /object or null/);
   refused(() => validateConfigPatch({ themePack: { card: { fill: 'nope' } } }), /card.fill/);
@@ -170,7 +170,7 @@ test('themePack: validated against the board\'s theme, stored sparse, sized as 4
   } catch (error) {
     assert.equal(error.status, 413);
   }
-  assert.deepEqual(validateConfigPatch({ theme: 'canary' }), { theme: 'canary' });
+  assert.deepEqual(validateConfigPatch({ theme: 'sorbet' }), { theme: 'sorbet' });
   assert.deepEqual(validateConfigPatch({ theme: 'classic' }), { theme: 'classic' });
 });
 

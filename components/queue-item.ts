@@ -24,10 +24,18 @@ export type QueueItem = {
 
 /** The stored shape, turned back into something POST /queue/items accepts. */
 export function payloadToBody(payload: QueueItem['payload'] | undefined): Record<string, unknown> {
-  if (!payload) return {};
+  if (!payload) return { text: '' };
   const { text, options } = payload;
   // `options` already uses the input's own key names (rows included - it is
   // nested here but top-level on the way in), so spreading it reconstructs
-  // the original body; `text` only belongs back in it when there was one.
-  return { ...(options ?? {}), ...(text ? { text } : {}) };
+  // the original body.
+  //
+  // `text` is always included, even '' - patchQueueItem (lib/api/handlers.mjs)
+  // only looks at loop/label/dwellMs/etc when body.text or body.rows is
+  // *present*, not when it's truthy. A blank text-mode slide (the one
+  // "+ Slide" creates) has neither, so omitting an empty text here used to
+  // make every caller that spreads this and adds just one field - renaming a
+  // tab, setting Hold - patch an empty object and get refused with "nothing
+  // to change", on exactly the slide most likely to be renamed first.
+  return { ...(options ?? {}), text: text ?? '' };
 }

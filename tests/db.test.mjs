@@ -120,12 +120,12 @@ test('two concurrent setConfig calls on unrelated fields both survive', async ()
    */
   const board = await createBoard(db, { ownerId: 'u1' });
   await Promise.all([
-    setConfig(db, board.id, { theme: 'canary' }),
+    setConfig(db, board.id, { theme: 'sorbet' }),
     setConfig(db, board.id, { ambientMs: 60000 }),
     setConfig(db, board.id, { align: 'left' }),
   ]);
   const config = (await getById(db, board.id)).config;
-  assert.equal(config.theme, 'canary');
+  assert.equal(config.theme, 'sorbet');
   assert.equal(config.ambientMs, 60000);
   assert.equal(config.align, 'left');
 })

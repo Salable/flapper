@@ -15,6 +15,7 @@ export function BoardPageClient(props: {
   boardKey: string | null;
   displayToken: string;
   initialTheme: { rev: string; pack: ThemePack };
+  watermark: boolean;
 }) {
   return <BoardApp {...props} />;
 }

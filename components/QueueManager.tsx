@@ -139,6 +139,12 @@ export function QueueManager({
   const [error, setError] = useState('');
   const busyRef = useRef(false);
   const { confirm, dialog } = useConfirm();
+  // Renaming a slide from its own tab, not a "Name" field in the wide panel
+  // beside it - the name is only ever the rail's own label (SheetEditor's
+  // hint used to say so directly), never part of what the board shows, so
+  // editing it lives where it's read: on the tab.
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
 
   const refresh = useCallback(async () => {
     try {
@@ -457,10 +463,13 @@ export function QueueManager({
     return valign === 'top' || valign === 'middle' || valign === 'bottom' ? valign : '';
   }
 
-  function label(item: QueueItem) {
+  /** What an item is actually saying - null when there's nothing to read,
+   * rather than a placeholder string a caller might show as if it were
+   * content. */
+  function label(item: QueueItem): string | null {
     if (item.payload.text) return item.payload.text;
     if (Array.isArray(item.payload.options?.rows)) return item.payload.options.rows.join(' / ');
-    return '(blank)';
+    return null;
   }
 
   /** A short "Ns"/"Nms" reading of a duration - just enough to say what
@@ -478,12 +487,35 @@ export function QueueManager({
     return typeof name === 'string' ? name : '';
   }
 
-  /** What the rail shows: the name you gave it, or the text itself when you
-   * have not - never both, and never the placeholder '(blank)' text stands
-   * in for once there is a real name to show instead. */
+  /** What the rail shows: the name you gave it, the text itself when you
+   * have not, or "Slide N" (its own position in the rail) when there is
+   * neither - Dan's call: a real placeholder that says something true about
+   * the tab, not the sentinel string "(blank)" a fresh + Slide used to show
+   * as if it were the item's own name. */
   function tabLabel(item: QueueItem) {
     const name = nameOf(item);
-    return name !== '' ? name : label(item);
+    if (name !== '') return name;
+    const content = label(item);
+    if (content !== null) return content;
+    return `Slide ${railItems.indexOf(item) + 1}`;
+  }
+
+  function startRename(item: QueueItem) {
+    setRenamingId(item.id);
+    setRenameValue(tabLabel(item));
+  }
+
+  /** Same shape as SheetEditor's old commitName: blank reverts rather than
+   * clearing a name (a slide's name has no meaningful blank to fall back to),
+   * and an unchanged value is not a network call. Compared against the real
+   * name, not the rail's displayed fallback - retyping the content itself as
+   * an explicit name is a real change, from implicit to a name that sticks
+   * even if the content later does. */
+  function commitRename(item: QueueItem) {
+    const trimmed = renameValue.trim();
+    setRenamingId(null);
+    if (trimmed === '' || trimmed === nameOf(item)) return;
+    act(() => post(`/queue/items/${item.id}`, 'PATCH', { ...payloadToBody(item.payload), label: trimmed }));
   }
 
   /** An interruption, not a standing member of the rotation - always fired
@@ -594,7 +626,7 @@ export function QueueManager({
   // here any more; SheetEditor's own preview, inside the popup, is what
   // shows live-as-you-type now). Not necessarily what is playing either -
   // the caption below says "not what is playing" when they differ.
-  const previewText = selected ? (selectedIsRows ? label(selected) : (selected.payload.text ?? '')) : '';
+  const previewText = selected ? (selectedIsRows ? (label(selected) ?? '') : (selected.payload.text ?? '')) : '';
   // '' (board default) becomes undefined so ThemePreview falls back to the
   // layout engine's real default rather than an empty string it would refuse.
   const previewAlign = selected && !selectedIsRows ? alignOf(selected) || undefined : undefined;
@@ -610,18 +642,47 @@ export function QueueManager({
               it, removing it - lives in the wide column beside it. Always
               here, even with nothing queued yet, so + Slide never moves. */}
           <div className="queue-rail" role="tablist" aria-label="Slides">
-            {railItems.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                role="tab"
-                aria-selected={item.id === selectedId}
-                className={item.id === selectedId ? 'is-selected' : ''}
-                onClick={() => selectItem(item)}
-              >
-                <span className="queue-rail-label">{tabLabel(item)}</span>
-              </button>
-            ))}
+            {railItems.map((item) =>
+              renamingId === item.id ? (
+                <div key={item.id} className="queue-rail-tab is-renaming">
+                  <input
+                    className="queue-rail-rename"
+                    autoFocus
+                    value={renameValue}
+                    onChange={(event) => setRenameValue(event.target.value)}
+                    onBlur={() => commitRename(item)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') commitRename(item);
+                      if (event.key === 'Escape') setRenamingId(null);
+                    }}
+                    aria-label={`Rename ${tabLabel(item)}`}
+                  />
+                </div>
+              ) : (
+                <div
+                  key={item.id}
+                  role="tab"
+                  aria-selected={item.id === selectedId}
+                  className={`queue-rail-tab${item.id === selectedId ? ' is-selected' : ''}`}
+                >
+                  <button type="button" className="queue-rail-select" onClick={() => selectItem(item)}>
+                    <span className="queue-rail-label">{tabLabel(item)}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="queue-rail-rename-btn"
+                    title="Rename"
+                    aria-label={`Rename ${tabLabel(item)}`}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      startRename(item);
+                    }}
+                  >
+                    ✎
+                  </button>
+                </div>
+              ),
+            )}
             <button type="button" className="queue-rail-add" title="Add a slide" aria-label="Add a slide" onClick={addSlide}>
               + Slide
             </button>
@@ -693,23 +754,30 @@ export function QueueManager({
                           >
                             ↓ Move later
                           </button>
-                          <button
-                            className="danger"
-                            onClick={async () => {
-                              if (
-                                await confirm({
-                                  title: 'Remove this slide?',
-                                  body: 'Its text and settings are gone for good.',
-                                  confirmLabel: 'Remove',
-                                  danger: true,
-                                })
-                              ) {
-                                act(() => post(`/queue/items/${selected.id}`, 'DELETE'));
-                              }
-                            }}
-                          >
-                            ✕ Remove this slide
-                          </button>
+                          {/* Dan's call: hide Remove rather than let someone empty a
+                              board down to nothing from here. The API still allows it
+                              (the board just goes idle, per removeItem in queue.mjs) -
+                              this is a UI choice, not a backend restriction, so a slide
+                              can still be cleared via other paths (e.g. Clear queue). */}
+                          {items.length > 1 && (
+                            <button
+                              className="danger"
+                              onClick={async () => {
+                                if (
+                                  await confirm({
+                                    title: 'Remove this slide?',
+                                    body: 'Its text and settings are gone for good.',
+                                    confirmLabel: 'Remove',
+                                    danger: true,
+                                  })
+                                ) {
+                                  act(() => post(`/queue/items/${selected.id}`, 'DELETE'));
+                                }
+                              }}
+                            >
+                              ✕ Remove this slide
+                            </button>
+                          )}
                         </div>
                       </div>
                     );
@@ -816,14 +884,9 @@ export function QueueManager({
 
                   {presetSource === 'text' && (
                     <div className="sheet-source-setup">
-                      <div className="sheet-text-preview">
-                        <span className={`sheet-text-preview-sample${presetPreviewText.trim() === '' ? ' is-empty' : ''}`}>
-                          {presetPreviewText.trim() === '' ? 'Nothing typed yet' : presetPreviewText}
-                        </span>
-                        <Button size="sm" onClick={() => setPresetTextOpen(true)}>
-                          Edit text →
-                        </Button>
-                      </div>
+                      <Button size="sm" onClick={() => setPresetTextOpen(true)}>
+                        Edit text →
+                      </Button>
                       <EditTextPopup
                         open={presetTextOpen}
                         onClose={() => setPresetTextOpen(false)}
