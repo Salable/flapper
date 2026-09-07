@@ -66,7 +66,7 @@ timezone, fallback) and a seeded queue. The first rail is the registry
 itself, every type blank, so a new type is a card for free; the rest
 (*Around the office*, *Events and match day*, *Many screens*) are curated.
 A card's poster is the board in CSS tiles (`MiniBoard`), skinned by the
-template's theme — the Canary cards are green.
+template's theme — the Carrow Road cards are green.
 
 Selecting a card expands a detail panel under its rail: the poster larger,
 what you get, what it starts with, and the form — name (prefilled from the

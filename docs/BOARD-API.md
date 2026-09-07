@@ -167,8 +167,8 @@ it is safe to do mid-message. Be considerate: if a user asked you to display
 something, do not silently reshape their board to make your text fit. Fit the
 text to the board, or ask.
 
-The same call sets the theme: `{"theme":"canary"}` repaints every display of
-the board in Norwich green; `"classic"` is the charcoal original. Always take
+The same call sets the theme: `{"theme":"carrow-road-green"}` repaints every
+display of the board in Norwich green; `"classic"` is the charcoal original. Always take
 the list from `/capabilities` (`themes`); a deployment may ship more, and an
 unknown id is a 422. Do not change a board's theme unless asked to.
 

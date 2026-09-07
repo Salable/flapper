@@ -27,7 +27,7 @@ or ChatGPT, or over a REST API from anywhere.
   `/api/b/{slug}/AGENTS.md` with the board's URLs baked in
 - **One API key per board** — shown and regenerable in settings; every write
   needs it
-- **A look of its own per board** — start from Classic or Canary, change the
+- **A look of its own per board** — start from Classic or Sorbet, change the
   palette, the type, the hinge, the motion, give any character its own ink
   or an uploaded mark, in the design editor at **/designs** — and the board's
   own sidebar picks which design it wears; saved as the difference from the

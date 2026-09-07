@@ -230,7 +230,7 @@ Mute and volume (M, ↑/↓) are the display's, kept in localStorage under
 ### Add a theme
 
 A theme is the *same* ring in different paint. A board's theme is in its
-config (`PATCH /config {"theme":"canary"}`, or the board's sidebar under
+config (`PATCH /config {"theme":"carrow-road-green"}`, or the board's sidebar under
 **Design & shape**);
 the display loads the new skin in the background and `Flipboard.setSkin()`
 swaps it under the tiles in place. Every registered id reaches the
@@ -257,9 +257,8 @@ whole thing as JSON under "Advanced: the pack as JSON"; copy it back here
 when it is right. A
 pack cannot change the ring — that is `RING`, above.
 
-Boards that were set to `classic-p` or `canary-p` while the drawn themes ran
-alongside the old art still resolve (to `classic`/`canary`); the ids are not
-accepted on write.
+Boards that were set to `classic-p` while the drawn themes ran alongside the
+old art still resolve (to `classic`); the id is not accepted on write.
 
 **A board's own look** needs no preset at all: `themePack` in its config is
 a sparse set of overrides on top of its `theme` (`lib/board/board-theme.mjs`

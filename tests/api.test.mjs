@@ -156,7 +156,7 @@ test('a template seeds the queue and presets config; the body still wins', async
   assert.equal(match.status, 201);
   assert.equal(match.body.type, 'live');
   const mq = (await jsonOf(call(getQueue, ctx(match.body.slug, 'owner'), '/queue'))).body;
-  assert.equal(mq.config.theme, 'canary');
+  assert.equal(mq.config.theme, 'carrow-road-green');
   // A card size is what the template sets; the grid is not stored at all, so
   // the board has no cols/rows of its own and answers with what its screen
   // and its card size come to.
@@ -761,9 +761,9 @@ test('a board\'s own theme: stored sparse, kept out of /queue, served by /theme 
 
   // Switching preset keeps the overrides that still differ.
   const swapped = await jsonOf(
-    call(patchConfig, ctx(board.slug), '/config', { method: 'PATCH', body: { theme: 'canary' }, key: board.apiKey }),
+    call(patchConfig, ctx(board.slug), '/config', { method: 'PATCH', body: { theme: 'sorbet' }, key: board.apiKey }),
   );
-  assert.equal(swapped.body.config.theme, 'canary');
+  assert.equal(swapped.body.config.theme, 'sorbet');
   assert.notEqual(swapped.body.themeRev, after.themeRev);
 
   // null resets.
@@ -788,7 +788,7 @@ test('a board\'s own theme: stored sparse, kept out of /queue, served by /theme 
   assert.equal(fat.status, 413);
 
   const caps = (await jsonOf(call(capabilities, ctx(board.slug), '/capabilities'))).body;
-  assert.deepEqual(caps.themePack.presets.map((p) => p.id), ['classic', 'canary', 'sorbet', 'carnival', 'carrow-road-yellow', 'carrow-road-green']);
+  assert.deepEqual(caps.themePack.presets.map((p) => p.id), ['classic', 'sorbet', 'carnival', 'carrow-road-yellow', 'carrow-road-green']);
   assert.equal(typeof caps.themePack.maxBytes, 'number');
 });
 

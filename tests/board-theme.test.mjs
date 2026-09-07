@@ -76,10 +76,10 @@ test('limits: shape, bytes, art count, art size and art magic', () => {
 });
 
 test('resolveBoardTheme never throws: bad overrides fall back to the preset with warnings', () => {
-  const fine = resolveBoardTheme({ theme: 'canary', themePack: { card: { fill: '#123456' } } });
-  assert.equal(fine.id, 'canary');
+  const fine = resolveBoardTheme({ theme: 'sorbet', themePack: { card: { fill: '#123456' } } });
+  assert.equal(fine.id, 'sorbet');
   assert.equal(fine.pack.card.fill, '#123456');
-  assert.equal(fine.pack.glyph.stroke, THEMES.canary.glyph.stroke, 'the rest is Canary');
+  assert.equal(fine.pack.glyph.stroke, THEMES.sorbet.glyph.stroke, 'the rest is Sorbet');
   assert.deepEqual(fine.themePack, { card: { fill: '#123456' } });
   assert.deepEqual(fine.warnings, []);
 
@@ -89,22 +89,22 @@ test('resolveBoardTheme never throws: bad overrides fall back to the preset with
   assert.match(bad.warnings.join(), /card.fill/);
 
   assert.equal(resolveBoardTheme({}).pack, THEMES.classic);
-  assert.equal(resolveBoardTheme({ theme: 'canary-p' }).id, 'canary', 'legacy ids still resolve');
+  assert.equal(resolveBoardTheme({ theme: 'classic-p' }).id, 'classic', 'legacy ids still resolve');
   assert.equal(resolveBoardTheme({ theme: 'classic', themePack: null }).themePack, null);
 });
 
 test('normalizeThemePatch validates against the theme the patch or the board names', () => {
   // No themePack in the patch: nothing to say.
-  assert.deepEqual(normalizeThemePatch({ theme: 'canary' }, {}), { ok: true });
+  assert.deepEqual(normalizeThemePatch({ theme: 'sorbet' }, {}), { ok: true });
   // null clears.
   assert.deepEqual(normalizeThemePatch({ themePack: null }, { theme: 'classic' }), { ok: true, themePack: null });
   // A pack equal to the current preset stores as null.
   assert.deepEqual(normalizeThemePatch({ themePack: { card: { fill: THEMES.classic.card.fill } } }, {}), { ok: true, themePack: null });
-  // The same override against Canary is a real difference.
-  const onCanary = normalizeThemePatch({ themePack: { card: { fill: THEMES.classic.card.fill } } }, { theme: 'canary' });
-  assert.deepEqual(onCanary.themePack, { card: { fill: THEMES.classic.card.fill } });
+  // The same override against Sorbet is a real difference.
+  const onSorbet = normalizeThemePatch({ themePack: { card: { fill: THEMES.classic.card.fill } } }, { theme: 'sorbet' });
+  assert.deepEqual(onSorbet.themePack, { card: { fill: THEMES.classic.card.fill } });
   // Switching preset in the same patch validates against the new one.
-  const both = normalizeThemePatch({ theme: 'canary', themePack: { card: { fill: THEMES.canary.card.fill } } }, { theme: 'classic' });
+  const both = normalizeThemePatch({ theme: 'sorbet', themePack: { card: { fill: THEMES.sorbet.card.fill } } }, { theme: 'classic' });
   assert.equal(both.themePack, null);
   // Invalid values come back as errors, sized ones flagged.
   assert.equal(normalizeThemePatch({ themePack: { glyph: { baseline: 9 } } }, {}).ok, false);
@@ -112,7 +112,7 @@ test('normalizeThemePatch validates against the theme the patch or the board nam
 });
 
 test('publicConfig drops the pack and nothing else', () => {
-  assert.deepEqual(publicConfig({ cols: 3, theme: 'canary', themePack: { card: {} } }), { cols: 3, theme: 'canary' });
+  assert.deepEqual(publicConfig({ cols: 3, theme: 'sorbet', themePack: { card: {} } }), { cols: 3, theme: 'sorbet' });
   assert.deepEqual(publicConfig({ cols: 3 }), { cols: 3 });
   assert.equal(publicConfig(null), null);
 });
@@ -172,7 +172,7 @@ test('themeRev is stable across key order and an equivalent whole pack, and move
 
 test('capabilities advertise presets, limits and ranges from one source', () => {
   const caps = themeCapabilities(RANGES);
-  assert.deepEqual(caps.presets.map((p) => p.id), ['classic', 'canary', 'sorbet', 'carnival', 'carrow-road-yellow', 'carrow-road-green']);
+  assert.deepEqual(caps.presets.map((p) => p.id), ['classic', 'sorbet', 'carnival', 'carrow-road-yellow', 'carrow-road-green']);
   assert.equal(caps.maxBytes, THEME_LIMITS.maxBytes);
   assert.deepEqual(caps.artTypes, ['image/png', 'image/webp']);
   assert.equal(caps.ranges, RANGES);
