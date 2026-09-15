@@ -25,6 +25,7 @@ import { ThemePreview } from '@/components/flapper/ThemePreview';
 import { SheetEditor, EditTextPopup, type Align, type Valign } from '@/components/SheetEditor';
 import { type QueueItem, payloadToBody } from '@/components/queue-item';
 import type { ThemePack } from '@/lib/board/theme-pack.mjs';
+import { ANIMATIONS, ANIMATION_IDS } from '@/lib/board/animations.mjs';
 
 /** A saved interrupter - named once, fired by that name later, never sent
  * straight from typed text. `durationMs` is one or the other: a number is
@@ -43,6 +44,9 @@ type InterrupterPreset = {
   align?: Align;
   valign?: Valign;
   durationMs?: number;
+  /** An animation instead of words - the other kind of content, never both
+   * (the API refuses the pair). */
+  animation?: string;
   /** Absent - fired by hand or over the API. Present - the clock starts it,
    * and Duration is what closes it again. */
   schedule?: InterrupterSchedule;
@@ -121,6 +125,11 @@ export function QueueManager({
    * which every saved interrupter has anyway. The other two hand it to the
    * clock, which is the only trigger that is actually configured per
    * interrupter (Dan, 15 Sep 2026: "[at 5pm] play [this]"). */
+  /** WHAT the interrupter shows. "Animation" is an option alongside "Text"
+   * - the two kinds of content, never a pair - and which animation is its
+   * own field, revealed under it. */
+  const [presetShows, setPresetShows] = useState<'text' | 'animation'>('text');
+  const [presetAnimation, setPresetAnimation] = useState<string>(ANIMATION_IDS[0]);
   const [presetWhen, setPresetWhen] = useState<'manual' | 'daily'>('manual');
   const [presetAt, setPresetAt] = useState('17:00');
   /** '' is the switch - blocks the rotation entirely until dismissed or
@@ -294,6 +303,8 @@ export function QueueManager({
       setPresetAlign('center');
       setPresetValign('middle');
       setPresetDuration('');
+      setPresetShows('text');
+      setPresetAnimation(ANIMATION_IDS[0]);
       setPresetWhen('manual');
       setPresetAt('17:00');
       setPresetTextOpen(false);
@@ -321,6 +332,8 @@ export function QueueManager({
       setPresetValign(preset?.valign ?? 'middle');
     }
     setPresetDuration(preset?.durationMs !== undefined ? String(preset.durationMs) : '');
+    setPresetShows(preset?.animation ? 'animation' : 'text');
+    setPresetAnimation(preset?.animation ?? ANIMATION_IDS[0]);
     setPresetWhen(preset?.schedule?.kind ?? 'manual');
     setPresetAt(preset?.schedule?.at ?? '17:00');
     setError('');
@@ -352,7 +365,11 @@ export function QueueManager({
     const wasSelectedName = presetSelectedName;
     setPresetSending(true);
     const body: Record<string, unknown> = { name };
-    if (presetRows !== null) {
+    if (presetShows === 'animation') {
+      // The pair is refused server-side, so send the one this is.
+      body.text = '';
+      body.animation = presetAnimation;
+    } else if (presetRows !== null) {
       body.rows = presetRows;
     } else {
       body.text = presetText.trim();
@@ -939,6 +956,20 @@ export function QueueManager({
                         onChange={(event) => setPresetName(event.target.value)}
                       />
                     </Field>
+                    <Field
+                      label="Shows"
+                      htmlFor="interrupt-shows"
+                      hint="Text or an animation - the two kinds of content, never both. Pushing content in over the API is not built yet, so it isn't offered."
+                    >
+                      <Select
+                        id="interrupt-shows"
+                        value={presetShows}
+                        onChange={(event) => setPresetShows(event.target.value as 'text' | 'animation')}
+                      >
+                        <option value="text">Text</option>
+                        <option value="animation">Animation</option>
+                      </Select>
+                    </Field>
                     <Field label="Starts" htmlFor="interrupt-when">
                       <Select
                         id="interrupt-when"
@@ -971,7 +1002,25 @@ export function QueueManager({
                     </div>
                   )}
 
-                  <div className="sheet-source-setup">
+                  {presetShows === 'animation' && (
+                    <div className="sheet-editor-row">
+                      <Field label="Animation" htmlFor="interrupt-animation">
+                        <Select
+                          id="interrupt-animation"
+                          value={presetAnimation}
+                          onChange={(event) => setPresetAnimation(event.target.value)}
+                        >
+                          {(ANIMATION_IDS as string[]).map((id: string) => (
+                            <option key={id} value={id}>
+                              {(ANIMATIONS as Record<string, { label: string }>)[id].label}
+                            </option>
+                          ))}
+                        </Select>
+                      </Field>
+                    </div>
+                  )}
+
+                  <div className="sheet-source-setup" hidden={presetShows !== 'text'}>
                     <Button size="sm" onClick={() => setPresetTextOpen(true)}>
                       Edit text →
                     </Button>
