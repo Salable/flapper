@@ -714,6 +714,10 @@ export function QueueManager({
   // shows live-as-you-type now). Not necessarily what is playing either -
   // the caption below says "not what is playing" when they differ.
   const previewText = selected ? (selectedIsRows ? (label(selected) ?? '') : (selected.payload.text ?? '')) : '';
+  /** The selected slide's animation, if its content is one. The preview runs
+   * it rather than showing an empty board and calling the slide blank. */
+  const selectedAnimation =
+    (selected?.payload.options as { animation?: string } | undefined)?.animation ?? null;
   // '' (board default) becomes undefined so ThemePreview falls back to the
   // layout engine's real default rather than an empty string it would refuse.
   const previewAlign = selected && !selectedIsRows ? alignOf(selected) || undefined : undefined;
@@ -879,13 +883,19 @@ export function QueueManager({
                     tilePx={56}
                     ambientMs={ambientMs}
                     fidget={fidget}
+                    animation={selectedAnimation}
                     screenAspect={screenAspect}
                     align={previewAlign}
                     valign={previewValign}
                   />
                   <div className="design-preview-bar">
                     <p className="design-preview-caption">
-                      {cols} × {rows} cards{previewText === '' ? ' · this slide is blank' : ''}
+                      {cols} × {rows} cards
+                      {selectedAnimation
+                        ? ` · ${(ANIMATIONS as Record<string, { label: string }>)[selectedAnimation].label.toLowerCase()}`
+                        : previewText === ''
+                          ? ' · this slide is blank'
+                          : ''}
                       {selected && selected.id !== playingId && ' · not what is playing'}
                     </p>
                   </div>
@@ -1162,13 +1172,19 @@ export function QueueManager({
                     tilePx={56}
                     ambientMs={ambientMs}
                     fidget={fidget}
+                    animation={presetShows === 'animation' ? presetAnimation : null}
                     screenAspect={screenAspect}
                     align={presetRows === null ? presetAlign : undefined}
                     valign={presetRows === null ? presetValign : undefined}
                   />
                   <div className="design-preview-bar">
                     <p className="design-preview-caption">
-                      {cols} × {rows} cards{presetPreviewText === '' ? ' · nothing typed yet' : ''}
+                      {cols} × {rows} cards
+                      {presetShows === 'animation'
+                        ? ` · ${(ANIMATIONS as Record<string, { label: string }>)[presetAnimation].label.toLowerCase()}`
+                        : presetPreviewText === ''
+                          ? ' · nothing typed yet'
+                          : ''}
                       {selectedPresetIsLive && ' · live now'}
                     </p>
                   </div>

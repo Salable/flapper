@@ -11,6 +11,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Flipboard } from '@/lib/board/flipboard.js';
 import { PACK_DEFAULTS } from '@/lib/board/theme-pack.mjs';
 import { loadProcedural } from '@/components/flapper/assets';
+import { createAnimator } from '@/components/flapper/animator';
 import { createAmbient } from '@/components/flapper/ambient';
 import type { ThemePack } from '@/lib/board/theme-pack.mjs';
 import { Button } from '@/components/ui/Button';
@@ -32,6 +33,7 @@ export function ThemePreview({
   loop = 0,
   ambientMs = 0,
   fidget,
+  animation,
   screenAspect,
   align,
   valign,
@@ -91,6 +93,10 @@ export function ThemePreview({
    * "how often". Omitted, the classic one every board has always done.
    */
   fidget?: string | Record<string, unknown> | null;
+  /** Show this animation instead of `text` - the preview's half of a slide
+   * whose content is a designed motion rather than words. The fidget stands
+   * down while one is running, the same as it does on a real display. */
+  animation?: string | null;
   /**
    * The screen a board's grid was fit to (its own `screen.w / screen.h`),
    * for framing the box against that instead of `cols / rows` directly.
@@ -116,6 +122,7 @@ export function ThemePreview({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const boardRef = useRef<any>(null);
   const ambientRef = useRef<ReturnType<typeof createAmbient> | null>(null);
+  const animatorRef = useRef<ReturnType<typeof createAnimator> | null>(null);
   const [error, setError] = useState('');
   /*
    * Whether the board exists yet, so the size effect below can wait for it.
@@ -324,8 +331,24 @@ export function ThemePreview({
   // reopening it.
   useEffect(() => {
     if (!ready) return;
+    if (animation) return;
     ambientRef.current?.start(ambientMs, fidget ?? null);
-  }, [ambientMs, fidget, ready]);
+  }, [ambientMs, fidget, ready, animation]);
+
+  // The animation itself, on the same terms the display gives it: it owns
+  // the board while it runs, so the fidget stands down and the text the
+  // board was showing is painted over rather than fought with.
+  useEffect(() => {
+    if (!ready) return;
+    if (!animatorRef.current && boardRef.current) animatorRef.current = createAnimator(boardRef.current);
+    if (animation) {
+      ambientRef.current?.stop();
+      animatorRef.current?.start(animation);
+      return;
+    }
+    animatorRef.current?.stop();
+    ambientRef.current?.start(ambientMs, fidget ?? null);
+  }, [animation, ready, ambientMs, fidget]);
 
   // On the way out, for good. A board with anything left to draw otherwise
   // keeps a frame loop alive on a canvas nobody can see, for the life of the
@@ -333,6 +356,7 @@ export function ThemePreview({
   useEffect(
     () => () => {
       ambientRef.current?.destroy();
+      animatorRef.current?.destroy();
       ambientRef.current = null;
       boardRef.current?.stop?.();
       boardRef.current = null;
