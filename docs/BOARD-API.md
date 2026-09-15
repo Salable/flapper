@@ -419,6 +419,25 @@ is a bug.
 A saved interrupter takes the same field, which is what makes `[at 5pm]
 play [an explosion]` a sentence the product can say.
 
+#### Filling a slide by name
+
+A slide in the rotation is addressable by the name on its rail tab, so an
+agent can be told "the Lunch one" and never need an id:
+
+```bash
+curl -X POST {apiBase}/sheets/lunch \
+  -H 'authorization: Bearer KEY' -H 'content-type: application/json' \
+  -d '{"text": "TOMATO SOUP"}'
+```
+
+Matched case-insensitively, and it takes `text`, `rows` or `animation` -
+the same content an item can carry anywhere else. **It fills a slide, it
+never creates one**: a name nothing answers to is a `404` that lists the
+names the board does have, so an agent's typo cannot rearrange a wall.
+Everything else about the slide - its Hold, its alignment, its place in
+the order, whether it loops - belongs to whoever arranged the rotation and
+survives the push untouched.
+
 #### Fired by the clock instead
 
 Give an interrupter a `schedule` and nothing has to call `.../fire` at
@@ -532,14 +551,15 @@ Use `POST {apiBase}/clear` to stop everything, or edit the item.
 | `POST` | `/api/b/{slug}/preview` | read | lay out and return pages **without displaying** |
 | `POST` | `/api/b/{slug}/clear` | key | stop and blank; optional `region`, omitted = every band |
 | `DELETE` | `/api/b/{slug}/queue` | key | drop pending, leave the current message playing |
-| `GET` | `/api/b/{slug}/interrupters` | read | saved interrupters: name, text, Duration |
+| `GET` | `/api/b/{slug}/interrupters` | read | saved interrupters: name, text or animation, Duration, schedule |
 | `POST` | `/api/b/{slug}/interrupters` | key | save one — a name that exists already is replaced outright |
 | `DELETE` | `/api/b/{slug}/interrupters/{name}` | key | remove a saved interrupter |
-| `POST` | `/api/b/{slug}/interrupters/{name}/fire` | key | fire a saved one now — the only door from saved to the glass |
+| `POST` | `/api/b/{slug}/interrupters/{name}/fire` | key | fire a saved one now — one of two doors to the glass; a `schedule` is the other |
+| `POST` | `/api/b/{slug}/sheets/{name}` | key | push content into an existing slide by its rail name — `text`, `rows` or `animation` |
 | `POST` | `/api/b/{slug}/interrupters/{name}/dismiss` | key | end it — every queued instance of that name, not just the current one |
 | `POST` | `/api/b/{slug}/interrupters/reorder` | key | `{names: [...]}`, every saved name once — rail order, the only ranking one has |
 | `GET` | `/api/b/{slug}/export` | key | every queued item in a re-postable shape |
-| `PATCH` | `/api/b/{slug}/config` | key | grid, `theme`, `themePack`, motion, dwell (`footerRows` must stay 0; `regions.main.dwellMs` only) |
+| `PATCH` | `/api/b/{slug}/config` | key | grid, `theme`, `themePack`, motion, dwell (`footerRows` must stay 0; `regions.main.dwellMs` only). Not `interrupters` — those have their own routes, which check names, content and your licence |
 | `GET` / `POST` | `/api/b/{slug}/key` | owner | read / rotate the API key — the owner's session only, never the key itself |
 | `PATCH` | `/api/b/{slug}` | owner | the board's own settings: `name`, `slug`, `private`, `status`. **Renaming the slug moves this whole API base** and every open display 404s on its next reconnect |
 | `DELETE` | `/api/b/{slug}` | owner | delete the board, its queue and its key |

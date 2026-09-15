@@ -143,3 +143,37 @@ test('a one-cell board does not divide by zero', () => {
     assert.doesNotThrow(() => animationFrame(spec, 1, 1, 7), id);
   }
 });
+
+test('a corner is one bounce, not two, so no colour is skipped', () => {
+  const spec = ANIMATIONS.bounce;
+  // A square span: every bounce is a corner, which is the case that used to
+  // advance the colour by two and leave half the palette unreachable.
+  const cols = spec.w + 6;
+  const rows = spec.h + 6;
+  const seen = new Set();
+  for (let frame = 0; frame < 200; frame += 1) {
+    seen.add(animationFrame(spec, cols, rows, frame)[0].colour);
+  }
+  assert.equal(seen.size, spec.colours.length, 'every colour in the palette is reached');
+});
+
+test('the explosion loops without a blank frame between runs', () => {
+  const spec = ANIMATIONS.explosion;
+  const length = animationRunLength(spec, COLS, ROWS);
+  for (let frame = 0; frame < length; frame += 1) {
+    assert.ok(animationFrame(spec, COLS, ROWS, frame).length > 0, `frame ${frame} of ${length} is blank`);
+  }
+});
+
+test('the palette stays small enough for the renderer to bake', () => {
+  // Every distinct colour costs a baked card set on the display, so a
+  // continuous hue would be a canvas leak dressed as a gradient.
+  const seen = new Set();
+  for (const id of ANIMATION_IDS) {
+    const spec = animation(id);
+    for (let frame = 0; frame < 400; frame += 1) {
+      for (const cell of animationFrame(spec, COLS, ROWS, frame)) seen.add(cell.colour);
+    }
+  }
+  assert.ok(seen.size <= 48, `all three animations together use ${seen.size} colours`);
+});

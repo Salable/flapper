@@ -81,7 +81,14 @@ export function createAnimator(board: any) {
   function start(name: string) {
     if (destroyed) return false;
     const next = animation(name);
-    if (!next) return false;
+    if (!next) {
+      // Whatever is running now is not what the board has been told to
+      // show, so it stops either way. Returning early *before* stopping
+      // left the previous animation painting over the new item, with the
+      // caller's fallback starting the fidget on top of it.
+      stop();
+      return false;
+    }
     stop();
     spec = next;
     frame = 0;

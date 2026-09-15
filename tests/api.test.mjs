@@ -31,6 +31,7 @@ import {
   getBoardKey,
   getTheme,
   listInterrupters,
+  pushSheet,
   saveInterrupter,
   deleteInterrupter,
   fireInterrupter,
@@ -1969,4 +1970,273 @@ test('an unscheduled interrupter is left entirely alone by the clock', async () 
     0,
     'it waits for a button or an API call, as it always did',
   );
+});
+
+test('a slide is addressable by its own name, so an agent can fill the one it was told about', async () => {
+  const board = await makeBoard({ slug: 'pushable' });
+  const key = board.apiKey;
+
+  await call(postMessage, ctx(board.slug), '/x', {
+    method: 'POST',
+    key,
+    body: { text: 'SOUP OF THE DAY', label: 'Lunch', loop: true },
+  });
+
+  const pushed = await jsonOf(
+    call(pushSheet, { ...ctx(board.slug), name: 'lunch' }, '/x', {
+      method: 'POST',
+      key,
+      body: { text: 'TOMATO' },
+    }),
+  );
+  assert.equal(pushed.status, 200, JSON.stringify(pushed.body));
+  assert.equal(pushed.body.item.payload.text, 'TOMATO');
+  assert.equal(pushed.body.item.payload.options.label, 'Lunch', 'the address survives the write');
+
+  // It filled the slide that was there rather than adding another.
+  const queued = await jsonOf(call(getQueue, ctx(board.slug), '/x', { key }));
+  assert.equal(queued.body.items.length, 1);
+  assert.equal(queued.body.items[0].payload.text, 'TOMATO');
+});
+
+test('pushing to a name nothing answers to says what the board does have', async () => {
+  const board = await makeBoard({ slug: 'pushable-miss' });
+  const key = board.apiKey;
+  await call(postMessage, ctx(board.slug), '/x', {
+    method: 'POST',
+    key,
+    body: { text: 'X', label: 'Lunch', loop: true },
+  });
+
+  const missed = await jsonOf(
+    call(pushSheet, { ...ctx(board.slug), name: 'dinner' }, '/x', { method: 'POST', key, body: { text: 'Y' } }),
+  );
+  assert.equal(missed.status, 404);
+  assert.match(missed.body.error, /no slide called "dinner"/);
+  assert.match(missed.body.error, /"Lunch"/, 'it names what is there');
+
+  // A push never creates - the board is unchanged.
+  const queued = await jsonOf(call(getQueue, ctx(board.slug), '/x', { key }));
+  assert.equal(queued.body.items.length, 1);
+});
+
+test('an animation can be pushed into a named slide, same as words', async () => {
+  const board = await makeBoard({ slug: 'pushable-animation' });
+  const key = board.apiKey;
+  await call(postMessage, ctx(board.slug), '/x', {
+    method: 'POST',
+    key,
+    body: { text: 'WORDS FOR NOW', label: 'Foyer', loop: true },
+  });
+
+  const pushed = await jsonOf(
+    call(pushSheet, { ...ctx(board.slug), name: 'Foyer' }, '/x', {
+      method: 'POST',
+      key,
+      body: { animation: 'rainbow' },
+    }),
+  );
+  assert.equal(pushed.status, 200, JSON.stringify(pushed.body));
+  assert.equal(pushed.body.item.payload.options.animation, 'rainbow');
+  assert.equal(pushed.body.item.payload.text, '', 'the words it replaced are gone');
+});
+
+test('a push with nothing to show is refused rather than blanking the slide', async () => {
+  const board = await makeBoard({ slug: 'pushable-empty' });
+  const key = board.apiKey;
+  await call(postMessage, ctx(board.slug), '/x', {
+    method: 'POST',
+    key,
+    body: { text: 'KEEP ME', label: 'Sign', loop: true },
+  });
+
+  const refused = await jsonOf(
+    call(pushSheet, { ...ctx(board.slug), name: 'Sign' }, '/x', { method: 'POST', key, body: { loop: false } }),
+  );
+  assert.equal(refused.status, 422);
+  assert.match(refused.body.error, /nothing to show/);
+});
+
+test('a push changes the words and leaves the slide arranged as it was', async () => {
+  const board = await makeBoard({ slug: 'push-keeps' });
+  const key = board.apiKey;
+
+  await call(postMessage, ctx(board.slug), '/x', {
+    method: 'POST',
+    key,
+    body: { text: 'SOUP', label: 'Lunch', loop: true, dwellMs: 9000, align: 'right', valign: 'top' },
+  });
+
+  const pushed = await jsonOf(
+    call(pushSheet, { ...ctx(board.slug), name: 'Lunch' }, '/x', { method: 'POST', key, body: { text: 'STEW' } }),
+  );
+  assert.equal(pushed.status, 200, JSON.stringify(pushed.body));
+  const options = pushed.body.item.payload.options;
+  assert.equal(pushed.body.item.payload.text, 'STEW');
+  assert.equal(options.dwellMs, 9000, 'Hold survives');
+  assert.equal(options.align, 'right', 'alignment survives');
+  assert.equal(options.valign, 'top');
+  assert.equal(options.label, 'Lunch');
+  assert.equal(pushed.body.item.loop, true, 'and it is still in the rotation');
+});
+
+test('pushing an animation clears the words it replaced rather than sending both', async () => {
+  const board = await makeBoard({ slug: 'push-swaps' });
+  const key = board.apiKey;
+  await call(postMessage, ctx(board.slug), '/x', {
+    method: 'POST',
+    key,
+    body: { text: 'WORDS', label: 'Foyer', loop: true, dwellMs: 4000 },
+  });
+
+  const pushed = await jsonOf(
+    call(pushSheet, { ...ctx(board.slug), name: 'Foyer' }, '/x', {
+      method: 'POST',
+      key,
+      body: { animation: 'explosion' },
+    }),
+  );
+  assert.equal(pushed.status, 200, JSON.stringify(pushed.body));
+  assert.equal(pushed.body.item.payload.options.animation, 'explosion');
+  assert.equal(pushed.body.item.payload.text, '');
+  assert.equal(pushed.body.item.payload.options.dwellMs, 4000, 'Hold still survives the swap');
+
+  // And back again, which must not leave the animation behind.
+  const back = await jsonOf(
+    call(pushSheet, { ...ctx(board.slug), name: 'Foyer' }, '/x', { method: 'POST', key, body: { text: 'WORDS AGAIN' } }),
+  );
+  assert.equal(back.status, 200, JSON.stringify(back.body));
+  assert.equal(back.body.item.payload.options.animation, undefined, 'the animation is gone');
+  assert.equal(back.body.item.payload.text, 'WORDS AGAIN');
+});
+
+test('a blank slide name is not an address for the first unnamed slide', async () => {
+  const board = await makeBoard({ slug: 'push-blank-name' });
+  const key = board.apiKey;
+  await call(postMessage, ctx(board.slug), '/x', { method: 'POST', key, body: { text: 'UNTITLED', loop: true } });
+
+  for (const name of ['', '   ']) {
+    const refused = await jsonOf(
+      call(pushSheet, { ...ctx(board.slug), name }, '/x', { method: 'POST', key, body: { text: 'HIJACKED' } }),
+    );
+    assert.equal(refused.status, 404, JSON.stringify(refused.body));
+  }
+
+  const queued = await jsonOf(call(getQueue, ctx(board.slug), '/x', { key }));
+  assert.equal(queued.body.items[0].payload.text, 'UNTITLED', 'untouched');
+});
+
+test('the clock waits for a higher-ranked interrupter instead of demoting it', async () => {
+  const board = await makeBoard({ slug: 'clock-rank' });
+  const key = board.apiKey;
+
+  // [0] outranks [1]; the lower one is the scheduled one.
+  await call(saveInterrupter, ctx(board.slug), '/x', {
+    method: 'POST',
+    key,
+    body: { name: 'FIRE', text: 'EVACUATE' },
+  });
+  await call(saveInterrupter, ctx(board.slug), '/x', {
+    method: 'POST',
+    key,
+    body: {
+      name: 'LUNCH',
+      text: 'SOUP',
+      durationMs: 60_000,
+      schedule: { kind: 'once', atMs: Date.now() - 1000 },
+    },
+  });
+
+  await call(fireInterrupter, { ...ctx(board.slug), name: 'FIRE' }, '/x', { method: 'POST', key });
+
+  const read = await jsonOf(call(getQueue, ctx(board.slug), '/x', { key }));
+  const current = read.body.items.find((item) => item.id === read.body.currentItemId);
+  assert.equal(current?.payload?.options?.label, 'FIRE', 'the alarm keeps the glass');
+  assert.equal(
+    read.body.items.some((item) => item.payload?.options?.label === 'LUNCH'),
+    false,
+    'and the lower-ranked scheduled one did not queue behind it either',
+  );
+});
+
+test('a re-save inside the window does not re-fire the same occurrence', async () => {
+  const board = await makeBoard({ slug: 'resave-window' });
+  const key = board.apiKey;
+  const schedule = { kind: 'once', atMs: Date.now() - 1000 };
+
+  await call(saveInterrupter, ctx(board.slug), '/x', {
+    method: 'POST',
+    key,
+    body: { name: 'CLOSING', text: 'CLOSED', durationMs: 3_600_000, schedule },
+  });
+  await call(getQueue, ctx(board.slug), '/x', { key });
+
+  // The typo fix: same name, same schedule, no firedForMs in the body.
+  await call(saveInterrupter, ctx(board.slug), '/x', {
+    method: 'POST',
+    key,
+    body: { name: 'CLOSING', text: 'WE ARE CLOSED', durationMs: 3_600_000, schedule },
+  });
+
+  const read = await jsonOf(call(getQueue, ctx(board.slug), '/x', { key }));
+  assert.equal(
+    read.body.items.filter((item) => item.payload?.options?.label === 'CLOSING').length,
+    1,
+    'still one copy',
+  );
+});
+
+test('interrupters cannot be written through /config, past their own gates', async () => {
+  const board = await makeBoard({ slug: 'config-door' });
+  const key = board.apiKey;
+
+  const refused = await jsonOf(
+    call(patchConfig, ctx(board.slug), '/x', {
+      method: 'PATCH',
+      key,
+      body: { interrupters: Array.from({ length: 50 }, (_, n) => ({ name: `X${n}`, text: 'X' })) },
+    }),
+  );
+  assert.equal(refused.status, 422);
+  assert.match(refused.body.error, /not set through \/config/);
+
+  const listed = await jsonOf(call(listInterrupters, ctx(board.slug), '/x', { key }));
+  assert.deepEqual(listed.body.interrupters, [], 'nothing was written');
+});
+
+test('an interrupter with nothing to show will not be fired into a blank board', async () => {
+  const board = await makeBoard({ slug: 'blank-interrupter' });
+  const key = board.apiKey;
+
+  // Blank is fine to save - "+ Interrupt" makes one.
+  const saved = await jsonOf(
+    call(saveInterrupter, ctx(board.slug), '/x', { method: 'POST', key, body: { name: 'Interrupt 1', text: '' } }),
+  );
+  assert.equal(saved.status, 200);
+
+  const refused = await jsonOf(
+    call(fireInterrupter, { ...ctx(board.slug), name: 'Interrupt 1' }, '/x', { method: 'POST', key }),
+  );
+  assert.equal(refused.status, 422, JSON.stringify(refused.body));
+  assert.match(refused.body.error, /nothing to show/);
+});
+
+test('a window longer than the gap between its occurrences is refused', async () => {
+  const board = await makeBoard({ slug: 'stacking' });
+  const key = board.apiKey;
+
+  const refused = await jsonOf(
+    call(saveInterrupter, ctx(board.slug), '/x', {
+      method: 'POST',
+      key,
+      body: {
+        name: 'STACKS',
+        text: 'X',
+        durationMs: 60 * 60_000,
+        schedule: { kind: 'everyN', minutes: 5 },
+      },
+    }),
+  );
+  assert.equal(refused.status, 422, JSON.stringify(refused.body));
+  assert.match(refused.body.error, /longer than the gap between occurrences/);
 });
