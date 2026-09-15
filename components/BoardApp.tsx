@@ -22,6 +22,7 @@ import { Player } from '@/lib/board/player.mjs';
 import { useStatePublisher } from '@/hooks/useStatePublisher';
 import { loadBoardSkin, onAssetProgress } from '@/components/flapper/assets';
 import { createAmbient } from '@/components/flapper/ambient';
+import { createAnimator } from '@/components/flapper/animator';
 import { resolveBoardTheme } from '@/lib/board/board-theme.mjs';
 import { PACK_DEFAULTS } from '@/lib/board/theme-pack.mjs';
 import type { ThemePack } from '@/lib/board/theme-pack.mjs';
@@ -112,6 +113,10 @@ export function BoardApp({
 
   /** Set by the state-publisher hook; called on every controller change. */
   const onStateRef = useRef<((state: any) => void) | null>(null);
+  /** The board's own fidget settings, as last configured - kept so the
+   * animator can hand the fidget back exactly as it found it. */
+  const ambientMsRef = useRef(0);
+  const fidgetRef = useRef<string | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -120,6 +125,7 @@ export function BoardApp({
     // Assigned once the board exists; the cleanup below has to be able to reach
     // it, and the board is built inside an async block.
     let ambient: ReturnType<typeof createAmbient> | null = null;
+    let animator: ReturnType<typeof createAnimator> | null = null;
     let source: EventSource | null = null;
     let boardObserver: ResizeObserver | null = null;
     let ratioQuery: MediaQueryList | null = null;
@@ -195,6 +201,13 @@ export function BoardApp({
        * clack once a minute all night because a default said so.
        */
       ambient = createAmbient(board);
+      /*
+       * And the other kind of motion: an animation *is* the slide, rather
+       * than something happening to one. Separate runner because the two
+       * are opposites by scope and must never both hold the board - see the
+       * onAnimation hook below, which stops the fidget for the duration.
+       */
+      animator = createAnimator(board);
 
       const controller = new Controller(board, {});
       controller.configure(advancedFrom(initialThemeRef.current.pack));
@@ -240,15 +253,37 @@ export function BoardApp({
             // back to the quiet one whatever the board had been set to -
             // every preview in the app showed the chosen fidget and the
             // actual display did not.
-            ambient?.start(
-              Number((config as any)?.ambientMs) || 0,
-              ((config as any)?.fidget as string | null) ?? null,
-            );
+            ambientMsRef.current = Number((config as any)?.ambientMs) || 0;
+            fidgetRef.current = ((config as any)?.fidget as string | null) ?? null;
+            // Not while an animation has the board - it would clack over the
+            // top of it, and onAnimation(null) restarts it from these refs.
+            if (!animator?.showing()) ambient?.start(ambientMsRef.current, fidgetRef.current);
           } catch (error: any) {
             console.warn(`flapper: stored config refused - ${error.message}`);
           }
         },
         onNote: (text: string) => setNote(text),
+        /*
+         * The item on the glass is (or has stopped being) a designed motion.
+         * A fidget is an effect over whatever is showing, and what is showing
+         * here is the animation itself - two things moving the same cards at
+         * once is the bug, not a feature - so the fidget stands down for the
+         * length of it and comes back when playback moves on.
+         */
+        onAnimation: (name: string | null) => {
+          if (name) {
+            ambient?.stop();
+            if (!animator?.start(name)) {
+              // A name this build has never heard of: leave the blank item
+              // to play out rather than darken the board over it.
+              console.warn(`flapper: no animation called ${name} in this build`);
+              ambient?.start(ambientMsRef.current, fidgetRef.current);
+            }
+            return;
+          }
+          animator?.stop();
+          ambient?.start(ambientMsRef.current, fidgetRef.current);
+        },
       });
       playerRef.current = player;
 
@@ -333,6 +368,7 @@ export function BoardApp({
       // Not the restore: the board is going away, and painting it on the way
       // out would arm a frame loop on a canvas nobody owns.
       ambient?.destroy();
+      animator?.destroy();
       source?.close();
       boardObserver?.disconnect();
       if (ratioQuery && onRatioChange) ratioQuery.removeEventListener('change', onRatioChange);

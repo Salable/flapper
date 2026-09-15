@@ -1209,9 +1209,22 @@ means the API had to accept an interrupter with empty text, the same way
 the queue has always accepted a blank slide. `text` must still be a
 string; it just need not have anything in it yet.
 
-Not built, and not offered: an animation as an interrupter's content, and
-any trigger that is not a time. Both stay out of the dropdown until they
-exist - that is the whole lesson above.
+Not offered until it exists: any trigger that is not a time. That is the
+whole lesson above.
+
+**Animations landed the same day.** `explosion`, `rainbow` and `bounce`,
+from Dan's own description - *"like an explosion of colour, like inside
+goes red and grows out, or a rainbow"*, plus the corner-hunting logo.
+`lib/board/animations.mjs` is pure (a frame is a function of the frame
+number and the grid); `components/flapper/animator.ts` owns the clock;
+`flipboard.js` learned to wear a colour per cell rather than one per
+board, which is what all three needed and what a fidget never did.
+
+An animation is an ordinary item with no text and `options.animation`, so
+playback needed no changes at all: it holds a blank page for the dwell,
+and the animator paints over it. The board's fidget stands down while one
+is playing - an animation *is* the slide, and two things moving the same
+cards at once is the bug.
 
 ## Refused by design, not missing
 

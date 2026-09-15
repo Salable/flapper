@@ -395,6 +395,30 @@ outright (editing is re-saving, not a separate PATCH); `DELETE
 `text` may be empty — the control room creates a blank one the moment you
 click "+ Interrupt", exactly as it does a blank slide.
 
+#### An animation instead of words
+
+An item's content is either text or an **animation** - never both, and
+sending the pair is a 422:
+
+```bash
+curl -X POST {apiBase}/message \
+  -H 'authorization: Bearer KEY' -H 'content-type: application/json' \
+  -d '{"animation": "explosion", "dwellMs": 4000}'
+```
+
+`explosion`, `rainbow` and `bounce` (the corner-hunting logo) ship today.
+An animation rides on the options rather than replacing the payload, so
+everything else already true of an item stays true of this one: dwell,
+priority, `interrupt`, a label. It is colour rather than characters - a
+card wearing a colour carries no letter - and it loops for as long as the
+item is on the glass, so the dwell decides how long you watch it, not the
+animation's own length. A board's fidget stands down while one is playing:
+an animation *is* the slide, and two things moving the same cards at once
+is a bug.
+
+A saved interrupter takes the same field, which is what makes `[at 5pm]
+play [an explosion]` a sentence the product can say.
+
 #### Fired by the clock instead
 
 Give an interrupter a `schedule` and nothing has to call `.../fire` at

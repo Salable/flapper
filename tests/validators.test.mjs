@@ -368,3 +368,31 @@ test('fidget is a name it knows, or a whole one somebody made', () => {
     /cards must be between.*colour must be a #rgb/s,
   );
 });
+
+test('an animation is content, and the other kind of it - never both at once', () => {
+  assert.deepEqual(validateInterrupterPreset({ name: 'BOOM', text: '', animation: 'explosion' }), {
+    name: 'BOOM',
+    text: '',
+    animation: 'explosion',
+  });
+
+  refused(
+    () => validateInterrupterPreset({ name: 'BOOM', text: 'WORDS', animation: 'explosion' }),
+    /the two kinds of content, not a pair/,
+  );
+  refused(
+    () => validateInterrupterPreset({ name: 'BOOM', rows: ['X'], animation: 'explosion' }),
+    /the two kinds of content, not a pair/,
+  );
+  refused(() => validateInterrupterPreset({ name: 'BOOM', text: '', animation: 'nope' }), /animation must be one of/);
+
+  // On an ordinary item, the same either-or.
+  assert.equal(textOptions({ text: '', animation: 'rainbow' }).options.animation, 'rainbow');
+  refused(() => textOptions({ text: 'WORDS', animation: 'rainbow' }), /the two kinds of content, not a pair/);
+  refused(() => textOptions({ rows: ['X'], animation: 'rainbow' }), /animation does not apply when rows is given/);
+  refused(() => textOptions({ text: '', animation: 'nope' }), /animation must be one of/);
+
+  // Absent stays absent - every existing caller is untouched.
+  assert.equal(textOptions({ text: 'WORDS' }).options.animation, undefined);
+  assert.equal(validateInterrupterPreset({ name: 'FIRE', text: 'X' }).animation, undefined);
+});
