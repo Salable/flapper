@@ -34,6 +34,8 @@ import type { ThemePack } from '@/lib/board/theme-pack.mjs';
  * Content is `text` (+ optional align/valign) or `rows` - the same
  * either-or a queue item's own payload has, and the same reasoning:
  * `validateInterrupterPreset` refuses align/valign alongside rows. */
+type InterrupterSchedule = { kind: 'daily'; at: string };
+
 type InterrupterPreset = {
   name: string;
   text?: string;
@@ -41,6 +43,12 @@ type InterrupterPreset = {
   align?: Align;
   valign?: Valign;
   durationMs?: number;
+  /** Absent - fired by hand or over the API. Present - the clock starts it,
+   * and Duration is what closes it again. */
+  schedule?: InterrupterSchedule;
+  timezone?: string;
+  /** Server-stamped: the occurrence already dealt with. Read-only here. */
+  firedForMs?: number;
 };
 
 type Snapshot = {
@@ -107,11 +115,14 @@ export function QueueManager({
   const [presetRows, setPresetRows] = useState<string[] | null>(null);
   const [presetAlign, setPresetAlign] = useState<Align>('center');
   const [presetValign, setPresetValign] = useState<Valign>('middle');
-  /** Source, same three choices a slide has (Text/API/Animation) - local
-   * only, nothing to persist for API/Animation yet (see SheetEditor's own
-   * doc). Always resets to Text on selecting a different tab. */
-  const [presetSource, setPresetSource] = useState<'text' | 'api' | 'animation'>('text');
   const [presetTextOpen, setPresetTextOpen] = useState(false);
+  /** WHEN the interrupter starts. 'manual' is the standing case - a Fire
+   * button on its own tab, or a call to its name over the API, both of
+   * which every saved interrupter has anyway. The other two hand it to the
+   * clock, which is the only trigger that is actually configured per
+   * interrupter (Dan, 15 Sep 2026: "[at 5pm] play [this]"). */
+  const [presetWhen, setPresetWhen] = useState<'manual' | 'daily'>('manual');
+  const [presetAt, setPresetAt] = useState('17:00');
   /** '' is the switch - blocks the rotation entirely until dismissed or
    * broken by a higher-ranked one. Anything else is a hard limit in
    * milliseconds: shown, then gone outright, sent as `durationMs`. */
@@ -241,12 +252,62 @@ export function QueueManager({
     onSaved?.();
   }
 
+  /**
+   * The name a brand-new interrupter starts with, so nobody has to invent
+   * one before they can do anything - the same courtesy `+ Slide` does by
+   * labelling a blank slide "Slide N". Counts past the names already
+   * taken rather than the list length, so deleting #2 of three doesn't
+   * propose a name that is already on the rail.
+   */
+  function nextPresetName() {
+    const taken = new Set((snapshot?.config?.interrupters ?? []).map((entry) => entry.name.toLowerCase()));
+    for (let n = taken.size + 1; ; n += 1) {
+      const candidate = `Interrupt ${n}`;
+      if (!taken.has(candidate.toLowerCase())) return candidate;
+    }
+  }
+
+  /**
+   * "+ Interrupt": the only way to add one. Blank, auto-named, and a real
+   * row from the click - the same shape `addSlide` has, including its
+   * reentrancy guard, because a fast double-click would otherwise save two
+   * interrupters and could push the board past its licensed ceiling.
+   */
+  async function addPreset() {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setError('');
+    try {
+      const name = nextPresetName();
+      const response = await post('/interrupters', 'POST', { name, text: '' });
+      if (!response.ok) {
+        const errBody = await response.json().catch(() => ({}));
+        setError(errBody.error || `HTTP ${response.status}`);
+        return;
+      }
+      await refresh();
+      // Open the one just made, the way + Slide selects its new slide.
+      setPresetSelectedName(name);
+      setPresetName(name);
+      setPresetRows(null);
+      setPresetText('');
+      setPresetAlign('center');
+      setPresetValign('middle');
+      setPresetDuration('');
+      setPresetWhen('manual');
+      setPresetAt('17:00');
+      setPresetTextOpen(false);
+    } finally {
+      busyRef.current = false;
+    }
+    onSaved?.();
+  }
+
   /** Load a saved preset's fields into the form, or blank it for `null` -
    * the same tab, whichever one is open. */
   function selectPreset(preset: InterrupterPreset | null) {
     setPresetSelectedName(preset?.name ?? null);
-    setPresetName(preset?.name ?? '');
-    setPresetSource('text');
+    setPresetName(preset?.name ?? nextPresetName());
     setPresetTextOpen(false);
     if (preset?.rows !== undefined) {
       setPresetRows(preset.rows);
@@ -260,6 +321,8 @@ export function QueueManager({
       setPresetValign(preset?.valign ?? 'middle');
     }
     setPresetDuration(preset?.durationMs !== undefined ? String(preset.durationMs) : '');
+    setPresetWhen(preset?.schedule?.kind ?? 'manual');
+    setPresetAt(preset?.schedule?.at ?? '17:00');
     setError('');
   }
 
@@ -276,7 +339,7 @@ export function QueueManager({
    */
   async function savePreset() {
     const name = presetName.trim();
-    if (name === '' || (presetRows === null && presetText.trim() === '')) return;
+    if (name === '') return;
     // Captured before the await, not read again after it - the rail
     // selection can move to a different preset (or off a new, unsaved one)
     // while this request is in flight, since only the Save button itself
@@ -297,6 +360,13 @@ export function QueueManager({
       body.valign = presetValign;
     }
     if (presetDuration !== '') body.durationMs = Number(presetDuration);
+    if (presetWhen !== 'manual') {
+      body.schedule = { kind: 'daily', at: presetAt };
+      // "5pm" means five in the evening where the board is, not UTC. The
+      // browser's own zone is the only one anybody has told us about, and
+      // it is the zone the person typing 17:00 is thinking in.
+      body.timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    }
     const ok = await act(() => post('/interrupters', 'POST', body));
     setPresetSending(false);
     if (ok && presetSelectedName === wasSelectedName) {
@@ -830,9 +900,9 @@ export function QueueManager({
             <button
               type="button"
               className="queue-rail-add"
-              title="Save a new interrupter"
-              aria-label="Save a new interrupter"
-              onClick={() => selectPreset(null)}
+              title="Add an interrupter"
+              aria-label="Add an interrupter"
+              onClick={addPreset}
             >
               + Interrupt
             </button>
@@ -858,7 +928,7 @@ export function QueueManager({
                     <Field
                       label="Name"
                       htmlFor="interrupt-name"
-                      hint="Required - how this interrupter is fired, from its own tab here or by name over the API. Locked once saved (Save is an upsert by name, not a rename) - delete and re-save under a new name instead."
+                      hint="Also its API name. Locked once saved - to rename, delete and save again."
                     >
                       <TextInput
                         id="interrupt-name"
@@ -869,24 +939,42 @@ export function QueueManager({
                         onChange={(event) => setPresetName(event.target.value)}
                       />
                     </Field>
-                    <Field label="Source" htmlFor="interrupt-source">
+                    <Field label="Starts" htmlFor="interrupt-when">
                       <Select
-                        id="interrupt-source"
-                        value={presetSource}
-                        onChange={(event) => setPresetSource(event.target.value as 'text' | 'api' | 'animation')}
+                        id="interrupt-when"
+                        value={presetWhen}
+                        onChange={(event) => {
+                          const next = event.target.value as 'manual' | 'daily';
+                          setPresetWhen(next);
+                          // Until-dismissed stops being offered below, and an
+                          // empty Duration would save as exactly the pair the
+                          // server refuses. Land on a real window, not a 422.
+                          if (next !== 'manual' && presetDuration === '') setPresetDuration('30000');
+                        }}
                       >
-                        <option value="text">Text</option>
-                        <option value="api">API</option>
-                        <option value="animation">Animation</option>
+                        <option value="manual">Button</option>
+                        <option value="daily">Set time</option>
                       </Select>
                     </Field>
                   </div>
 
-                  {presetSource === 'text' && (
-                    <div className="sheet-source-setup">
-                      <Button size="sm" onClick={() => setPresetTextOpen(true)}>
-                        Edit text →
-                      </Button>
+                  {presetWhen === 'daily' && (
+                    <div className="sheet-editor-row">
+                      <Field label="Every day at" htmlFor="interrupt-at" hint="Your timezone, not UTC.">
+                        <TextInput
+                          id="interrupt-at"
+                          type="time"
+                          value={presetAt}
+                          onChange={(event) => setPresetAt(event.target.value)}
+                        />
+                      </Field>
+                    </div>
+                  )}
+
+                  <div className="sheet-source-setup">
+                    <Button size="sm" onClick={() => setPresetTextOpen(true)}>
+                      Edit text →
+                    </Button>
                       <EditTextPopup
                         open={presetTextOpen}
                         onClose={() => setPresetTextOpen(false)}
@@ -908,46 +996,23 @@ export function QueueManager({
                           return true;
                         }}
                       />
-                    </div>
-                  )}
-
-                  {presetSource === 'api' && (
-                    <div className="sheet-source-setup">
-                      <Field label="Endpoint">
-                        <code className="curl">
-                          {`POST /api/b/{slug}/sheets/${presetName.trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-') || '…'}`}
-                        </code>
-                      </Field>
-                      <p className="ui-hint">
-                        This interrupter's own Name, above, is the address - nothing extra to set here. Not built
-                        yet - the endpoint above isn't live.
-                      </p>
-                    </div>
-                  )}
-
-                  {presetSource === 'animation' && (
-                    <div className="sheet-source-setup">
-                      <Field label="Animation" htmlFor="interrupt-animation">
-                        <Select id="interrupt-animation" disabled>
-                          <option>No animations yet</option>
-                        </Select>
-                      </Field>
-                      <p className="ui-hint">Nothing to pick - none exist yet. The picker can wait here until some do.</p>
-                    </div>
-                  )}
+                  </div>
 
                   <div className="interrupt-form-row">
                     <Field
                       label="Duration"
                       htmlFor="interrupt-duration"
-                      hint="One or the other: a time limit means shown, then gone outright - whether or not anything else is queued - the instant it's up. Until dismissed is a switch: it blocks the rotation entirely, full stop, until you remove it or a higher-ranked interrupter fires."
+                      hint="A time limit: shown, then gone. Until dismissed: it holds the board until you remove it."
                     >
                       <Select
                         id="interrupt-duration"
                         value={presetDuration}
                         onChange={(event) => setPresetDuration(event.target.value)}
                       >
-                        <option value="">Until dismissed (blocks the rotation)</option>
+                        {/* A scheduled interrupter has to close its own
+                            window - nobody is standing there at 5pm to
+                            dismiss it, and the server refuses the pair. */}
+                        {presetWhen === 'manual' && <option value="">Until dismissed (blocks the rotation)</option>}
                         <option value="5000">5 seconds</option>
                         <option value="10000">10 seconds</option>
                         <option value="30000">30 seconds</option>
@@ -983,9 +1048,10 @@ export function QueueManager({
                       </Button>
                     </div>
                   )}
-                  {!showingNewPreset && (
+                  {!showingNewPreset && presetWhen === 'manual' && (
                     <div className="interrupt-form-actions">
                       <Button
+                        className={selectedPresetIsLive ? 'interrupt-fire-live' : ''}
                         variant={selectedPresetIsLive && selectedPreset.durationMs === undefined ? 'ghost' : 'primary'}
                         // Muted means genuinely inert here, not just quieter -
                         // firing an "until dismissed" preset that's already

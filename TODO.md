@@ -63,6 +63,13 @@ applies:
 | API | Nothing extra - see below |
 | Animation | Pick which one, from a dropdown |
 
+> **Superseded for interrupters, 15 Sep 2026 - see *An interrupter's
+> trigger, not its source* below.** The three-way picker shipped on the
+> interrupter form and Dan hit it while demoing: two of its three choices
+> dead-ended ("Not built yet", "No animations yet"), and the axis was wrong
+> besides. It has been removed there. A *sheet's* source picker is
+> untouched by that decision - this table still describes it.
+
 **No separate slot name for API - the sheet's own Name is the address.**
 Caught in the prototype: a first pass asked for a "slot name" on top of
 the sheet's own Name (the rail's tab label, needed regardless of source) -
@@ -1035,11 +1042,15 @@ character of it, and puts that exact page back. An animation needs nothing
 to already be there, because it *is* what is there.
 
 So the two are siblings by mechanism (both move tiles with nobody driving)
-and opposites by scope, which is exactly why "Animation" is already an
-option in the source picker (`QueueManager.tsx`, Text/API/Animation) and
-fidget never could be. Worth noting the source table under *A sheet has a
-source* above lists Typed/Pushed/Fetched/Clock and **not** Animation, even
-though the picker offers it - that table needs a fifth row.
+and opposites by scope, which is why an animation could be a *sheet* and a
+fidget never could. Worth noting the source table under *A sheet has a
+source* above lists Typed/Pushed/Fetched/Clock and **not** Animation.
+
+That gap turned out to be the table being right rather than incomplete
+(Dan, 15 Sep 2026): every row in it answers "where do the words come
+from", and an animation has no words and nothing feeding it. It is not a
+fifth source; it is a different kind of content. The `QueueManager.tsx`
+picker that listed Text/API/Animation on one axis has gone.
 
 What this rules out: the design's pack. The precedent argument was that
 Hold/Travel speed/Landing moved there because how a board moves belongs to
@@ -1056,9 +1067,10 @@ sheets come and go underneath it.)
 
 - [x] Decide whether a fidget is its own asset or part of the design -
       neither; it is an effect over a slide's content. Reasoning above.
-- [ ] Add the missing **Animation** row to the source table under *A sheet
-      has a source*, now that the picker offers it and fidget has been
-      ruled out of being one.
+- [x] Add the missing **Animation** row to the source table under *A sheet
+      has a source* - **not done, and deliberately.** 15 Sep 2026: an
+      animation is not a source at all, so the table stays at four rows.
+      Reasoning immediately above.
 - [ ] Lift `SWEEP_EVERY`, `REST_ODDS` and the 900ms restore out of the
       constants and into a validated style object, defaults unchanged so
       every existing board keeps the exact behaviour it has now.
@@ -1143,6 +1155,63 @@ tested, working) are kept as the seed of that feature, not deleted.
       `validateFidget` finally has a production caller.
 - [ ] Animation overlays (snake, pac-man) as their own feature, later -
       `lib/board/travellers.mjs` is the seed, tested and working.
+
+## An interrupter's trigger, not its source
+
+*Settled with Dan, 15 Sep 2026, from a demo that went wrong: showing
+somebody how an interrupter works, the Source dropdown offered **API** and
+**Animation**, and both dead-ended - "Not built yet - the endpoint above
+isn't live" and "No animations yet".*
+
+Two separate faults, and the second is the interesting one.
+
+**The dead ends.** A picker is a promise. Two of its three choices could
+not be chosen, which is worse than their absence: the demo stopped to
+explain why the product does not do what its own UI just offered.
+
+**The wrong axis.** Text and API answer *where the words come from*. An
+animation has no words and nothing feeds it. Dan: *"animation isn't an
+interrupter input"*, and then the shape that resolved it: **`[at 5pm] play
+[this]`** - a trigger and a content, not one dropdown pretending to be
+both.
+
+Working that through emptied the trigger slot, too. Every saved
+interrupter already has a **Fire** button on its own tab, and already
+answers to its own name at `POST /api/b/{slug}/interrupters/{name}/fire`.
+Neither is configured per interrupter, so neither is a choice - Dan: *"as
+manual is just a button you can click"*. **A time was the only trigger
+that was genuinely per-interrupter, and it did not exist.** So it was
+built rather than listed:
+
+| Starts | What it does |
+| --- | --- |
+| **Button** | reveals Fire on the tab. Also the API, which needs no setting up |
+| **Set time** | reveals a time. `{kind: 'daily', at}`, read in the browser's own zone |
+
+**The clock is the server's, not the display's.** `lib/board/player.mjs`
+is explicit that the server owns what plays, so a display evaluating 5pm
+for itself would break that and let two open screens each decide
+separately. Instead a live board's queue *read* is the moment - the same
+one `sweepExpiredLive` already uses, for the same reason: a live board has
+nothing ticking it forward on its own. `lib/board/interrupt-schedule.mjs`
+answers "has a window opened since we last looked", and the occurrence
+instant is stamped on the preset as `firedForMs` inside the same
+row-locked write, which is what makes it idempotent. No cron, no job
+runner, no coordination.
+
+A scheduled interrupter must carry a `durationMs`: its window has to close
+on its own, because "until dismissed" is a switch somebody throws and
+nobody is standing there at 5pm.
+
+**Blank interrupters are allowed now.** `+ Interrupt` creates the row on
+the click, auto-named `Interrupt N`, exactly as `+ Slide` does - which
+means the API had to accept an interrupter with empty text, the same way
+the queue has always accepted a blank slide. `text` must still be a
+string; it just need not have anything in it yet.
+
+Not built, and not offered: an animation as an interrupter's content, and
+any trigger that is not a time. Both stay out of the dropdown until they
+exist - that is the whole lesson above.
 
 ## Refused by design, not missing
 

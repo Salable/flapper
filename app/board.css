@@ -1114,6 +1114,7 @@ main.landing .error {
   white-space: nowrap;
 }
 
+
 /*
  * A slide's tab: the same look as .queue-rail's plain buttons above (this
  * carries its own copy of that styling rather than relying on the
@@ -2088,6 +2089,36 @@ main.landing .error {
 .interrupt-form-actions {
   display: flex;
   gap: 8px;
+}
+
+/* Fire, while this interrupter is the thing on the glass. It is disabled
+   because there is nothing a second click could do (see the button's own
+   comment in QueueManager), but flat-disabled read as broken rather than
+   as busy - the board is mid-job, and the button should say so. Breathing
+   rather than spinning: the work is standing still on a wall, not
+   loading. */
+.interrupt-fire-live:disabled {
+  opacity: 1;
+  animation: interrupt-fire-live 1.6s ease-in-out infinite;
+}
+
+@keyframes interrupt-fire-live {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
+/* Somebody who has asked not to be moved still needs to see the state, so
+   it holds the mid-point of the pulse rather than losing the signal. */
+@media (prefers-reduced-motion: reduce) {
+  .interrupt-fire-live:disabled {
+    animation: none;
+    opacity: 0.7;
+  }
 }
 
 /* Narrow: the rail's fixed 220px plus a 460px-capped panel plus the preview

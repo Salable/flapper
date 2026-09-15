@@ -224,8 +224,11 @@ test('a saved interrupter needs a name and text; Duration is optional and one-or
   refused(() => validateInterrupterPreset({ text: 'X' }), /name is required/);
   refused(() => validateInterrupterPreset({ name: '  ', text: 'X' }), /name is required/);
   refused(() => validateInterrupterPreset({ name: 'x'.repeat(61), text: 'X' }), /name is at most 60/);
-  refused(() => validateInterrupterPreset({ name: 'FIRE' }), /text is required/);
-  refused(() => validateInterrupterPreset({ name: 'FIRE', text: '  ' }), /text is required/);
+  refused(() => validateInterrupterPreset({ name: 'FIRE' }), /text must be a string/);
+  // Blank text is allowed, the way a blank slide is: `+ Interrupt` creates
+  // the row on the click, before there is anything to type into it.
+  assert.deepEqual(validateInterrupterPreset({ name: 'FIRE', text: '' }), { name: 'FIRE', text: '' });
+  assert.deepEqual(validateInterrupterPreset({ name: 'FIRE', text: '  ' }), { name: 'FIRE', text: '  ' });
   refused(
     () => validateInterrupterPreset({ name: 'FIRE', text: 'X', durationMs: 0 }),
     /durationMs must be a positive number/,
@@ -243,6 +246,48 @@ test('a saved interrupter needs a name and text; Duration is optional and one-or
     24 * 60 * 60 * 1000,
     'exactly the cap is fine',
   );
+});
+
+test('a scheduled interrupter carries a spec, and a window that closes on its own', () => {
+  const at5pm = { kind: 'daily', at: '17:00' };
+
+  assert.deepEqual(
+    validateInterrupterPreset({ name: 'CLOSING', text: 'WE ARE CLOSED', durationMs: 60000, schedule: at5pm }),
+    { name: 'CLOSING', text: 'WE ARE CLOSED', durationMs: 60000, schedule: at5pm },
+  );
+
+  assert.equal(
+    validateInterrupterPreset({
+      name: 'CLOSING',
+      text: 'X',
+      durationMs: 60000,
+      schedule: at5pm,
+      timezone: 'Europe/London',
+    }).timezone,
+    'Europe/London',
+  );
+
+  // Until-dismissed is a switch somebody throws; nobody is there at 5pm.
+  refused(
+    () => validateInterrupterPreset({ name: 'CLOSING', text: 'X', schedule: at5pm }),
+    /scheduled interrupter needs a durationMs/,
+  );
+
+  refused(
+    () => validateInterrupterPreset({ name: 'CLOSING', text: 'X', durationMs: 60000, schedule: { kind: 'sometimes' } }),
+    /schedule.kind must be one of/,
+  );
+  refused(
+    () => validateInterrupterPreset({ name: 'CLOSING', text: 'X', durationMs: 60000, schedule: at5pm, timezone: 'Mars/Olympus' }),
+    /timezone must be an IANA zone/,
+  );
+  refused(
+    () => validateInterrupterPreset({ name: 'FIRE', text: 'X', timezone: 'Europe/London' }),
+    /timezone only applies to a scheduled interrupter/,
+  );
+
+  // No schedule is still the ordinary case, and stays untouched.
+  assert.equal(validateInterrupterPreset({ name: 'FIRE', text: 'X' }).schedule, undefined);
 
   // "reorder" collides with this board's own /interrupters/reorder route -
   // DELETE /interrupters/reorder would hit that static route (405) rather
@@ -286,7 +331,7 @@ test('a saved interrupter can carry align/valign, or rows instead of text - the 
   refused(() => validateInterrupterPreset({ name: 'FIRE', rows: [] }), /rows must contain at least one/);
   refused(() => validateInterrupterPreset({ name: 'FIRE', rows: ['', '   '] }), /rows must contain at least one/);
   // Neither text nor rows at all is still refused, same as before.
-  refused(() => validateInterrupterPreset({ name: 'FIRE' }), /text is required/);
+  refused(() => validateInterrupterPreset({ name: 'FIRE' }), /text must be a string/);
   // wrap isn't silently dropped either, in either branch - a saved
   // interrupter has no wrap of its own yet, so a caller sending it is told
   // rather than having it vanish (caught in code review: this used to be

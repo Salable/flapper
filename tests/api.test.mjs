@@ -1911,3 +1911,62 @@ test('a rows-mode item is stored with rows nested under options, not at the top'
   assert.deepEqual(item.payload.options.rows, ['HELLO', 'WORLD']);
   assert.equal(item.payload.text, '', 'text is always present, empty for a rows-mode item');
 })
+
+test('a scheduled interrupter is started by the clock on a live board, once, without anyone firing it', async () => {
+  const board = await makeBoard({ slug: 'clock-interrupter' });
+  const key = board.apiKey;
+
+  // `once` a second ago, with a window still open: due the moment anything
+  // reads this board, which is what a display does constantly.
+  const saved = await jsonOf(
+    call(saveInterrupter, ctx(board.slug), '/x', {
+      method: 'POST',
+      key,
+      body: {
+        name: 'CLOSING',
+        text: 'WE ARE CLOSED',
+        durationMs: 60_000,
+        schedule: { kind: 'once', atMs: Date.now() - 1000 },
+      },
+    }),
+  );
+  assert.equal(saved.status, 200, JSON.stringify(saved.body));
+
+  // Nothing fired it. The read itself is the moment.
+  const first = await jsonOf(call(getQueue, ctx(board.slug), '/x', { key }));
+  assert.equal(first.status, 200);
+  const shown = first.body.items.filter((item) => item.payload?.options?.label === 'CLOSING');
+  assert.equal(shown.length, 1, 'the clock started it');
+  assert.equal(shown[0].payload.text, 'WE ARE CLOSED');
+
+  // Reading again must not start a second copy of the same occurrence -
+  // and nor would a second display, which is the same call.
+  const second = await jsonOf(call(getQueue, ctx(board.slug), '/x', { key }));
+  assert.equal(
+    second.body.items.filter((item) => item.payload?.options?.label === 'CLOSING').length,
+    1,
+    'the same 5pm never fires twice',
+  );
+
+  // The occurrence is stamped on the preset, which is what makes that true.
+  const listed = await jsonOf(call(listInterrupters, ctx(board.slug), '/x', { key }));
+  assert.equal(typeof listed.body.interrupters[0].firedForMs, 'number');
+});
+
+test('an unscheduled interrupter is left entirely alone by the clock', async () => {
+  const board = await makeBoard({ slug: 'no-clock-interrupter' });
+  const key = board.apiKey;
+
+  await call(saveInterrupter, ctx(board.slug), '/x', {
+    method: 'POST',
+    key,
+    body: { name: 'FIRE', text: 'FIRE EVACUATE' },
+  });
+
+  const read = await jsonOf(call(getQueue, ctx(board.slug), '/x', { key }));
+  assert.equal(
+    read.body.items.filter((item) => item.payload?.options?.label === 'FIRE').length,
+    0,
+    'it waits for a button or an API call, as it always did',
+  );
+});

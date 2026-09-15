@@ -384,15 +384,46 @@ broken by a higher-ranked interrupter firing — there is no unbounded
 dwell it supports (currently 24 hours) with no expiry, which is the same
 thing in practice.
 
-This is the one door from a saved interrupter to the glass — it posts
-exactly the saved text with `priority: "now"`, `interrupt: true`, and that
-preset's own Duration translated to `dwellMs`/`expiresInMs`, the same as
-composing it by hand would. `GET {apiBase}/interrupters` lists what's
-saved; `POST {apiBase}/interrupters` with a name that already exists
-replaces it outright (editing is re-saving, not a separate PATCH);
-`DELETE {apiBase}/interrupters/{name}` removes one. A board keeps at most
-20. Saving one never touches the glass — nothing is queued until
-`.../fire` is called on it by name.
+This is one of the two doors from a saved interrupter to the glass — it
+posts exactly the saved text with `priority: "now"`, `interrupt: true`,
+and that preset's own Duration translated to `dwellMs`/`expiresInMs`, the
+same as composing it by hand would. The other door is a schedule, below.
+`GET {apiBase}/interrupters` lists what's saved; `POST
+{apiBase}/interrupters` with a name that already exists replaces it
+outright (editing is re-saving, not a separate PATCH); `DELETE
+{apiBase}/interrupters/{name}` removes one. A board keeps at most 20.
+`text` may be empty — the control room creates a blank one the moment you
+click "+ Interrupt", exactly as it does a blank slide.
+
+#### Fired by the clock instead
+
+Give an interrupter a `schedule` and nothing has to call `.../fire` at
+all:
+
+```bash
+curl -X POST {apiBase}/interrupters \
+  -H 'authorization: Bearer KEY' -H 'content-type: application/json' \
+  -d '{"name": "closing", "text": "WE ARE CLOSED", "durationMs": 60000,
+       "schedule": {"kind": "daily", "at": "17:00"},
+       "timezone": "Europe/London"}'
+```
+
+The spec is the same one a scheduled board's items take
+(`lib/board/schedule.mjs`: `interval`, `everyN`, `hourly`, `daily`,
+`weekly`, `once`); `timezone` is an IANA name, and only applies alongside
+a `schedule`. **`durationMs` stops being optional**: the window has to
+close on its own, since "until dismissed" needs somebody there to dismiss
+it.
+
+Nothing polls. A live board's queue read is the moment the window is
+noticed — the same read that already sweeps expired interrupters — and the
+occurrence is stamped on the preset as `firedForMs`, so the same 5pm never
+starts twice however many displays are open. A window that closed while
+nobody was reading is not reopened: a board left all weekend comes back to
+what is true now. The queue item it creates carries `source: "schedule"`.
+
+Saving an interrupter never touches the glass — nothing is queued until
+`.../fire` is called on it by name, or its schedule comes round.
 
 An interrupter fired with no `durationMs` blocks the rotation until
 something ends it — that something is `POST
