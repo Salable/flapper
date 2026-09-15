@@ -91,3 +91,11 @@ test('running it twice changes nothing the second time', async () => {
   assert.deepEqual([second.lifted.length, second.skipped.length], [0, 0]);
   assert.equal(await capOf('hello-adam'), 3);
 });
+
+test('the deploy hook can run it without a Salable key present, and says so', async () => {
+  // The build path must never fail a deploy over a tidy-up. This is the
+  // shape migrate-if-db.mjs relies on: a plain function, no process.exit,
+  // no throw on an empty database.
+  const { lifted, skipped } = await unpinBoards(db, { allowanceOf, apply: true });
+  assert.deepEqual([lifted.length, skipped.length], [0, 0], 'a clean database is a no-op');
+});
