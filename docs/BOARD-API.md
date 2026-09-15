@@ -419,6 +419,29 @@ is a bug.
 A saved interrupter takes the same field, which is what makes `[at 5pm]
 play [an explosion]` a sentence the product can say.
 
+#### Exporting a board as video
+
+`tools/export-video.mjs` renders a board to an mp4 with no browser and no
+display running:
+
+```bash
+node tools/export-video.mjs --animation explosion --out explosion.mp4
+node tools/export-video.mjs --text "HELLO WORLD" --seconds 2 --out hello.mp4
+```
+
+Every frame is *asked for* rather than captured. `Flipboard.tick(now)` takes
+its timestamp as an argument (`requestAnimationFrame` only ever supplied
+it), and an animation frame is a pure function of the frame number, so an
+export runs as fast as the machine can draw rather than as slow as the wall
+clock, and asking for frame 5 twice gives frame 5 twice. The card texture
+itself is random by design (a skin's grunge specks), so two separate runs
+are not byte-identical - what is deterministic is the content.
+
+Local only, and deliberately: it needs `ffmpeg`, which the serverless host
+does not have. A "download this board" button in the product is a hosting
+decision rather than a code one, and this is the part that does not need
+that decision made.
+
 #### Filling a slide by name
 
 A slide in the rotation is addressable by the name on its rail tab, so an
