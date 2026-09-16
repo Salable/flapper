@@ -161,7 +161,7 @@ export function BoardSidebar({
       <div className="shape-surface">
         <div className="board-side-shape">
           <Field
-            label="Start from"
+            label="Design"
             htmlFor="side-theme"
             hint="Replaces this board's look with the one you pick. To make your own, go to Designs."
           >

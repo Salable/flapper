@@ -12,7 +12,7 @@ import {
   validateConfigPatch,
   validateInterrupterPreset,
 } from '../lib/api/validators.mjs';
-import { THEME_IDS } from '../lib/board/themes.mjs';
+import { THEME_IDS, THEMES } from '../lib/board/themes.mjs';
 
 function refused(fn, pattern) {
   try {
@@ -157,8 +157,8 @@ test('themePack: validated against the board\'s theme, stored sparse, sized as 4
   );
   // Validated against the theme named in the same patch when there is one.
   assert.deepEqual(
-    validateConfigPatch({ theme: 'canary', themePack: { card: { fill: '#139a04' } } }, { theme: 'classic' }),
-    { theme: 'canary', themePack: null },
+    validateConfigPatch({ theme: 'sorbet', themePack: { card: { fill: THEMES.sorbet.card.fill } } }, { theme: 'classic' }),
+    { theme: 'sorbet', themePack: null },
   );
   refused(() => validateConfigPatch({ themePack: [] }), /object or null/);
   refused(() => validateConfigPatch({ themePack: { card: { fill: 'nope' } } }), /card.fill/);
@@ -170,7 +170,7 @@ test('themePack: validated against the board\'s theme, stored sparse, sized as 4
   } catch (error) {
     assert.equal(error.status, 413);
   }
-  assert.deepEqual(validateConfigPatch({ theme: 'canary' }), { theme: 'canary' });
+  assert.deepEqual(validateConfigPatch({ theme: 'sorbet' }), { theme: 'sorbet' });
   assert.deepEqual(validateConfigPatch({ theme: 'classic' }), { theme: 'classic' });
 });
 
@@ -224,8 +224,11 @@ test('a saved interrupter needs a name and text; Duration is optional and one-or
   refused(() => validateInterrupterPreset({ text: 'X' }), /name is required/);
   refused(() => validateInterrupterPreset({ name: '  ', text: 'X' }), /name is required/);
   refused(() => validateInterrupterPreset({ name: 'x'.repeat(61), text: 'X' }), /name is at most 60/);
-  refused(() => validateInterrupterPreset({ name: 'FIRE' }), /text is required/);
-  refused(() => validateInterrupterPreset({ name: 'FIRE', text: '  ' }), /text is required/);
+  refused(() => validateInterrupterPreset({ name: 'FIRE' }), /text must be a string/);
+  // Blank text is allowed, the way a blank slide is: `+ Interrupt` creates
+  // the row on the click, before there is anything to type into it.
+  assert.deepEqual(validateInterrupterPreset({ name: 'FIRE', text: '' }), { name: 'FIRE', text: '' });
+  assert.deepEqual(validateInterrupterPreset({ name: 'FIRE', text: '  ' }), { name: 'FIRE', text: '  ' });
   refused(
     () => validateInterrupterPreset({ name: 'FIRE', text: 'X', durationMs: 0 }),
     /durationMs must be a positive number/,
@@ -243,6 +246,48 @@ test('a saved interrupter needs a name and text; Duration is optional and one-or
     24 * 60 * 60 * 1000,
     'exactly the cap is fine',
   );
+});
+
+test('a scheduled interrupter carries a spec, and a window that closes on its own', () => {
+  const at5pm = { kind: 'daily', at: '17:00' };
+
+  assert.deepEqual(
+    validateInterrupterPreset({ name: 'CLOSING', text: 'WE ARE CLOSED', durationMs: 60000, schedule: at5pm }),
+    { name: 'CLOSING', text: 'WE ARE CLOSED', durationMs: 60000, schedule: at5pm },
+  );
+
+  assert.equal(
+    validateInterrupterPreset({
+      name: 'CLOSING',
+      text: 'X',
+      durationMs: 60000,
+      schedule: at5pm,
+      timezone: 'Europe/London',
+    }).timezone,
+    'Europe/London',
+  );
+
+  // Until-dismissed is a switch somebody throws; nobody is there at 5pm.
+  refused(
+    () => validateInterrupterPreset({ name: 'CLOSING', text: 'X', schedule: at5pm }),
+    /scheduled interrupter needs a durationMs/,
+  );
+
+  refused(
+    () => validateInterrupterPreset({ name: 'CLOSING', text: 'X', durationMs: 60000, schedule: { kind: 'sometimes' } }),
+    /schedule.kind must be one of/,
+  );
+  refused(
+    () => validateInterrupterPreset({ name: 'CLOSING', text: 'X', durationMs: 60000, schedule: at5pm, timezone: 'Mars/Olympus' }),
+    /timezone must be an IANA zone/,
+  );
+  refused(
+    () => validateInterrupterPreset({ name: 'FIRE', text: 'X', timezone: 'Europe/London' }),
+    /timezone only applies to a scheduled interrupter/,
+  );
+
+  // No schedule is still the ordinary case, and stays untouched.
+  assert.equal(validateInterrupterPreset({ name: 'FIRE', text: 'X' }).schedule, undefined);
 
   // "reorder" collides with this board's own /interrupters/reorder route -
   // DELETE /interrupters/reorder would hit that static route (405) rather
@@ -286,7 +331,7 @@ test('a saved interrupter can carry align/valign, or rows instead of text - the 
   refused(() => validateInterrupterPreset({ name: 'FIRE', rows: [] }), /rows must contain at least one/);
   refused(() => validateInterrupterPreset({ name: 'FIRE', rows: ['', '   '] }), /rows must contain at least one/);
   // Neither text nor rows at all is still refused, same as before.
-  refused(() => validateInterrupterPreset({ name: 'FIRE' }), /text is required/);
+  refused(() => validateInterrupterPreset({ name: 'FIRE' }), /text must be a string/);
   // wrap isn't silently dropped either, in either branch - a saved
   // interrupter has no wrap of its own yet, so a caller sending it is told
   // rather than having it vanish (caught in code review: this used to be
@@ -322,4 +367,32 @@ test('fidget is a name it knows, or a whole one somebody made', () => {
     () => validateConfigPatch({ fidget: { cards: 0, beats: [{ kind: 'colour', colour: 'lime' }] } }),
     /cards must be between.*colour must be a #rgb/s,
   );
+});
+
+test('an animation is content, and the other kind of it - never both at once', () => {
+  assert.deepEqual(validateInterrupterPreset({ name: 'BOOM', text: '', animation: 'explosion' }), {
+    name: 'BOOM',
+    text: '',
+    animation: 'explosion',
+  });
+
+  refused(
+    () => validateInterrupterPreset({ name: 'BOOM', text: 'WORDS', animation: 'explosion' }),
+    /the two kinds of content, not a pair/,
+  );
+  refused(
+    () => validateInterrupterPreset({ name: 'BOOM', rows: ['X'], animation: 'explosion' }),
+    /the two kinds of content, not a pair/,
+  );
+  refused(() => validateInterrupterPreset({ name: 'BOOM', text: '', animation: 'nope' }), /animation must be one of/);
+
+  // On an ordinary item, the same either-or.
+  assert.equal(textOptions({ text: '', animation: 'rainbow' }).options.animation, 'rainbow');
+  refused(() => textOptions({ text: 'WORDS', animation: 'rainbow' }), /the two kinds of content, not a pair/);
+  refused(() => textOptions({ rows: ['X'], animation: 'rainbow' }), /animation does not apply when rows is given/);
+  refused(() => textOptions({ text: '', animation: 'nope' }), /animation must be one of/);
+
+  // Absent stays absent - every existing caller is untouched.
+  assert.equal(textOptions({ text: 'WORDS' }).options.animation, undefined);
+  assert.equal(validateInterrupterPreset({ name: 'FIRE', text: 'X' }).animation, undefined);
 });

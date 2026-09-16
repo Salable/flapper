@@ -14,8 +14,11 @@ export type TypeMeta = {
   sample?: string;
   /** The default for most walls; marked on the card. */
   recommended?: boolean;
-  /** Named when the type is locked behind an account tier. */
-  tier?: string;
+  /**
+   * Set when this account's licence does not cover the type. Decoration: the
+   * paywall is in createBoard, and the card only says so up front.
+   */
+  locked?: boolean;
   createParams: {
     key: string;
     kind: 'text' | 'number' | 'select' | 'checkbox' | 'message';

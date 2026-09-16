@@ -9,7 +9,7 @@ to running the repo.
 
 ```bash
 npm run dev                        # Next.js dev server (PGlite + memory broker, no env)
-npm test                           # ~320 tests, a few seconds, no browser
+npm test                           # the whole suite, a few seconds, no browser
 node --test tests/layout.test.mjs  # a single file
 npm run typecheck                  # tsc --noEmit; CI runs it, so run it
 npx knip                           # dead files/exports/deps fail CI too
@@ -54,11 +54,16 @@ connected.
 
 ## Things that have caught people out
 
-- `flipboard.js` has **no automated coverage** (it needs a canvas), and the
-  React components are in the same position. Anything with a decision in it
-  belongs in `lib/board/`, `lib/api/`, or `lib/db/` instead.
-  The skins are tested against a stub 2D context (call sequence, not
-  pixels); for *looks*, open a design in the editor at `/designs/{id}`.
+- `flipboard.js` has **thin automated coverage**, and the React components
+  have none. Anything with a decision in it belongs in `lib/board/`,
+  `lib/api/`, or `lib/db/` instead. The skins are tested against a stub 2D
+  context (call sequence, not pixels); for *looks*, open a design in the
+  editor at `/designs/{id}`.
+  `lib/board/offline.mjs` does run the real board against a real canvas
+  (`@napi-rs/canvas`, a devDependency) in `tests/offline.test.mjs` - it
+  exists for `tools/export-video.mjs`, and the coverage is a side effect.
+  Frames are not byte-comparable across runs: a skin bakes random grunge
+  specks into its cards on purpose.
 - **`lib/auth.ts` changes need a dev-server restart.** `getAuth` is one of
   the `globalThis` singletons below, so editing Better Auth options (fields,
   hooks) while `npm run dev` runs leaves the old instance serving; a signup
@@ -66,8 +71,11 @@ connected.
 - **Singletons live on `globalThis` behind promises** (`getDb`, `getBroker`,
   `getAuth`) so dev-server recompiles share one instance — two PGlites on one
   `./.pglite` directory corrupt it. Never delete `./.pglite` while the dev
-  server is running; stop it first. Tests inject with `_setDbForTests` /
-  `_setBrokerForTests` and a stubbed `getSession`.
+  server is running; stop it first. Tests do not use those singletons at
+  all: they build their own with `makeTestDb`/`resetTestDb`
+  (`lib/db/testing.mjs`) and `new MemoryBroker()`, and pass both in on the
+  handler ctx alongside a stubbed `getSession`. There is no setter on the
+  singletons to reach for - injection *is* the ctx.
 - **PGlite must stay unbundled** — `serverExternalPackages` in next.config.mjs;
   bundling breaks its WASM/fs paths with a cryptic URL-vs-string error.
 - The hand-written Better Auth tables in `lib/db/schema.mjs` must track the

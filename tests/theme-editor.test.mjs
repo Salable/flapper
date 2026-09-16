@@ -26,10 +26,10 @@ import { RING } from '../lib/board/ring.mjs';
 const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
 
 test('a fresh draft is the preset and saves as no overrides', () => {
-  const draft = presetDraft('canary');
-  assert.equal(draft.theme, 'canary');
-  assert.equal(draft.pack, THEMES.canary);
-  assert.deepEqual(draftToPatch(draft), { ok: true, theme: 'canary', themePack: null });
+  const draft = presetDraft('sorbet');
+  assert.equal(draft.theme, 'sorbet');
+  assert.equal(draft.pack, THEMES.sorbet);
+  assert.deepEqual(draftToPatch(draft), { ok: true, theme: 'sorbet', themePack: null });
   assert.equal(presetDraft('nope').theme, 'classic');
 });
 

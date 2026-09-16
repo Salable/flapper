@@ -7,8 +7,10 @@ export const dynamic = 'force-dynamic';
 
 /**
  * The account area: who you are, what is connected to you. Profile,
- * connected apps; billing and tier land here when they exist, rather than
- * anywhere bolted to the dashboard.
+ * connected apps, privacy - Licence lives at its own URL (a real Stripe
+ * portal link and a request form, more than a section here should hold),
+ * reached through AccountNav's own sidebar rather than a section on this
+ * page linking out to it.
  */
 export default async function AccountPage() {
   const session = await sessionFromHeaders(await headers());

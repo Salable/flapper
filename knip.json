@@ -16,5 +16,8 @@
     "tests/**",
     "lib/**",
     "!lib/**/*.d.mts"
+  ],
+  "ignoreBinaries": [
+    "ffmpeg"
   ]
 }

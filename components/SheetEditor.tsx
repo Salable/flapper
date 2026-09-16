@@ -24,9 +24,10 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/Button';
-import { Field, Select, TextInput } from '@/components/ui/Field';
+import { Field, Select } from '@/components/ui/Field';
 import { type QueueItem, payloadToBody } from '@/components/queue-item';
 import { layout as layoutText } from '@/lib/board/layout.mjs';
+import { ANIMATIONS, ANIMATION_IDS } from '@/lib/board/animations.mjs';
 
 /** Just enough of the real board's charset to wrap and preview typed text -
  * see the module doc at the top of layout.mjs: every board currently
@@ -40,7 +41,12 @@ const EDITOR_CHARSET = new Set('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 .,!()'.spli
 
 export type Align = 'left' | 'center' | 'right';
 export type Valign = 'top' | 'middle' | 'bottom';
-type Source = 'text' | 'api' | 'animation';
+/** What a slide shows. Text and an animation are the two kinds of content,
+ * never a pair. Pushing content in over the API was a third option here and
+ * is not offered any more: the endpoint it described was never built, and a
+ * picker that cannot be picked is worse than an absent one (Dan, 15 Sep
+ * 2026 - see TODO.md, *An interrupter's trigger, not its source*). */
+type Shows = 'text' | 'animation';
 type Layout = 'align' | 'free';
 
 /** The plain shape `EditTextPopup` edits - independent of whether it came
@@ -61,10 +67,6 @@ function alignOf(item: QueueItem): Align {
 function valignOf(item: QueueItem): Valign {
   const v = item.payload.options?.valign;
   return v === 'top' || v === 'middle' || v === 'bottom' ? v : 'middle';
-}
-function nameOf(item: QueueItem): string {
-  const n = item.payload.options?.label;
-  return typeof n === 'string' ? n : '';
 }
 function isRowsItem(item: QueueItem): boolean {
   return !item.payload.text && Array.isArray(item.payload.options?.rows);
@@ -97,69 +99,56 @@ export function SheetEditor({
    * failure; a rejected commit here just leaves the field as it was. */
   onSave: (body: Record<string, unknown>) => Promise<boolean>;
 }) {
-  const [name, setName] = useState(nameOf(item));
-  const [source, setSource] = useState<Source>('text');
+  const animationOf = (entry: QueueItem) => (entry.payload?.options as { animation?: string })?.animation ?? null;
+  const [shows, setShows] = useState<Shows>(animationOf(item) ? 'animation' : 'text');
+  const [animation, setAnimation] = useState<string>(animationOf(item) ?? ANIMATION_IDS[0]);
   const [textOpen, setTextOpen] = useState(false);
 
-  // Re-seed when the selection itself changes - not on every poll, or a
-  // name mid-edit would be clobbered the moment the next one landed.
+  // Re-seed when the selection itself changes - not on every poll.
   useEffect(() => {
-    setName(nameOf(item));
-    setSource('text');
-  }, [item.id]);
-
-  /** Required - a blank commit is refused, reverting to the last real name,
-   * the same shape Escape already has elsewhere in this panel (Hold's own
-   * "" is a real, meaningful choice - "board default" - so this is not
-   * that pattern; a slide's Name has no meaningful blank to fall back to
-   * any more). */
-  function commitName() {
-    const trimmed = name.trim();
-    if (trimmed === '') {
-      setName(nameOf(item));
-      return;
-    }
-    if (trimmed === nameOf(item)) return;
-    onSave({ ...payloadToBody(item.payload), label: trimmed });
-  }
-
-  const endpointSlot = name.trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-') || '…';
+    const named = (item.payload?.options as { animation?: string })?.animation ?? null;
+    setShows(named ? 'animation' : 'text');
+    setAnimation(named ?? ANIMATION_IDS[0]);
+  }, [item.id, item.payload]);
 
   return (
     <div className="sheet-editor">
       <div className="sheet-editor-row">
-        <Field label="Name" htmlFor="sheet-name" hint="Required - the rail's own tab label.">
-          <TextInput
-            id="sheet-name"
-            required
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') commitName();
-              if (event.key === 'Escape') setName(nameOf(item));
+        <Field label="Shows" htmlFor="sheet-shows">
+          <Select
+            id="sheet-shows"
+            value={shows}
+            onChange={(event) => {
+              const next = event.target.value as Shows;
+              setShows(next);
+              // Switching is the commit: an animation replaces the words
+              // outright (the API refuses the pair), and choosing Text
+              // again hands the slide back to whatever it used to say.
+              const body: Record<string, unknown> = { ...payloadToBody(item.payload) };
+              if (next === 'animation') {
+                body.text = '';
+                delete body.rows;
+                delete body.align;
+                delete body.valign;
+                body.animation = animation;
+              } else {
+                delete body.animation;
+                if (body.text === undefined && body.rows === undefined) body.text = '';
+              }
+              void onSave(body);
             }}
-            onBlur={commitName}
-          />
-        </Field>
-        <Field label="Source" htmlFor="sheet-source">
-          <Select id="sheet-source" value={source} onChange={(event) => setSource(event.target.value as Source)}>
+          >
             <option value="text">Text</option>
-            <option value="api">API</option>
             <option value="animation">Animation</option>
           </Select>
         </Field>
       </div>
 
-      {source === 'text' && (
+      {shows === 'text' && (
         <div className="sheet-source-setup">
-          <div className="sheet-text-preview">
-            <span className={`sheet-text-preview-sample${samplePreview(item) === '' ? ' is-empty' : ''}`}>
-              {samplePreview(item) === '' ? 'Nothing typed yet' : samplePreview(item)}
-            </span>
-            <Button size="sm" onClick={() => setTextOpen(true)}>
-              Edit text →
-            </Button>
-          </div>
+          <Button size="sm" onClick={() => setTextOpen(true)}>
+            Edit text →
+          </Button>
           <EditTextPopup
             open={textOpen}
             onClose={() => setTextOpen(false)}
@@ -185,35 +174,36 @@ export function SheetEditor({
         </div>
       )}
 
-      {source === 'api' && (
-        <div className="sheet-source-setup">
-          <Field label="Endpoint">
-            <code className="curl">{`POST /api/b/{slug}/sheets/${endpointSlot}`}</code>
-          </Field>
-          <p className="ui-hint">
-            This sheet's own Name, above, is the address - nothing extra to set here. A board can hold several
-            API sheets; each is reached by its own name. Not built yet - the endpoint above isn't live.
-          </p>
-        </div>
-      )}
-
-      {source === 'animation' && (
+      {shows === 'animation' && (
         <div className="sheet-source-setup">
           <Field label="Animation" htmlFor="sheet-animation">
-            <Select id="sheet-animation" disabled>
-              <option>No animations yet</option>
+            <Select
+              id="sheet-animation"
+              value={animation}
+              onChange={(event) => {
+                const next = event.target.value;
+                setAnimation(next);
+                const body: Record<string, unknown> = { ...payloadToBody(item.payload) };
+                body.text = '';
+                delete body.rows;
+                delete body.align;
+                delete body.valign;
+                body.animation = next;
+                void onSave(body);
+              }}
+            >
+              {(ANIMATION_IDS as string[]).map((id: string) => (
+                <option key={id} value={id}>
+                  {(ANIMATIONS as Record<string, { label: string }>)[id].label}
+                </option>
+              ))}
             </Select>
           </Field>
-          <p className="ui-hint">Nothing to pick - none exist yet. The picker can wait here until some do.</p>
+          <p className="ui-hint">It loops for as long as this slide is on the glass - Hold decides that, not the animation.</p>
         </div>
       )}
     </div>
   );
-}
-
-function samplePreview(item: QueueItem): string {
-  if (isRowsItem(item)) return ((item.payload.options?.rows as string[]) ?? []).join(' / ').trim();
-  return (item.payload.text ?? '').trim();
 }
 
 /**

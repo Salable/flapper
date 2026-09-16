@@ -167,8 +167,8 @@ it is safe to do mid-message. Be considerate: if a user asked you to display
 something, do not silently reshape their board to make your text fit. Fit the
 text to the board, or ask.
 
-The same call sets the theme: `{"theme":"canary"}` repaints every display of
-the board in Norwich green; `"classic"` is the charcoal original. Always take
+The same call sets the theme: `{"theme":"carrow-road-green"}` repaints every
+display of the board in Norwich green; `"classic"` is the charcoal original. Always take
 the list from `/capabilities` (`themes`); a deployment may ship more, and an
 unknown id is a 422. Do not change a board's theme unless asked to.
 
@@ -384,15 +384,112 @@ broken by a higher-ranked interrupter firing — there is no unbounded
 dwell it supports (currently 24 hours) with no expiry, which is the same
 thing in practice.
 
-This is the one door from a saved interrupter to the glass — it posts
-exactly the saved text with `priority: "now"`, `interrupt: true`, and that
-preset's own Duration translated to `dwellMs`/`expiresInMs`, the same as
-composing it by hand would. `GET {apiBase}/interrupters` lists what's
-saved; `POST {apiBase}/interrupters` with a name that already exists
-replaces it outright (editing is re-saving, not a separate PATCH);
-`DELETE {apiBase}/interrupters/{name}` removes one. A board keeps at most
-20. Saving one never touches the glass — nothing is queued until
-`.../fire` is called on it by name.
+This is one of the two doors from a saved interrupter to the glass — it
+posts exactly the saved text with `priority: "now"`, `interrupt: true`,
+and that preset's own Duration translated to `dwellMs`/`expiresInMs`, the
+same as composing it by hand would. The other door is a schedule, below.
+`GET {apiBase}/interrupters` lists what's saved; `POST
+{apiBase}/interrupters` with a name that already exists replaces it
+outright (editing is re-saving, not a separate PATCH); `DELETE
+{apiBase}/interrupters/{name}` removes one. A board keeps at most 20.
+`text` may be empty — the control room creates a blank one the moment you
+click "+ Interrupt", exactly as it does a blank slide.
+
+#### An animation instead of words
+
+An item's content is either text or an **animation** - never both, and
+sending the pair is a 422:
+
+```bash
+curl -X POST {apiBase}/message \
+  -H 'authorization: Bearer KEY' -H 'content-type: application/json' \
+  -d '{"animation": "explosion", "dwellMs": 4000}'
+```
+
+`explosion`, `rainbow` and `bounce` (the corner-hunting logo) ship today.
+An animation rides on the options rather than replacing the payload, so
+everything else already true of an item stays true of this one: dwell,
+priority, `interrupt`, a label. It is colour rather than characters - a
+card wearing a colour carries no letter - and it loops for as long as the
+item is on the glass, so the dwell decides how long you watch it, not the
+animation's own length. A board's fidget stands down while one is playing:
+an animation *is* the slide, and two things moving the same cards at once
+is a bug.
+
+A saved interrupter takes the same field, which is what makes `[at 5pm]
+play [an explosion]` a sentence the product can say.
+
+#### Exporting a board as video
+
+`tools/export-video.mjs` renders a board to an mp4 with no browser and no
+display running:
+
+```bash
+node tools/export-video.mjs --animation explosion --out explosion.mp4
+node tools/export-video.mjs --text "HELLO WORLD" --seconds 2 --out hello.mp4
+```
+
+Every frame is *asked for* rather than captured. `Flipboard.tick(now)` takes
+its timestamp as an argument (`requestAnimationFrame` only ever supplied
+it), and an animation frame is a pure function of the frame number, so an
+export runs as fast as the machine can draw rather than as slow as the wall
+clock, and asking for frame 5 twice gives frame 5 twice. The card texture
+itself is random by design (a skin's grunge specks), so two separate runs
+are not byte-identical - what is deterministic is the content.
+
+Local only, and deliberately: it needs `ffmpeg`, which the serverless host
+does not have. A "download this board" button in the product is a hosting
+decision rather than a code one, and this is the part that does not need
+that decision made.
+
+#### Filling a slide by name
+
+A slide in the rotation is addressable by the name on its rail tab, so an
+agent can be told "the Lunch one" and never need an id:
+
+```bash
+curl -X POST {apiBase}/sheets/lunch \
+  -H 'authorization: Bearer KEY' -H 'content-type: application/json' \
+  -d '{"text": "TOMATO SOUP"}'
+```
+
+Matched case-insensitively, and it takes `text`, `rows` or `animation` -
+the same content an item can carry anywhere else. **It fills a slide, it
+never creates one**: a name nothing answers to is a `404` that lists the
+names the board does have, so an agent's typo cannot rearrange a wall.
+Everything else about the slide - its Hold, its alignment, its place in
+the order, whether it loops - belongs to whoever arranged the rotation and
+survives the push untouched.
+
+#### Fired by the clock instead
+
+Give an interrupter a `schedule` and nothing has to call `.../fire` at
+all:
+
+```bash
+curl -X POST {apiBase}/interrupters \
+  -H 'authorization: Bearer KEY' -H 'content-type: application/json' \
+  -d '{"name": "closing", "text": "WE ARE CLOSED", "durationMs": 60000,
+       "schedule": {"kind": "daily", "at": "17:00"},
+       "timezone": "Europe/London"}'
+```
+
+The spec is the same one a scheduled board's items take
+(`lib/board/schedule.mjs`: `interval`, `everyN`, `hourly`, `daily`,
+`weekly`, `once`); `timezone` is an IANA name, and only applies alongside
+a `schedule`. **`durationMs` stops being optional**: the window has to
+close on its own, since "until dismissed" needs somebody there to dismiss
+it.
+
+Nothing polls. A live board's queue read is the moment the window is
+noticed — the same read that already sweeps expired interrupters — and the
+occurrence is stamped on the preset as `firedForMs`, so the same 5pm never
+starts twice however many displays are open. A window that closed while
+nobody was reading is not reopened: a board left all weekend comes back to
+what is true now. The queue item it creates carries `source: "schedule"`.
+
+Saving an interrupter never touches the glass — nothing is queued until
+`.../fire` is called on it by name, or its schedule comes round.
 
 An interrupter fired with no `durationMs` blocks the rotation until
 something ends it — that something is `POST
@@ -477,15 +574,18 @@ Use `POST {apiBase}/clear` to stop everything, or edit the item.
 | `POST` | `/api/b/{slug}/preview` | read | lay out and return pages **without displaying** |
 | `POST` | `/api/b/{slug}/clear` | key | stop and blank; optional `region`, omitted = every band |
 | `DELETE` | `/api/b/{slug}/queue` | key | drop pending, leave the current message playing |
-| `GET` | `/api/b/{slug}/interrupters` | read | saved interrupters: name, text, Duration |
+| `GET` | `/api/b/{slug}/interrupters` | read | saved interrupters: name, text or animation, Duration, schedule |
 | `POST` | `/api/b/{slug}/interrupters` | key | save one — a name that exists already is replaced outright |
 | `DELETE` | `/api/b/{slug}/interrupters/{name}` | key | remove a saved interrupter |
-| `POST` | `/api/b/{slug}/interrupters/{name}/fire` | key | fire a saved one now — the only door from saved to the glass |
+| `POST` | `/api/b/{slug}/interrupters/{name}/fire` | key | fire a saved one now — one of two doors to the glass; a `schedule` is the other |
+| `POST` | `/api/b/{slug}/sheets/{name}` | key | push content into an existing slide by its rail name — `text`, `rows` or `animation` |
 | `POST` | `/api/b/{slug}/interrupters/{name}/dismiss` | key | end it — every queued instance of that name, not just the current one |
 | `POST` | `/api/b/{slug}/interrupters/reorder` | key | `{names: [...]}`, every saved name once — rail order, the only ranking one has |
 | `GET` | `/api/b/{slug}/export` | key | every queued item in a re-postable shape |
-| `PATCH` | `/api/b/{slug}/config` | key | grid, `theme`, `themePack`, motion, dwell (`footerRows` must stay 0; `regions.main.dwellMs` only) |
+| `PATCH` | `/api/b/{slug}/config` | key | grid, `theme`, `themePack`, motion, dwell (`footerRows` must stay 0; `regions.main.dwellMs` only). Not `interrupters` — those have their own routes, which check names, content and your licence |
 | `GET` / `POST` | `/api/b/{slug}/key` | owner | read / rotate the API key — the owner's session only, never the key itself |
+| `PATCH` | `/api/b/{slug}` | owner | the board's own settings: `name`, `slug`, `private`, `status`. **Renaming the slug moves this whole API base** and every open display 404s on its next reconnect |
+| `DELETE` | `/api/b/{slug}` | owner | delete the board, its queue and its key |
 
 "read" is open on a public board and needs the key on a private one;
 "owner" is the signed-in owner (the manage page, or a connector signed in
@@ -501,11 +601,15 @@ API clients:
 | `202` | validated and queued; body carries `id`, `position` (1-based place in the queue) and `ahead` (how many play first) | check `/status` if delivery matters |
 | `400` | malformed JSON | fix the body |
 | `401` | missing or wrong API key | ask the user for the board's key (in its manage page) |
+| `402` | the board's licence does not cover this — making a board private, for instance. The body carries `need` (the entitlement) and `getInTouch` (where to ask) | tell the user what was refused and pass on the `getInTouch` link; do not retry |
 | `403` | private board, no valid credential | ask the user for the key |
 | `404` | unknown board — wrong, renamed, or deleted slug | ask the user for the board URL |
 | `413` | body or text too large | send less; limits are in `/capabilities` |
 | `422` | invalid value | the message says which field and why |
+| `409` | this build does not have the board's type — a board made by a newer or a forked Flapper. Its queue is kept, untouched | nothing to retry; tell the user the board needs the build that made it |
+| `410` | the route existed in an older Flapper and is gone; the body says what replaced it. `queue/attach`, `queue/detach` and `queue/mode` all answer this | read the message and use the named replacement; never retry |
 | `429` | queue full — the 500-item backstop, or this board's own (lower) cap with nothing left to roll off | flush, clear, remove an item, or wait |
+| `500` | a bug or an outage on our side, never a message about your request | retry once; if it persists, the board URL and the time are what we need to find it |
 | `503` | the realtime service is unavailable — the write you made is saved, displays catch up when it returns | retry reads later; do not retry writes, they succeeded |
 
 ## 8. Recommended workflow

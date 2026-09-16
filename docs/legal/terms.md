@@ -47,10 +47,21 @@ terms, not ours.
 
 ## 7. Payment
 
-Flapper currently charges nothing. [[PLACEHOLDER: if a paid tier is
-introduced, this section carries the Consumer Contracts Regulations 2013
-information - price, billing period, the 14-day cancellation right and the
-consent to start the service within it, and how to cancel.]]
+Every account is licensed. Signing up grants a free licence — one board, a
+live queue, publicly readable — which costs nothing, needs no card, and does
+not expire.
+
+Anything beyond that (more boards, scheduled or shared-screen boards, private
+boards) is on a plan we agree with you individually. There is no price list
+and nothing to buy from inside the app: you tell us what you need, we quote
+you, and you pay through a checkout link we send. Nothing is ever charged
+without you agreeing a price first.
+
+[[PLACEHOLDER: counsel to add the Consumer Contracts Regulations 2013
+information that a bespoke plan needs - the 14-day cancellation right and the
+consent to begin the service inside it, the billing period, and how to
+cancel. The description above is what the product does; the consumer-rights
+wording around it is not written.]]
 
 ## 8. Availability and changes
 
@@ -65,8 +76,23 @@ negligence, fraud).]]
 
 ## 10. Ending the agreement
 
-[[PLACEHOLDER: how you delete your account and what happens to boards and
-data; when we may suspend or terminate.]]
+You can delete any board yourself, from its Settings, at any time — the board,
+its queue and its API key go with it.
+
+**Deleting the whole account is not yet a button.** Ask us and we will do it;
+Account → Privacy & data says so, rather than offering a control that does
+not exist. When an account is deleted, everything hanging off it goes in the
+same transaction: your boards and their queues, your saved designs, your
+sign-in sessions, the apps you had connected, and any plan requests you had
+sent us. Nothing of yours is kept behind after that except what we are
+required to keep.
+
+[[PLACEHOLDER: two things counsel needs to add - the retention we are
+obliged to keep after deletion (billing records for a paying customer), and
+when we may suspend or terminate an account ourselves. Also: a self-serve
+delete is an outstanding UK GDPR erasure obligation being met by email, and
+whether that is good enough is a question for review, not a fact about the
+software.]]
 
 ## 11. Governing law
 

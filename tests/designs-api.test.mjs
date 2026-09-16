@@ -115,7 +115,7 @@ test('forking from someone else\'s design is refused the same as an unknown one'
   const theirs = await jsonOf(
     call(createDesignHandler, as('theirs'), '/api/designs', {
       method: 'POST',
-      body: { name: 'Not yours', from: 'canary' },
+      body: { name: 'Not yours', from: 'carnival' },
     }),
   );
   const result = await jsonOf(

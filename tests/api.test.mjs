@@ -31,11 +31,14 @@ import {
   getBoardKey,
   getTheme,
   listInterrupters,
+  pushSheet,
   saveInterrupter,
   deleteInterrupter,
   fireInterrupter,
   dismissInterrupter,
   reorderInterrupters,
+  requestLicence,
+  listLicenceRequests,
 } from '../lib/api/handlers.mjs';
 import { mintDisplayToken } from '../lib/api/display-token.mjs';
 import { BOARD_TYPES } from '../lib/board-types/index.mjs';
@@ -67,12 +70,26 @@ beforeEach(async () => {
 const asUser = (id) => async () => ({ user: { id } });
 const anonymous = async () => null;
 
-function ctx(slug, sessionUserId) {
+/**
+ * A licence reader that answers the same allowance for everyone, injected
+ * the way getSession is. Left off, ctx carries no `licence` and the handlers
+ * fall back to the real reader - which, with no SALABLE_API_KEY in the test
+ * environment, is the unlicensed build: every type, no cap, no gate. That is
+ * what keeps the rest of this suite about the API rather than about billing.
+ */
+const stubLicence = (allowance) => ({
+  configured: true,
+  allowanceFor: async () => allowance,
+  forget: () => {},
+});
+
+function ctx(slug, sessionUserId, licence) {
   return {
     broker,
     db,
     slug,
     getSession: sessionUserId ? asUser(sessionUserId) : anonymous,
+    ...(licence ? { licence } : {}),
   };
 }
 
@@ -140,7 +157,7 @@ test('a template seeds the queue and presets config; the body still wins', async
   assert.equal(match.status, 201);
   assert.equal(match.body.type, 'live');
   const mq = (await jsonOf(call(getQueue, ctx(match.body.slug, 'owner'), '/queue'))).body;
-  assert.equal(mq.config.theme, 'canary');
+  assert.equal(mq.config.theme, 'carrow-road-green');
   // A card size is what the template sets; the grid is not stored at all, so
   // the board has no cols/rows of its own and answers with what its screen
   // and its card size come to.
@@ -745,9 +762,9 @@ test('a board\'s own theme: stored sparse, kept out of /queue, served by /theme 
 
   // Switching preset keeps the overrides that still differ.
   const swapped = await jsonOf(
-    call(patchConfig, ctx(board.slug), '/config', { method: 'PATCH', body: { theme: 'canary' }, key: board.apiKey }),
+    call(patchConfig, ctx(board.slug), '/config', { method: 'PATCH', body: { theme: 'sorbet' }, key: board.apiKey }),
   );
-  assert.equal(swapped.body.config.theme, 'canary');
+  assert.equal(swapped.body.config.theme, 'sorbet');
   assert.notEqual(swapped.body.themeRev, after.themeRev);
 
   // null resets.
@@ -772,7 +789,7 @@ test('a board\'s own theme: stored sparse, kept out of /queue, served by /theme 
   assert.equal(fat.status, 413);
 
   const caps = (await jsonOf(call(capabilities, ctx(board.slug), '/capabilities'))).body;
-  assert.deepEqual(caps.themePack.presets.map((p) => p.id), ['classic', 'canary', 'sorbet', 'carnival', 'carrow-road-yellow', 'carrow-road-green']);
+  assert.deepEqual(caps.themePack.presets.map((p) => p.id), ['classic', 'sorbet', 'carnival', 'carrow-road-yellow', 'carrow-road-green']);
   assert.equal(typeof caps.themePack.maxBytes, 'number');
 });
 
@@ -803,33 +820,203 @@ test('bands cannot be configured back in yet: footerRows and per-band settings 4
   assert.equal(zero.status, 200);
 });
 
-test('a type that names a tier is refused with a 402 below it - on the shared create path', async () => {
-  // The registry is a Map; a locked entry for the test's duration exercises
-  // the mechanism without any shipped type being premium.
-  const locked = { ...BOARD_TYPES.get('live'), id: 'premium-live', name: 'Premium live', tier: 'pro' };
-  BOARD_TYPES.set(locked.id, locked);
-  try {
-    const denied = await jsonOf(
-      call(createBoard, ctx(undefined, 'owner'), '/api/boards', {
-        method: 'POST',
-        body: { slug: 'locked-board', type: 'premium-live' },
-      }),
-    );
-    assert.equal(denied.status, 402);
-    assert.match(denied.body.error, /pro tier/);
-    assert.match(denied.body.error, /standard/);
-    // Raise the account and the same request succeeds.
-    await db.update(schema.user).set({ tier: 'pro' }).where(eq(schema.user.id, 'owner'));
-    const allowed = await jsonOf(
-      call(createBoard, ctx(undefined, 'owner'), '/api/boards', {
-        method: 'POST',
-        body: { slug: 'locked-board', type: 'premium-live' },
-      }),
-    );
-    assert.equal(allowed.status, 201);
-  } finally {
-    BOARD_TYPES.delete(locked.id);
-  }
+test('an account with no licence cannot create a board at all', async () => {
+  const denied = await jsonOf(
+    call(
+      createBoard,
+      ctx(undefined, 'owner', stubLicence({ licensed: false, maxBoards: 0, types: [], privateBoards: false, source: 'salable' })),
+      '/api/boards',
+      { method: 'POST', body: { slug: 'no-licence' } },
+    ),
+  );
+  assert.equal(denied.status, 403);
+  assert.match(denied.body.error, /licence/);
+  assert.equal(denied.body.need, 'board_create');
+});
+
+test('the free allowance is one board, and the second is a 402 that says get in touch', async () => {
+  const free = stubLicence({ licensed: true, maxBoards: 1, types: ['live'], privateBoards: false, source: 'salable' });
+  const first = await jsonOf(
+    call(createBoard, ctx(undefined, 'owner', free), '/api/boards', {
+      method: 'POST',
+      body: { slug: 'first-board' },
+    }),
+  );
+  assert.equal(first.status, 201, JSON.stringify(first.body));
+  const second = await jsonOf(
+    call(createBoard, ctx(undefined, 'owner', free), '/api/boards', {
+      method: 'POST',
+      body: { slug: 'second-board' },
+    }),
+  );
+  assert.equal(second.status, 402);
+  assert.match(second.body.error, /covers 1 board/);
+  assert.match(second.body.error, /get in touch/);
+});
+
+test('a type that names an entitlement is refused with a 402 without it - on the shared create path', async () => {
+  // Not a synthetic type: `scheduled` names board_type_scheduled, so this is
+  // the shipped paywall, on the path the MCP create_board tool shares.
+  const free = stubLicence({ licensed: true, maxBoards: 5, types: ['live'], privateBoards: false, source: 'salable' });
+  const denied = await jsonOf(
+    call(createBoard, ctx(undefined, 'owner', free), '/api/boards', {
+      method: 'POST',
+      body: { slug: 'clock-board', type: 'scheduled' },
+    }),
+  );
+  assert.equal(denied.status, 402);
+  assert.equal(denied.body.need, 'board_type_scheduled');
+  assert.match(denied.body.error, /get in touch/);
+  assert.match(denied.body.getInTouch, /need=board_type_scheduled$/);
+
+  // Grant it and the identical request goes through.
+  const paid = stubLicence({
+    licensed: true,
+    maxBoards: 5,
+    types: ['live', 'scheduled'],
+    privateBoards: false,
+    source: 'salable',
+  });
+  const allowed = await jsonOf(
+    call(createBoard, ctx(undefined, 'owner', paid), '/api/boards', {
+      method: 'POST',
+      body: { slug: 'clock-board', type: 'scheduled' },
+    }),
+  );
+  assert.equal(allowed.status, 201, JSON.stringify(allowed.body));
+});
+
+test('at the limit and asking for a paid type, the type is what you are told about', async () => {
+  // Two things are wrong and only one refusal fits in a response. "Delete a
+  // board first" would send someone to delete a board and hit a second no.
+  const free = stubLicence({ licensed: true, maxBoards: 1, types: ['live'], privateBoards: false, source: 'salable' });
+  await jsonOf(
+    call(createBoard, ctx(undefined, 'owner', free), '/api/boards', { method: 'POST', body: { slug: 'the-one' } }),
+  );
+  const refused = await jsonOf(
+    call(createBoard, ctx(undefined, 'owner', free), '/api/boards', {
+      method: 'POST',
+      body: { slug: 'a-clock', type: 'scheduled' },
+    }),
+  );
+  assert.equal(refused.status, 402);
+  assert.equal(refused.body.need, 'board_type_scheduled');
+});
+
+test('going private needs the entitlement; coming back public never does', async () => {
+  const free = stubLicence({ licensed: true, maxBoards: 5, types: ['live'], privateBoards: false, source: 'salable' });
+  const board = await makeBoard({ slug: 'privacy-licence' });
+  const denied = await jsonOf(
+    call(boardPatch, ctx(board.slug, 'owner', free), '/api/boards', {
+      method: 'PATCH',
+      body: { private: true },
+    }),
+  );
+  assert.equal(denied.status, 402);
+  assert.equal(denied.body.need, 'board_private');
+
+  const paid = stubLicence({ licensed: true, maxBoards: 5, types: ['live'], privateBoards: true, source: 'salable' });
+  const hidden = await jsonOf(
+    call(boardPatch, ctx(board.slug, 'owner', paid), '/api/boards', {
+      method: 'PATCH',
+      body: { private: true },
+    }),
+  );
+  assert.equal(hidden.status, 200);
+  assert.equal(hidden.body.private, true);
+
+  // The licence lapses. What it did stays undoable.
+  const shown = await jsonOf(
+    call(boardPatch, ctx(board.slug, 'owner', free), '/api/boards', {
+      method: 'PATCH',
+      body: { private: false },
+    }),
+  );
+  assert.equal(shown.status, 200);
+  assert.equal(shown.body.private, false);
+});
+
+test('a 402 tells a machine what was refused and a person where to go about it', async () => {
+  const free = stubLicence({ licensed: true, maxBoards: 1, types: ['live'], privateBoards: false, source: 'salable' });
+  await jsonOf(
+    call(createBoard, ctx(undefined, 'owner', free), '/api/boards', { method: 'POST', body: { slug: 'only-one' } }),
+  );
+  const refused = await jsonOf(
+    call(createBoard, ctx(undefined, 'owner', free), '/api/boards', { method: 'POST', body: { slug: 'one-more' } }),
+  );
+  assert.equal(refused.status, 402);
+  // The words are for the person; these two are for whatever is calling.
+  assert.equal(refused.body.need, 'boards');
+  assert.equal(refused.body.getInTouch, `${BASE}/account/licence?need=boards`);
+});
+
+test('a get-in-touch ask is saved, and asking twice is the same ask rather than a second lead', async () => {
+  const first = await jsonOf(
+    call(requestLicence, ctx(undefined, 'owner'), '/api/licence-requests', {
+      method: 'POST',
+      body: { need: 'boards', message: 'Six departure boards, one per platform.' },
+    }),
+  );
+  assert.equal(first.status, 201);
+  assert.equal(first.body.request.need, 'boards');
+  assert.equal(first.body.request.handledAt, null);
+
+  const again = await jsonOf(
+    call(requestLicence, ctx(undefined, 'owner'), '/api/licence-requests', {
+      method: 'POST',
+      body: { need: 'boards', message: 'Still six.' },
+    }),
+  );
+  assert.equal(again.status, 200);
+  assert.equal(again.body.alreadyOpen, true);
+  assert.equal(again.body.request.id, first.body.request.id);
+
+  // A different need is a different ask.
+  const other = await jsonOf(
+    call(requestLicence, ctx(undefined, 'owner'), '/api/licence-requests', {
+      method: 'POST',
+      body: { need: 'board_private', message: 'Staff-only rota.' },
+    }),
+  );
+  assert.equal(other.status, 201);
+
+  const mine = await jsonOf(call(listLicenceRequests, ctx(undefined, 'owner'), '/api/licence-requests'));
+  assert.equal(mine.status, 200);
+  assert.equal(mine.body.requests.length, 2);
+  assert.equal(mine.body.requestable.boards, 'More boards');
+  // Somebody else's queue is not yours.
+  const theirs = await jsonOf(call(listLicenceRequests, ctx(undefined, 'stranger'), '/api/licence-requests'));
+  assert.equal(theirs.body.requests.length, 0);
+});
+
+test('a need outside the list is refused by name, and a blank ask is refused too', async () => {
+  const unknown = await jsonOf(
+    call(requestLicence, ctx(undefined, 'owner'), '/api/licence-requests', {
+      method: 'POST',
+      body: { need: 'board.everything', message: 'the lot' },
+    }),
+  );
+  assert.equal(unknown.status, 422);
+  assert.match(unknown.body.error, /board_type_scheduled/);
+
+  const blank = await jsonOf(
+    call(requestLicence, ctx(undefined, 'owner'), '/api/licence-requests', {
+      method: 'POST',
+      body: { need: 'boards', message: '   ' },
+    }),
+  );
+  assert.equal(blank.status, 422);
+  assert.match(blank.body.error, /what you need it for/);
+});
+
+test('nobody asks us anything anonymously', async () => {
+  const anon = await jsonOf(
+    call(requestLicence, ctx(undefined), '/api/licence-requests', {
+      method: 'POST',
+      body: { need: 'boards', message: 'hello' },
+    }),
+  );
+  assert.equal(anon.status, 401);
 });
 
 test('a patched type param is validated by its own schema and stored coerced', async () => {
@@ -1725,3 +1912,331 @@ test('a rows-mode item is stored with rows nested under options, not at the top'
   assert.deepEqual(item.payload.options.rows, ['HELLO', 'WORLD']);
   assert.equal(item.payload.text, '', 'text is always present, empty for a rows-mode item');
 })
+
+test('a scheduled interrupter is started by the clock on a live board, once, without anyone firing it', async () => {
+  const board = await makeBoard({ slug: 'clock-interrupter' });
+  const key = board.apiKey;
+
+  // `once` a second ago, with a window still open: due the moment anything
+  // reads this board, which is what a display does constantly.
+  const saved = await jsonOf(
+    call(saveInterrupter, ctx(board.slug), '/x', {
+      method: 'POST',
+      key,
+      body: {
+        name: 'CLOSING',
+        text: 'WE ARE CLOSED',
+        durationMs: 60_000,
+        schedule: { kind: 'once', atMs: Date.now() - 1000 },
+      },
+    }),
+  );
+  assert.equal(saved.status, 200, JSON.stringify(saved.body));
+
+  // Nothing fired it. The read itself is the moment.
+  const first = await jsonOf(call(getQueue, ctx(board.slug), '/x', { key }));
+  assert.equal(first.status, 200);
+  const shown = first.body.items.filter((item) => item.payload?.options?.label === 'CLOSING');
+  assert.equal(shown.length, 1, 'the clock started it');
+  assert.equal(shown[0].payload.text, 'WE ARE CLOSED');
+
+  // Reading again must not start a second copy of the same occurrence -
+  // and nor would a second display, which is the same call.
+  const second = await jsonOf(call(getQueue, ctx(board.slug), '/x', { key }));
+  assert.equal(
+    second.body.items.filter((item) => item.payload?.options?.label === 'CLOSING').length,
+    1,
+    'the same 5pm never fires twice',
+  );
+
+  // The occurrence is stamped on the preset, which is what makes that true.
+  const listed = await jsonOf(call(listInterrupters, ctx(board.slug), '/x', { key }));
+  assert.equal(typeof listed.body.interrupters[0].firedForMs, 'number');
+});
+
+test('an unscheduled interrupter is left entirely alone by the clock', async () => {
+  const board = await makeBoard({ slug: 'no-clock-interrupter' });
+  const key = board.apiKey;
+
+  await call(saveInterrupter, ctx(board.slug), '/x', {
+    method: 'POST',
+    key,
+    body: { name: 'FIRE', text: 'FIRE EVACUATE' },
+  });
+
+  const read = await jsonOf(call(getQueue, ctx(board.slug), '/x', { key }));
+  assert.equal(
+    read.body.items.filter((item) => item.payload?.options?.label === 'FIRE').length,
+    0,
+    'it waits for a button or an API call, as it always did',
+  );
+});
+
+test('a slide is addressable by its own name, so an agent can fill the one it was told about', async () => {
+  const board = await makeBoard({ slug: 'pushable' });
+  const key = board.apiKey;
+
+  await call(postMessage, ctx(board.slug), '/x', {
+    method: 'POST',
+    key,
+    body: { text: 'SOUP OF THE DAY', label: 'Lunch', loop: true },
+  });
+
+  const pushed = await jsonOf(
+    call(pushSheet, { ...ctx(board.slug), name: 'lunch' }, '/x', {
+      method: 'POST',
+      key,
+      body: { text: 'TOMATO' },
+    }),
+  );
+  assert.equal(pushed.status, 200, JSON.stringify(pushed.body));
+  assert.equal(pushed.body.item.payload.text, 'TOMATO');
+  assert.equal(pushed.body.item.payload.options.label, 'Lunch', 'the address survives the write');
+
+  // It filled the slide that was there rather than adding another.
+  const queued = await jsonOf(call(getQueue, ctx(board.slug), '/x', { key }));
+  assert.equal(queued.body.items.length, 1);
+  assert.equal(queued.body.items[0].payload.text, 'TOMATO');
+});
+
+test('pushing to a name nothing answers to says what the board does have', async () => {
+  const board = await makeBoard({ slug: 'pushable-miss' });
+  const key = board.apiKey;
+  await call(postMessage, ctx(board.slug), '/x', {
+    method: 'POST',
+    key,
+    body: { text: 'X', label: 'Lunch', loop: true },
+  });
+
+  const missed = await jsonOf(
+    call(pushSheet, { ...ctx(board.slug), name: 'dinner' }, '/x', { method: 'POST', key, body: { text: 'Y' } }),
+  );
+  assert.equal(missed.status, 404);
+  assert.match(missed.body.error, /no slide called "dinner"/);
+  assert.match(missed.body.error, /"Lunch"/, 'it names what is there');
+
+  // A push never creates - the board is unchanged.
+  const queued = await jsonOf(call(getQueue, ctx(board.slug), '/x', { key }));
+  assert.equal(queued.body.items.length, 1);
+});
+
+test('an animation can be pushed into a named slide, same as words', async () => {
+  const board = await makeBoard({ slug: 'pushable-animation' });
+  const key = board.apiKey;
+  await call(postMessage, ctx(board.slug), '/x', {
+    method: 'POST',
+    key,
+    body: { text: 'WORDS FOR NOW', label: 'Foyer', loop: true },
+  });
+
+  const pushed = await jsonOf(
+    call(pushSheet, { ...ctx(board.slug), name: 'Foyer' }, '/x', {
+      method: 'POST',
+      key,
+      body: { animation: 'rainbow' },
+    }),
+  );
+  assert.equal(pushed.status, 200, JSON.stringify(pushed.body));
+  assert.equal(pushed.body.item.payload.options.animation, 'rainbow');
+  assert.equal(pushed.body.item.payload.text, '', 'the words it replaced are gone');
+});
+
+test('a push with nothing to show is refused rather than blanking the slide', async () => {
+  const board = await makeBoard({ slug: 'pushable-empty' });
+  const key = board.apiKey;
+  await call(postMessage, ctx(board.slug), '/x', {
+    method: 'POST',
+    key,
+    body: { text: 'KEEP ME', label: 'Sign', loop: true },
+  });
+
+  const refused = await jsonOf(
+    call(pushSheet, { ...ctx(board.slug), name: 'Sign' }, '/x', { method: 'POST', key, body: { loop: false } }),
+  );
+  assert.equal(refused.status, 422);
+  assert.match(refused.body.error, /nothing to show/);
+});
+
+test('a push changes the words and leaves the slide arranged as it was', async () => {
+  const board = await makeBoard({ slug: 'push-keeps' });
+  const key = board.apiKey;
+
+  await call(postMessage, ctx(board.slug), '/x', {
+    method: 'POST',
+    key,
+    body: { text: 'SOUP', label: 'Lunch', loop: true, dwellMs: 9000, align: 'right', valign: 'top' },
+  });
+
+  const pushed = await jsonOf(
+    call(pushSheet, { ...ctx(board.slug), name: 'Lunch' }, '/x', { method: 'POST', key, body: { text: 'STEW' } }),
+  );
+  assert.equal(pushed.status, 200, JSON.stringify(pushed.body));
+  const options = pushed.body.item.payload.options;
+  assert.equal(pushed.body.item.payload.text, 'STEW');
+  assert.equal(options.dwellMs, 9000, 'Hold survives');
+  assert.equal(options.align, 'right', 'alignment survives');
+  assert.equal(options.valign, 'top');
+  assert.equal(options.label, 'Lunch');
+  assert.equal(pushed.body.item.loop, true, 'and it is still in the rotation');
+});
+
+test('pushing an animation clears the words it replaced rather than sending both', async () => {
+  const board = await makeBoard({ slug: 'push-swaps' });
+  const key = board.apiKey;
+  await call(postMessage, ctx(board.slug), '/x', {
+    method: 'POST',
+    key,
+    body: { text: 'WORDS', label: 'Foyer', loop: true, dwellMs: 4000 },
+  });
+
+  const pushed = await jsonOf(
+    call(pushSheet, { ...ctx(board.slug), name: 'Foyer' }, '/x', {
+      method: 'POST',
+      key,
+      body: { animation: 'explosion' },
+    }),
+  );
+  assert.equal(pushed.status, 200, JSON.stringify(pushed.body));
+  assert.equal(pushed.body.item.payload.options.animation, 'explosion');
+  assert.equal(pushed.body.item.payload.text, '');
+  assert.equal(pushed.body.item.payload.options.dwellMs, 4000, 'Hold still survives the swap');
+
+  // And back again, which must not leave the animation behind.
+  const back = await jsonOf(
+    call(pushSheet, { ...ctx(board.slug), name: 'Foyer' }, '/x', { method: 'POST', key, body: { text: 'WORDS AGAIN' } }),
+  );
+  assert.equal(back.status, 200, JSON.stringify(back.body));
+  assert.equal(back.body.item.payload.options.animation, undefined, 'the animation is gone');
+  assert.equal(back.body.item.payload.text, 'WORDS AGAIN');
+});
+
+test('a blank slide name is not an address for the first unnamed slide', async () => {
+  const board = await makeBoard({ slug: 'push-blank-name' });
+  const key = board.apiKey;
+  await call(postMessage, ctx(board.slug), '/x', { method: 'POST', key, body: { text: 'UNTITLED', loop: true } });
+
+  for (const name of ['', '   ']) {
+    const refused = await jsonOf(
+      call(pushSheet, { ...ctx(board.slug), name }, '/x', { method: 'POST', key, body: { text: 'HIJACKED' } }),
+    );
+    assert.equal(refused.status, 404, JSON.stringify(refused.body));
+  }
+
+  const queued = await jsonOf(call(getQueue, ctx(board.slug), '/x', { key }));
+  assert.equal(queued.body.items[0].payload.text, 'UNTITLED', 'untouched');
+});
+
+test('the clock waits for a higher-ranked interrupter instead of demoting it', async () => {
+  const board = await makeBoard({ slug: 'clock-rank' });
+  const key = board.apiKey;
+
+  // [0] outranks [1]; the lower one is the scheduled one.
+  await call(saveInterrupter, ctx(board.slug), '/x', {
+    method: 'POST',
+    key,
+    body: { name: 'FIRE', text: 'EVACUATE' },
+  });
+  await call(saveInterrupter, ctx(board.slug), '/x', {
+    method: 'POST',
+    key,
+    body: {
+      name: 'LUNCH',
+      text: 'SOUP',
+      durationMs: 60_000,
+      schedule: { kind: 'once', atMs: Date.now() - 1000 },
+    },
+  });
+
+  await call(fireInterrupter, { ...ctx(board.slug), name: 'FIRE' }, '/x', { method: 'POST', key });
+
+  const read = await jsonOf(call(getQueue, ctx(board.slug), '/x', { key }));
+  const current = read.body.items.find((item) => item.id === read.body.currentItemId);
+  assert.equal(current?.payload?.options?.label, 'FIRE', 'the alarm keeps the glass');
+  assert.equal(
+    read.body.items.some((item) => item.payload?.options?.label === 'LUNCH'),
+    false,
+    'and the lower-ranked scheduled one did not queue behind it either',
+  );
+});
+
+test('a re-save inside the window does not re-fire the same occurrence', async () => {
+  const board = await makeBoard({ slug: 'resave-window' });
+  const key = board.apiKey;
+  const schedule = { kind: 'once', atMs: Date.now() - 1000 };
+
+  await call(saveInterrupter, ctx(board.slug), '/x', {
+    method: 'POST',
+    key,
+    body: { name: 'CLOSING', text: 'CLOSED', durationMs: 3_600_000, schedule },
+  });
+  await call(getQueue, ctx(board.slug), '/x', { key });
+
+  // The typo fix: same name, same schedule, no firedForMs in the body.
+  await call(saveInterrupter, ctx(board.slug), '/x', {
+    method: 'POST',
+    key,
+    body: { name: 'CLOSING', text: 'WE ARE CLOSED', durationMs: 3_600_000, schedule },
+  });
+
+  const read = await jsonOf(call(getQueue, ctx(board.slug), '/x', { key }));
+  assert.equal(
+    read.body.items.filter((item) => item.payload?.options?.label === 'CLOSING').length,
+    1,
+    'still one copy',
+  );
+});
+
+test('interrupters cannot be written through /config, past their own gates', async () => {
+  const board = await makeBoard({ slug: 'config-door' });
+  const key = board.apiKey;
+
+  const refused = await jsonOf(
+    call(patchConfig, ctx(board.slug), '/x', {
+      method: 'PATCH',
+      key,
+      body: { interrupters: Array.from({ length: 50 }, (_, n) => ({ name: `X${n}`, text: 'X' })) },
+    }),
+  );
+  assert.equal(refused.status, 422);
+  assert.match(refused.body.error, /not set through \/config/);
+
+  const listed = await jsonOf(call(listInterrupters, ctx(board.slug), '/x', { key }));
+  assert.deepEqual(listed.body.interrupters, [], 'nothing was written');
+});
+
+test('an interrupter with nothing to show will not be fired into a blank board', async () => {
+  const board = await makeBoard({ slug: 'blank-interrupter' });
+  const key = board.apiKey;
+
+  // Blank is fine to save - "+ Interrupt" makes one.
+  const saved = await jsonOf(
+    call(saveInterrupter, ctx(board.slug), '/x', { method: 'POST', key, body: { name: 'Interrupt 1', text: '' } }),
+  );
+  assert.equal(saved.status, 200);
+
+  const refused = await jsonOf(
+    call(fireInterrupter, { ...ctx(board.slug), name: 'Interrupt 1' }, '/x', { method: 'POST', key }),
+  );
+  assert.equal(refused.status, 422, JSON.stringify(refused.body));
+  assert.match(refused.body.error, /nothing to show/);
+});
+
+test('a window longer than the gap between its occurrences is refused', async () => {
+  const board = await makeBoard({ slug: 'stacking' });
+  const key = board.apiKey;
+
+  const refused = await jsonOf(
+    call(saveInterrupter, ctx(board.slug), '/x', {
+      method: 'POST',
+      key,
+      body: {
+        name: 'STACKS',
+        text: 'X',
+        durationMs: 60 * 60_000,
+        schedule: { kind: 'everyN', minutes: 5 },
+      },
+    }),
+  );
+  assert.equal(refused.status, 422, JSON.stringify(refused.body));
+  assert.match(refused.body.error, /longer than the gap between occurrences/);
+});

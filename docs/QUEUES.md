@@ -41,7 +41,10 @@ exportable from the Settings tab.
 - **Saved interrupters** are a name plus text and its own Duration, kept
   on the board (`config.interrupters`, `GET`/`POST {apiBase}/interrupters`)
   and fired later by name (`POST {apiBase}/interrupters/{name}/fire`) — see
-  `docs/BOARD-API.md`. Duration is one or the other, not both: a hard
+  `docs/BOARD-API.md`. One can also carry a `schedule`, in which case the
+  clock starts it and nothing calls `.../fire` at all; the control room
+  offers that as **Starts: Button / Set time**. A scheduled one must have
+  a Duration, since its window has to close on its own. Duration is one or the other, not both: a hard
   time limit (shown, then gone outright the instant it's up), or the
   switch (blocks the rotation entirely until dismissed — `POST
   {apiBase}/interrupters/{name}/dismiss` — or broken by a higher rank) if
@@ -70,10 +73,11 @@ selected slide's own name/text/hold on the right and ↑/↓ to move it earlier
 or later; removing a slide is the only way to take it out of the loop, since
 slides added there loop by definition. A live board (not scheduled/shared)
 also gets a separate Interruptions tab, the same rail-and-panel shape but
-for saved interrupters: one tab per saved name, "+ Interrupt" to save a new
-one, and — only once something is selected — a Fire button. Saving and
-firing are two separate steps on purpose; nothing reaches the glass from
-this tab without a name behind it first. Firing a "until dismissed" preset
+for saved interrupters: one tab per saved name, "+ Interrupt" to add a new
+one (a real row on the click, auto-named `Interrupt N`, exactly as "+
+Slide" works), and — for one whose Starts is **Button** — a Fire button.
+Saving and firing are two separate steps on purpose; nothing reaches the
+glass from this tab without a name behind it first. Firing a "until dismissed" preset
 that is already live also surfaces a Dismiss button beside Fire — the only
 way off the glass for one, short of a higher-ranked interrupter firing over
 it — and mutes Fire itself, since firing it again would only queue an

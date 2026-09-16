@@ -83,7 +83,7 @@ test('fonts scale with the tile', () => {
 });
 
 test('the shipped themes are all valid packs', () => {
-  assert.deepEqual([...THEME_IDS], ['classic', 'canary', 'sorbet', 'carnival', 'carrow-road-yellow', 'carrow-road-green']);
+  assert.deepEqual([...THEME_IDS], ['classic', 'sorbet', 'carnival', 'carrow-road-yellow', 'carrow-road-green']);
   for (const id of THEME_IDS) {
     assert.equal(THEMES[id].id, id);
     assert.ok(validatePack(THEMES[id]).ok);
@@ -94,8 +94,7 @@ test('the shipped themes are all valid packs', () => {
 
 test('the ids the drawn twins wore still resolve, but are not themes', () => {
   assert.equal(resolveTheme('classic-p').id, 'classic');
-  assert.equal(resolveTheme('canary-p').id, 'canary');
-  assert.equal(isTheme('canary-p'), false);
+  assert.equal(isTheme('classic-p'), false);
   assert.equal(resolveTheme('tartan').id, DEFAULT_THEME);
   assert.equal(resolveTheme(undefined).id, DEFAULT_THEME);
 });
