@@ -35,7 +35,7 @@
     "@better-auth/mcp": "1.7.1",
     "@better-auth/oauth-provider": "1.7.1",
     "@electric-sql/pglite": "^0.5.5",
-    "@modelcontextprotocol/server": "^2.0.0",
+    "@modelcontextprotocol/server": "^2.3.1",
     "@neondatabase/serverless": "^1.1.0",
     "@upstash/redis": "^1.34.9",
     "better-auth": "^1.7.1",
