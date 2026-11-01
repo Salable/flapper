@@ -38,7 +38,7 @@
     "@modelcontextprotocol/server": "^2.0.0",
     "@neondatabase/serverless": "^1.1.0",
     "@upstash/redis": "^1.34.9",
-    "better-auth": "^1.7.1",
+    "better-auth": "^1.7.15",
     "drizzle-orm": "^0.45.2",
     "marked": "^18.0.10",
     "mcp-handler": "^2.1.1",
